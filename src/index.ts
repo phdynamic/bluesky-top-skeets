@@ -4,7 +4,7 @@ import { config } from './config';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed } from './register';
-import { initDb, getFeedByHandle } from './db';
+import { getFeedByHandle } from './db';
 
 const app = express();
 
@@ -81,15 +81,8 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-initDb()
-  .then(() => {
-    app.listen(config.port, () => {
-      console.log(`Top Skeets running on port ${config.port}`);
-      console.log(`Service DID: ${config.feedgenServiceDid}`);
-      console.log(`Feed short name: ${config.feedShortName}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to initialise database:', err);
-    process.exit(1);
-  });
+app.listen(config.port, () => {
+  console.log(`Top Skeets running on port ${config.port}`);
+  console.log(`Service DID: ${config.feedgenServiceDid}`);
+  console.log(`Feed short name: ${config.feedShortName}`);
+});

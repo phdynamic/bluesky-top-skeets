@@ -3,655 +3,439 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Top Skeets — Your Posts, Ranked by Likes</title>
+  <title>Top Skeets</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --cyan: #00ffff;
-      --red: #ff2222;
-      --yellow: #ffee00;
-      --gold: #ffd700;
-      --bg: #000011;
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #f6f6f7;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
     }
 
-    html, body {
-      width: 100%; min-height: 100vh;
-      background: var(--bg);
-      color: #e0e0ff;
-      font-family: monospace;
-      overflow-x: hidden;
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 460px;
     }
 
-    /* ── star field ── */
-    #stars {
-      position: fixed; inset: 0;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* ── spinning rings ── */
-    .rings {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 420px; height: 420px;
-      pointer-events: none;
-      z-index: 1;
-    }
-    .ring {
-      position: absolute;
-      border-radius: 50%;
-      border-style: solid;
-      border-width: 2px;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-    }
-    .ring:nth-child(1)  { width: 420px; height: 420px; border-color: #ff0000; animation: spin1  7s linear infinite; }
-    .ring:nth-child(2)  { width: 370px; height: 370px; border-color: #ff7700; animation: spin2  9s linear infinite reverse; }
-    .ring:nth-child(3)  { width: 320px; height: 320px; border-color: #ffee00; animation: spin3 11s linear infinite; }
-    .ring:nth-child(4)  { width: 270px; height: 270px; border-color: #00ff44; animation: spin4  8s linear infinite reverse; }
-    .ring:nth-child(5)  { width: 220px; height: 220px; border-color: #00ffff; animation: spin5 13s linear infinite; }
-    .ring:nth-child(6)  { width: 170px; height: 170px; border-color: #0066ff; animation: spin6  6s linear infinite reverse; }
-    .ring:nth-child(7)  { width: 120px; height: 120px; border-color: #cc00ff; animation: spin7 10s linear infinite; }
-
-    @keyframes spin1 { to { transform: translate(-50%,-50%) rotate(360deg); } }
-    @keyframes spin2 { to { transform: translate(-50%,-50%) rotate(360deg); } }
-    @keyframes spin3 { to { transform: translate(-50%,-50%) rotate(360deg); } }
-    @keyframes spin4 { to { transform: translate(-50%,-50%) rotate(360deg); } }
-    @keyframes spin5 { to { transform: translate(-50%,-50%) rotate(360deg); } }
-    @keyframes spin6 { to { transform: translate(-50%,-50%) rotate(360deg); } }
-    @keyframes spin7 { to { transform: translate(-50%,-50%) rotate(360deg); } }
-
-    /* ── layout ── */
-    .view { display: none; position: relative; z-index: 2; }
-    .view.active { display: block; }
-
-    .container {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 40px 20px 60px;
-      text-align: center;
-    }
-
-    /* ── title ── */
-    .title {
-      font-family: Orbitron, sans-serif;
-      font-size: clamp(2rem, 8vw, 5rem);
-      font-weight: 900;
-      color: var(--red);
-      text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000, 0 0 80px #880000;
-      animation: pulse 2s ease-in-out infinite alternate;
-      line-height: 1.1;
-      margin-bottom: 16px;
-    }
-    @keyframes pulse {
-      from { text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000, 0 0 80px #880000; }
-      to   { text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000, 0 0 40px #440000; }
-    }
-
-    /* ── tagline ── */
-    .tagline {
-      font-family: Orbitron, sans-serif;
-      font-size: clamp(0.75rem, 2.5vw, 1.1rem);
-      color: var(--yellow);
-      animation: flicker 4s step-end infinite;
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 28px;
     }
-    @keyframes flicker {
-      0%   { opacity: 1; }
-      15%  { opacity: 0.7; }
-      30%  { opacity: 1; }
-      55%  { opacity: 0.4; }
-      70%  { opacity: 1; }
-      85%  { opacity: 0.7; }
-      100% { opacity: 1; }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: #1d9bf0;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
-    /* ── rainbow text ── */
-    .rainbow {
-      animation: rainbow 5s linear infinite;
-      color: hsl(180, 100%, 60%);
-    }
-    @keyframes rainbow {
-      from { filter: hue-rotate(0deg); }
-      to   { filter: hue-rotate(360deg); }
+    .logo-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: #fff;
     }
 
-    /* ── description ── */
-    .description {
-      color: rgba(200, 200, 255, 0.8);
-      font-size: 0.95rem;
-      line-height: 1.6;
-      margin-bottom: 36px;
-      max-width: 500px;
-      margin-left: auto;
-      margin-right: auto;
+    .logo-text {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: #1a1a1a;
     }
 
-    /* ── form ── */
-    .form-group {
-      margin-bottom: 16px;
-      text-align: left;
-    }
-    .form-group label {
-      display: block;
-      font-family: Orbitron, sans-serif;
-      font-size: 0.7rem;
-      color: var(--cyan);
-      text-shadow: 0 0 8px var(--cyan);
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
       margin-bottom: 6px;
-      animation: rainbow 5s linear infinite;
     }
+
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #444;
+      margin-bottom: 6px;
+    }
+
     input[type="text"],
     input[type="password"] {
       width: 100%;
-      padding: 12px 16px;
-      background: rgba(0, 0, 60, 0.8);
-      border: 1px solid rgba(0, 200, 255, 0.4);
-      border-radius: 6px;
-      color: #e0e0ff;
-      font-family: monospace;
-      font-size: 1rem;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #1a1a1a;
+      background: #fff;
+      transition: border-color 0.15s;
       outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      margin-bottom: 16px;
     }
+
     input[type="text"]:focus,
     input[type="password"]:focus {
-      border-color: var(--cyan);
-      box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+      border-color: #1d9bf0;
+      box-shadow: 0 0 0 3px rgba(29,155,240,0.12);
     }
 
-    .helper-text {
-      font-size: 0.78rem;
-      color: rgba(150, 150, 200, 0.8);
-      margin-top: 8px;
+    .help-text {
+      font-size: 12px;
+      color: #888;
+      margin-top: -12px;
+      margin-bottom: 16px;
       line-height: 1.5;
     }
-    .helper-text a {
-      color: var(--cyan);
+
+    .help-text a {
+      color: #1d9bf0;
       text-decoration: none;
     }
-    .helper-text a:hover { text-decoration: underline; }
 
-    /* ── buttons ── */
-    .btn {
-      display: inline-block;
-      padding: 14px 32px;
-      background: rgba(0, 0, 40, 0.9);
-      border: 1px solid var(--cyan);
-      border-radius: 6px;
-      color: var(--cyan);
-      font-family: Orbitron, sans-serif;
-      font-size: 0.85rem;
-      font-weight: 700;
-      text-shadow: 0 0 8px var(--cyan);
-      box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+    .help-text a:hover {
+      text-decoration: underline;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px;
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
       cursor: pointer;
-      transition: background 0.2s, box-shadow 0.2s;
-      letter-spacing: 0.05em;
+      transition: background 0.15s, opacity 0.15s;
     }
-    .btn:hover {
-      background: rgba(0, 0, 80, 0.9);
-      box-shadow: 0 0 24px rgba(0, 255, 255, 0.6), 0 0 48px rgba(0, 200, 255, 0.3);
-    }
-    .btn:active { transform: scale(0.97); }
-    .btn-full { width: 100%; margin-top: 8px; }
+
+    .btn-primary:hover:not(:disabled) { background: #1a8cd8; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
     .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 16px;
       background: transparent;
-      border-color: rgba(0, 200, 255, 0.4);
-      color: rgba(0, 200, 255, 0.7);
-      text-shadow: none;
-      box-shadow: none;
-      font-size: 0.78rem;
-      padding: 10px 24px;
-    }
-    .btn-ghost:hover {
-      border-color: var(--cyan);
-      color: var(--cyan);
-      box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+      color: #1d9bf0;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
     }
 
-    /* ── loading view ── */
-    #view-loading .container { padding-top: 80px; }
-    .loading-text {
-      font-family: Orbitron, sans-serif;
-      font-size: clamp(1.2rem, 4vw, 2rem);
-      margin: 260px auto 12px;
-      animation: rainbow 5s linear infinite;
-      color: hsl(180, 100%, 60%);
-    }
-    .loading-sub {
-      color: rgba(150, 150, 200, 0.7);
-      font-size: 0.85rem;
+    .btn-ghost:hover { background: #f0f8ff; }
+
+    .error-box {
+      background: #fff5f5;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #b91c1c;
+      margin-bottom: 16px;
+      display: none;
     }
 
-    /* ── success view ── */
-    .success-title {
-      font-family: Orbitron, sans-serif;
-      font-size: clamp(1.5rem, 5vw, 3rem);
-      font-weight: 900;
-      color: var(--red);
-      text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
-      animation: pulse 2s ease-in-out infinite alternate;
-      margin-bottom: 10px;
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
     }
-    .user-info {
-      font-size: 0.9rem;
-      color: rgba(200, 200, 255, 0.7);
-      margin-bottom: 28px;
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .success-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 16px;
     }
-    .user-info strong {
-      color: #e0e0ff;
+
+    .success-name {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .success-handle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+    }
+
+    .success-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #444;
+      margin-bottom: 8px;
     }
 
     .feed-url-row {
       display: flex;
-      align-items: stretch;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .feed-url-box {
-      flex: 1;
-      background: rgba(0, 0, 40, 0.85);
-      border: 1px solid rgba(0, 200, 255, 0.4);
-      border-radius: 8px;
-      padding: 12px 16px;
-      word-break: break-all;
-      font-family: monospace;
-      font-size: 0.85rem;
-      color: var(--cyan);
-      text-align: left;
-    }
-    .feed-url-label {
-      font-family: Orbitron, sans-serif;
-      font-size: 0.65rem;
-      color: rgba(0, 200, 255, 0.6);
-      margin-bottom: 6px;
-      display: block;
-    }
-    .btn-copy {
-      flex-shrink: 0;
-      align-self: stretch;
+      gap: 8px;
+      margin-bottom: 20px;
     }
 
-    /* ── bio link preview card ── */
-    .bio-card-label {
-      font-size: 0.85rem;
-      color: var(--yellow);
-      animation: flicker 4s step-end infinite;
-      margin: 28px 0 10px;
-    }
-    .bio-card {
-      background: rgba(10, 10, 50, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+    .feed-url-input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
       border-radius: 8px;
-      padding: 12px 16px;
-      max-width: 480px;
-      margin: 0 auto 10px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-align: left;
-    }
-    .bio-card-icon {
-      flex-shrink: 0;
-      width: 40px; height: 40px;
-      background: rgba(0, 180, 255, 0.2);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--cyan);
-      font-size: 1.2rem;
-    }
-    .bio-card-lines { flex: 1; min-width: 0; }
-    .bio-card-name {
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 0.95rem;
-      font-family: sans-serif;
-      white-space: nowrap;
+      font-size: 13px;
+      font-family: inherit;
+      color: #444;
+      background: #fafafa;
+      outline: none;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-    .bio-card-by {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 0.8rem;
-      font-family: sans-serif;
-    }
-    .bio-card-note {
-      font-size: 0.75rem;
-      color: rgba(150, 150, 200, 0.5);
-      max-width: 480px;
-      margin: 0 auto 24px;
-      line-height: 1.5;
+      white-space: nowrap;
+      min-width: 0;
     }
 
-    /* ── instruction box ── */
-    .instruction-box {
-      background: rgba(0, 0, 30, 0.7);
-      border: 1px solid rgba(0, 200, 255, 0.2);
+    .btn-copy {
+      padding: 10px 16px;
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
       border-radius: 8px;
-      padding: 16px 20px;
-      text-align: left;
-      font-size: 0.88rem;
-      line-height: 1.8;
-      color: rgba(200, 200, 255, 0.85);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .btn-copy:hover { background: #1a8cd8; }
+    .btn-copy.copied { background: #16a34a; }
+
+    .info-box {
+      background: #f0f8ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #1e40af;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .divider {
+      height: 1px;
+      background: #f0f0f0;
       margin: 20px 0;
     }
 
-    /* ── error view ── */
-    .error-title {
-      font-family: Orbitron, sans-serif;
-      font-size: clamp(1.2rem, 4vw, 2.2rem);
-      font-weight: 900;
-      color: #ff8800;
-      text-shadow: 0 0 20px #ff6600, 0 0 40px #ff3300;
-      margin-bottom: 16px;
-    }
-    .error-message {
-      background: rgba(40, 0, 0, 0.5);
-      border: 1px solid rgba(255, 100, 0, 0.3);
-      border-radius: 8px;
-      padding: 16px;
-      color: rgba(255, 200, 150, 0.9);
-      font-size: 0.9rem;
-      margin-bottom: 28px;
-      line-height: 1.5;
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #aaa;
     }
 
-    /* ── divider ── */
-    .divider {
-      border: none;
-      border-top: 1px solid rgba(0, 200, 255, 0.1);
-      margin: 24px 0;
-    }
-
-    .spacer { height: 24px; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-
-<!-- Star field canvas -->
-<canvas id="stars"></canvas>
-
-<!-- ═══════════════════════════════════ VIEW 1: LANDING ═══ -->
-<div id="view-landing" class="view active">
-  <div class="rings">
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-  </div>
-  <div class="container" style="position:relative; z-index:3; padding-top: 60px;">
-    <h1 class="title">TOP SKEETS</h1>
-    <p class="tagline">Your posts. Ranked. One link for your bio.</p>
-    <p class="description">
-      Generate a permanent Bluesky feed of your top posts, ranked by likes.
-      Paste the link in your bio — anyone who visits can see your greatest hits.
-    </p>
-
-    <form id="register-form" autocomplete="off">
-      <div class="form-group">
-        <label for="handle">YOUR HANDLE</label>
-        <input
-          id="handle"
-          type="text"
-          name="handle"
-          placeholder="yourhandle.bsky.social"
-          autocomplete="off"
-          spellcheck="false"
-        />
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.204-.659-.299-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/>
+        </svg>
       </div>
-      <div class="form-group">
-        <label for="appPassword">APP PASSWORD</label>
-        <input
-          id="appPassword"
-          type="password"
-          name="appPassword"
-          placeholder="xxxx-xxxx-xxxx-xxxx"
-          autocomplete="new-password"
-        />
-        <p class="helper-text">
-          Use a Bluesky <strong>App Password</strong>, not your main password.<br />
-          Generate one at
-          <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">
-            bsky.app → Settings → Privacy and Security → App Passwords
-          </a>
-        </p>
-      </div>
-      <button type="submit" class="btn btn-full">GENERATE MY FEED</button>
-    </form>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════ VIEW 2: LOADING ═══ -->
-<div id="view-loading" class="view">
-  <div class="rings">
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-  </div>
-  <div class="container" style="position:relative; z-index:3;">
-    <p class="loading-text">Fetching your skeets...</p>
-    <p class="loading-sub">This may take a moment for large accounts.</p>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════ VIEW 3: SUCCESS ═══ -->
-<div id="view-success" class="view">
-  <div class="container">
-    <h2 class="success-title">YOUR FEED IS LIVE</h2>
-
-    <p class="user-info">
-      <strong id="success-displayname"></strong>
-      <span id="success-handle-line"></span>
-    </p>
-
-    <div class="feed-url-row">
-      <div class="feed-url-box">
-        <span class="feed-url-label">FEED URL</span>
-        <span id="success-feed-url"></span>
-      </div>
-      <button id="copy-btn" class="btn btn-copy">COPY</button>
+      <span class="logo-text">Top Skeets</span>
     </div>
 
-    <!-- Bio link preview card -->
-    <p class="bio-card-label">This is how your link will appear in your bio:</p>
-    <div class="bio-card">
-      <div class="bio-card-icon">✦</div>
-      <div class="bio-card-lines">
-        <div class="bio-card-name" id="bio-card-name">Top Skeets</div>
-        <div class="bio-card-by" id="bio-card-by">Feed by @handle</div>
+    <!-- FORM VIEW -->
+    <div id="formView">
+      <h1>Generate your feed</h1>
+      <p class="subtitle">Rank your Bluesky posts by likes and get a shareable feed link.</p>
+
+      <div id="errorBox" class="error-box"></div>
+
+      <label for="handle">Bluesky handle</label>
+      <input type="text" id="handle" placeholder="you.bsky.social" autocomplete="username" spellcheck="false" />
+
+      <label for="appPassword">App password</label>
+      <input type="password" id="appPassword" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" />
+      <p class="help-text">
+        Create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a>. Your password is never stored.
+      </p>
+
+      <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">
+        <span class="spinner" id="spinner"></span>
+        <span id="submitLabel">Generate feed</span>
+      </button>
+    </div>
+
+    <!-- SUCCESS VIEW -->
+    <div id="successView" class="hidden">
+      <img id="avatarImg" class="success-avatar" src="" alt="" />
+      <div class="success-name" id="displayName"></div>
+      <div class="success-handle" id="successHandle"></div>
+
+      <div class="success-label">Your feed link</div>
+      <div class="feed-url-row">
+        <input class="feed-url-input" id="feedUrlInput" type="text" readonly />
+        <button class="btn-copy" id="copyBtn" onclick="copyUrl()">Copy</button>
       </div>
-    </div>
-    <p class="bio-card-note">
-      Bluesky renders feed links as cards — your followers will see your name and feed title, not the raw URL.
-    </p>
 
-    <div class="instruction-box">
-      <strong class="rainbow">How to add to your bio:</strong><br />
-      1. Click <em>COPY LINK</em> above<br />
-      2. Go to your Bluesky profile → <em>Edit Profile</em><br />
-      3. Paste the link into your bio<br />
-      4. Save your profile<br /><br />
-      Anyone who clicks the link in your bio will see your top posts!
-    </div>
+      <div class="info-box">
+        Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts ranked by likes.
+      </div>
 
-    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top: 8px;">
-      <a id="preview-link" href="#" target="_blank" rel="noopener" class="btn">Preview Feed ↗</a>
-      <button id="reset-btn" class="btn btn-ghost">Generate for another account</button>
-    </div>
+      <div class="divider"></div>
 
-    <div class="spacer"></div>
+      <button class="btn-ghost" onclick="resetForm()">Generate for another account</button>
+    </div>
   </div>
-</div>
 
-<!-- ═══════════════════════════════════ VIEW 4: ERROR ═══ -->
-<div id="view-error" class="view">
-  <div class="container" style="padding-top: 80px;">
-    <h2 class="error-title">SOMETHING WENT WRONG</h2>
-    <div class="error-message" id="error-message"></div>
-    <button id="try-again-btn" class="btn">TRY AGAIN</button>
-  </div>
-</div>
+  <div class="footer">Top Skeets &mdash; your posts, ranked by likes</div>
 
-<script>
-  // ── Star field ──────────────────────────────────────────────
-  (function () {
-    const canvas = document.getElementById('stars');
-    const ctx = canvas.getContext('2d');
-    let stars = [];
+  <script>
+    async function handleSubmit() {
+      const handle = document.getElementById('handle').value.trim();
+      const appPassword = document.getElementById('appPassword').value.trim();
+      const errorBox = document.getElementById('errorBox');
+      const submitBtn = document.getElementById('submitBtn');
+      const spinner = document.getElementById('spinner');
+      const submitLabel = document.getElementById('submitLabel');
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
+      errorBox.style.display = 'none';
 
-    function initStars() {
-      stars = [];
-      for (let i = 0; i < 150; i++) {
-        stars.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          r: 0.5 + Math.random() * 1.5,
-          base: 0.4 + Math.random() * 0.6,
-          phase: Math.random() * Math.PI * 2,
-          speed: 0.5 + Math.random() * 1.5,
+      if (!handle || !appPassword) {
+        showError('Please enter your handle and app password.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      spinner.style.display = 'block';
+      submitLabel.textContent = 'Generating\u2026';
+
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle, appPassword }),
         });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            showError('Invalid handle or app password. Please check and try again.');
+          } else {
+            showError(data.message || 'Something went wrong. Please try again.');
+          }
+          return;
+        }
+
+        showSuccess(data);
+      } catch (err) {
+        showError('Network error. Please check your connection and try again.');
+      } finally {
+        submitBtn.disabled = false;
+        spinner.style.display = 'none';
+        submitLabel.textContent = 'Generate feed';
       }
     }
 
-    function draw(t) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const s of stars) {
-        const opacity = s.base * (0.5 + 0.5 * Math.sin(t * s.speed * 0.001 + s.phase));
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${opacity})`;
-        ctx.fill();
-      }
-      requestAnimationFrame(draw);
+    function showError(msg) {
+      const errorBox = document.getElementById('errorBox');
+      errorBox.textContent = msg;
+      errorBox.style.display = 'block';
     }
 
-    window.addEventListener('resize', () => { resize(); initStars(); });
-    resize();
-    initStars();
-    requestAnimationFrame(draw);
-  })();
+    function showSuccess(data) {
+      document.getElementById('formView').classList.add('hidden');
 
-  // ── View switching ──────────────────────────────────────────
-  function showView(id) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-  }
-
-  // ── Form submit ─────────────────────────────────────────────
-  let lastHandle = '';
-
-  document.getElementById('register-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    const handle = document.getElementById('handle').value.trim();
-    const appPassword = document.getElementById('appPassword').value;
-
-    if (!handle || !appPassword) {
-      showError('Please enter both your handle and App Password.');
-      return;
-    }
-
-    lastHandle = handle;
-    showView('view-loading');
-
-    try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle, appPassword }),
-      });
-
-      const data = await res.json();
-
-      if (res.status === 401) {
-        showError("Invalid credentials. Make sure you're using an App Password, not your main password.");
-        return;
+      const avatar = document.getElementById('avatarImg');
+      if (data.avatarUrl) {
+        avatar.src = data.avatarUrl;
+        avatar.style.display = 'block';
+      } else {
+        avatar.style.display = 'none';
       }
 
-      if (!res.ok) {
-        showError(data.message || 'An unexpected error occurred. Please try again.');
-        return;
-      }
+      document.getElementById('displayName').textContent = data.displayName || data.handle;
+      document.getElementById('successHandle').textContent = '@' + data.handle;
+      document.getElementById('feedUrlInput').value = data.feedUrl;
 
-      populateSuccess(data);
-      showView('view-success');
-    } catch (err) {
-      showError('Network error — could not reach the server. Please try again.');
+      document.getElementById('successView').classList.remove('hidden');
     }
-  });
 
-  // ── Populate success view ───────────────────────────────────
-  function populateSuccess(data) {
-    document.getElementById('success-displayname').textContent = data.displayName || data.handle;
-    document.getElementById('success-handle-line').textContent = data.displayName ? ` · @${data.handle}` : '';
-    document.getElementById('success-feed-url').textContent = data.feedUrl;
+    function copyUrl() {
+      const input = document.getElementById('feedUrlInput');
+      const btn = document.getElementById('copyBtn');
 
-    document.getElementById('bio-card-name').textContent = 'Top Skeets';
-    document.getElementById('bio-card-by').textContent = `Feed by @${data.handle}`;
-
-    const previewLink = document.getElementById('preview-link');
-    previewLink.href = data.feedUrl;
-
-    // Copy button
-    const copyBtn = document.getElementById('copy-btn');
-    copyBtn.onclick = function () {
-      navigator.clipboard.writeText(data.feedUrl).then(() => {
-        copyBtn.textContent = 'COPIED ✓';
-        setTimeout(() => { copyBtn.textContent = 'COPY'; }, 2000);
+      navigator.clipboard.writeText(input.value).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
       }).catch(() => {
-        const ta = document.createElement('textarea');
-        ta.value = data.feedUrl;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
+        input.select();
         document.execCommand('copy');
-        document.body.removeChild(ta);
-        copyBtn.textContent = 'COPIED ✓';
-        setTimeout(() => { copyBtn.textContent = 'COPY'; }, 2000);
       });
-    };
-  }
-
-  // ── Error view ──────────────────────────────────────────────
-  function showError(msg) {
-    document.getElementById('error-message').textContent = msg;
-    showView('view-error');
-  }
-
-  document.getElementById('try-again-btn').addEventListener('click', function () {
-    if (lastHandle) {
-      document.getElementById('handle').value = lastHandle;
     }
-    showView('view-landing');
-  });
 
-  document.getElementById('reset-btn').addEventListener('click', function () {
-    document.getElementById('handle').value = '';
-    document.getElementById('appPassword').value = '';
-    lastHandle = '';
-    showView('view-landing');
-  });
-</script>
+    function resetForm() {
+      document.getElementById('successView').classList.add('hidden');
+      document.getElementById('formView').classList.remove('hidden');
+      document.getElementById('handle').value = '';
+      document.getElementById('appPassword').value = '';
+      document.getElementById('errorBox').style.display = 'none';
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !document.getElementById('formView').classList.contains('hidden')) {
+        handleSubmit();
+      }
+    });
+  </script>
 </body>
 </html>
