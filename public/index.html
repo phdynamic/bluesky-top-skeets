@@ -248,12 +248,18 @@
       color: #e0e0ff;
     }
 
+    .feed-url-row {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
     .feed-url-box {
+      flex: 1;
       background: rgba(0, 0, 40, 0.85);
       border: 1px solid rgba(0, 200, 255, 0.4);
       border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
+      padding: 12px 16px;
       word-break: break-all;
       font-family: monospace;
       font-size: 0.85rem;
@@ -266,6 +272,10 @@
       color: rgba(0, 200, 255, 0.6);
       margin-bottom: 6px;
       display: block;
+    }
+    .btn-copy {
+      flex-shrink: 0;
+      align-self: stretch;
     }
 
     /* ── bio link preview card ── */
@@ -333,58 +343,6 @@
       color: rgba(200, 200, 255, 0.85);
       margin: 20px 0;
     }
-
-    /* ── post cards ── */
-    .posts-preview-title {
-      font-family: Orbitron, sans-serif;
-      font-size: 0.75rem;
-      color: var(--cyan);
-      text-shadow: 0 0 8px var(--cyan);
-      margin: 28px 0 14px;
-      letter-spacing: 0.08em;
-    }
-    .post-card {
-      background: rgba(0, 0, 40, 0.85);
-      border: 1px solid rgba(0, 200, 255, 0.25);
-      border-radius: 8px;
-      padding: 14px 16px;
-      margin-bottom: 10px;
-      text-align: left;
-      box-shadow: 0 0 15px rgba(0, 150, 255, 0.15);
-    }
-    .post-card-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-    .post-rank {
-      font-family: Orbitron, sans-serif;
-      font-size: 1rem;
-      color: var(--cyan);
-      text-shadow: 0 0 8px var(--cyan);
-      min-width: 28px;
-    }
-    .post-likes {
-      font-size: 0.85rem;
-      color: var(--gold);
-      margin-left: auto;
-    }
-    .post-text {
-      font-size: 0.88rem;
-      color: #e0e0ff;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .post-link {
-      display: inline-block;
-      margin-top: 6px;
-      font-size: 0.75rem;
-      color: rgba(0, 200, 255, 0.6);
-      text-decoration: none;
-    }
-    .post-link:hover { color: var(--cyan); }
 
     /* ── error view ── */
     .error-title {
@@ -501,12 +459,13 @@
       <span id="success-handle-line"></span>
     </p>
 
-    <div class="feed-url-box">
-      <span class="feed-url-label">FEED URL</span>
-      <span id="success-feed-url"></span>
+    <div class="feed-url-row">
+      <div class="feed-url-box">
+        <span class="feed-url-label">FEED URL</span>
+        <span id="success-feed-url"></span>
+      </div>
+      <button id="copy-btn" class="btn btn-copy">COPY</button>
     </div>
-
-    <button id="copy-btn" class="btn btn-full">COPY LINK</button>
 
     <!-- Bio link preview card -->
     <p class="bio-card-label">This is how your link will appear in your bio:</p>
@@ -534,11 +493,6 @@
       <a id="preview-link" href="#" target="_blank" rel="noopener" class="btn">Preview Feed ↗</a>
       <button id="reset-btn" class="btn btn-ghost">Generate for another account</button>
     </div>
-
-    <hr class="divider" />
-
-    <p class="posts-preview-title">TOP 5 POSTS PREVIEW</p>
-    <div id="posts-preview"></div>
 
     <div class="spacer"></div>
   </div>
@@ -662,10 +616,9 @@
     const copyBtn = document.getElementById('copy-btn');
     copyBtn.onclick = function () {
       navigator.clipboard.writeText(data.feedUrl).then(() => {
-        copyBtn.textContent = 'COPIED! ✓';
-        setTimeout(() => { copyBtn.textContent = 'COPY LINK'; }, 2000);
+        copyBtn.textContent = 'COPIED ✓';
+        setTimeout(() => { copyBtn.textContent = 'COPY'; }, 2000);
       }).catch(() => {
-        // Fallback for browsers that deny clipboard
         const ta = document.createElement('textarea');
         ta.value = data.feedUrl;
         ta.style.position = 'fixed';
@@ -674,60 +627,10 @@
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        copyBtn.textContent = 'COPIED! ✓';
-        setTimeout(() => { copyBtn.textContent = 'COPY LINK'; }, 2000);
+        copyBtn.textContent = 'COPIED ✓';
+        setTimeout(() => { copyBtn.textContent = 'COPY'; }, 2000);
       });
     };
-
-    // Top 5 post preview
-    const container = document.getElementById('posts-preview');
-    container.innerHTML = '';
-    const topPosts = data.topPosts || [];
-
-    if (topPosts.length === 0) {
-      container.innerHTML = '<p style="color:rgba(200,200,255,0.5); font-size:0.85rem;">No posts found.</p>';
-    } else {
-      topPosts.forEach((post, i) => {
-        const card = document.createElement('div');
-        card.className = 'post-card';
-
-        const header = document.createElement('div');
-        header.className = 'post-card-header';
-
-        const rank = document.createElement('span');
-        rank.className = 'post-rank';
-        rank.textContent = `#${i + 1}`;
-
-        const likes = document.createElement('span');
-        likes.className = 'post-likes';
-        likes.textContent = `❤️ ${post.likeCount.toLocaleString()}`;
-
-        header.appendChild(rank);
-        header.appendChild(likes);
-
-        const text = document.createElement('p');
-        text.className = 'post-text';
-        text.textContent = post.text || '(no text)';
-
-        const link = document.createElement('a');
-        link.className = 'post-link';
-        link.href = post.url;
-        link.target = '_blank';
-        link.rel = 'noopener';
-        link.textContent = 'View on Bluesky ↗';
-
-        card.appendChild(header);
-        card.appendChild(text);
-        card.appendChild(link);
-        container.appendChild(card);
-      });
-    }
-
-    // Post count
-    const countNote = document.createElement('p');
-    countNote.style.cssText = 'font-size:0.78rem; color:rgba(150,150,200,0.6); margin-top:10px;';
-    countNote.textContent = `${data.postCount} original posts indexed.`;
-    container.appendChild(countNote);
   }
 
   // ── Error view ──────────────────────────────────────────────
