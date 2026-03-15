@@ -42,12 +42,7 @@ feedSkeletonRouter.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req: Request, res
     return;
   }
 
-  let posts: PostRecord[];
-  try {
-    posts = JSON.parse(feedRecord.posts) as PostRecord[];
-  } catch {
-    posts = [];
-  }
+  const posts: PostRecord[] = feedRecord.posts ?? [];
 
   const limit = Math.min(Math.max(parseInt((req.query.limit as string) ?? '30', 10) || 30, 1), 100);
   const cursorParam = req.query.cursor as string | undefined;
