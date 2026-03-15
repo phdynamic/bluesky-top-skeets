@@ -120,34 +120,6 @@
 
     .help-text a:hover { text-decoration: underline; }
 
-    /* Progress bar */
-    .progress-wrap {
-      margin-bottom: 16px;
-      display: none;
-    }
-
-    .progress-track {
-      height: 4px;
-      background: #e8e8e8;
-      border-radius: 99px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: #1d9bf0;
-      border-radius: 99px;
-      width: 0%;
-      transition: width 0.4s ease;
-    }
-
-    .progress-label {
-      font-size: 12px;
-      color: #888;
-      margin-top: 8px;
-      text-align: center;
-    }
-
     /* Buttons row */
     .btn-row {
       display: flex;
@@ -218,7 +190,7 @@
       font-size: 12px;
       color: #999;
       text-align: center;
-      margin-top: 12px;
+      margin-top: 28px;
       line-height: 1.5;
     }
 
@@ -407,14 +379,6 @@
         Create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a>. Your password is never stored.
       </p>
 
-      <!-- Progress bar (shown while loading) -->
-      <div class="progress-wrap" id="progressWrap">
-        <div class="progress-track">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-        <div class="progress-label" id="progressLabel">Fetching posts&hellip;</div>
-      </div>
-
       <div class="btn-row">
         <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">
           <span class="spinner" id="spinner"></span>
@@ -463,66 +427,6 @@
   <div class="footer">Top Skeets &mdash; your posts, ranked by likes</div>
 
   <script>
-    var progressTimer = null;
-    var progressValue = 0;
-
-    function startProgress() {
-      progressValue = 0;
-      var fill = document.getElementById('progressFill');
-      var label = document.getElementById('progressLabel');
-      var wrap = document.getElementById('progressWrap');
-      fill.style.transition = 'none';
-      fill.style.width = '0%';
-      wrap.style.display = 'block';
-      label.textContent = 'Fetching posts\u2026';
-
-      // Crawl to 85% over ~50 seconds using eased increments
-      var steps = [
-        [500, 8, 'Fetching posts\u2026'],
-        [1500, 20, 'Fetching posts\u2026'],
-        [3000, 35, 'Sorting by likes\u2026'],
-        [6000, 50, 'Sorting by likes\u2026'],
-        [12000, 62, 'Publishing feed\u2026'],
-        [20000, 72, 'Publishing feed\u2026'],
-        [32000, 80, 'Almost there\u2026'],
-        [45000, 85, 'Almost there\u2026'],
-      ];
-
-      steps.forEach(function(step) {
-        var t = setTimeout(function() {
-          fill.style.transition = 'width 0.8s ease';
-          fill.style.width = step[1] + '%';
-          label.textContent = step[2];
-        }, step[0]);
-        if (!progressTimer) progressTimer = [];
-        progressTimer.push(t);
-      });
-    }
-
-    function completeProgress(cb) {
-      if (progressTimer) {
-        progressTimer.forEach(clearTimeout);
-        progressTimer = null;
-      }
-      var fill = document.getElementById('progressFill');
-      var label = document.getElementById('progressLabel');
-      fill.style.transition = 'width 0.3s ease';
-      fill.style.width = '100%';
-      label.textContent = 'Done!';
-      setTimeout(function() {
-        document.getElementById('progressWrap').style.display = 'none';
-        if (cb) cb();
-      }, 400);
-    }
-
-    function stopProgress() {
-      if (progressTimer) {
-        progressTimer.forEach(clearTimeout);
-        progressTimer = null;
-      }
-      document.getElementById('progressWrap').style.display = 'none';
-    }
-
     function setLoading(loading) {
       var submitBtn = document.getElementById('submitBtn');
       var unpublishBtn = document.getElementById('unpublishBtn');
@@ -546,19 +450,16 @@
 
       setLoading(true);
       document.getElementById('submitLabel').textContent = 'Generating\u2026';
-      startProgress();
 
-      var data;
       try {
         var res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ handle: handle, appPassword: appPassword }),
         });
-        data = await res.json();
+        var data = await res.json();
 
         if (!res.ok) {
-          stopProgress();
           setLoading(false);
           if (res.status === 401) {
             showError('Invalid handle or app password. Please check and try again.');
@@ -567,17 +468,13 @@
           }
           return;
         }
-      } catch (err) {
-        stopProgress();
-        setLoading(false);
-        showError('Network error. Please check your connection and try again.');
-        return;
-      }
 
-      completeProgress(function() {
         setLoading(false);
         showSuccess(data);
-      });
+      } catch (err) {
+        setLoading(false);
+        showError('Network error. Please check your connection and try again.');
+      }
     }
 
     async function handleUnpublish() {
