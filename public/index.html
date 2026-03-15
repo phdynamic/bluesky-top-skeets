@@ -109,7 +109,7 @@
       font-size: 12px;
       color: #888;
       margin-top: -12px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
       line-height: 1.5;
     }
 
@@ -118,8 +118,40 @@
       text-decoration: none;
     }
 
-    .help-text a:hover {
-      text-decoration: underline;
+    .help-text a:hover { text-decoration: underline; }
+
+    /* Progress bar */
+    .progress-wrap {
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .progress-track {
+      height: 4px;
+      background: #e8e8e8;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #1d9bf0;
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      color: #888;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Buttons row */
+    .btn-row {
+      display: flex;
+      gap: 8px;
     }
 
     .btn-primary {
@@ -127,13 +159,13 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      width: 100%;
+      flex: 1;
       padding: 12px;
       background: #1d9bf0;
       color: #fff;
       border: none;
       border-radius: 8px;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 500;
       font-family: inherit;
       cursor: pointer;
@@ -142,6 +174,27 @@
 
     .btn-primary:hover:not(:disabled) { background: #1a8cd8; }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-danger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: transparent;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-danger:hover:not(:disabled) { background: #fff5f5; border-color: #f87171; }
+    .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-ghost {
       display: inline-flex;
@@ -161,6 +214,14 @@
 
     .btn-ghost:hover { background: #f0f8ff; }
 
+    .processing-note {
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+
     .error-box {
       background: #fff5f5;
       border: 1px solid #fecaca;
@@ -173,17 +234,19 @@
     }
 
     .spinner {
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       border: 2px solid rgba(255,255,255,0.4);
       border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       display: none;
+      flex-shrink: 0;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Success view */
     .success-avatar {
       width: 48px;
       height: 48px;
@@ -261,6 +324,46 @@
       margin-bottom: 20px;
     }
 
+    /* Unpublish success */
+    .unpublish-confirm {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .unpublish-confirm .check-icon {
+      width: 44px;
+      height: 44px;
+      background: #f0fdf4;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    .unpublish-confirm .check-icon svg {
+      width: 22px;
+      height: 22px;
+      stroke: #16a34a;
+      fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .unpublish-confirm h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .unpublish-confirm p {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
     .divider {
       height: 1px;
       background: #f0f0f0;
@@ -304,10 +407,23 @@
         Create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a>. Your password is never stored.
       </p>
 
-      <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">
-        <span class="spinner" id="spinner"></span>
-        <span id="submitLabel">Generate feed</span>
-      </button>
+      <!-- Progress bar (shown while loading) -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-label" id="progressLabel">Fetching posts&hellip;</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">
+          <span class="spinner" id="spinner"></span>
+          <span id="submitLabel">Generate feed</span>
+        </button>
+        <button class="btn-danger" id="unpublishBtn" onclick="handleUnpublish()">Unpublish</button>
+      </div>
+
+      <p class="processing-note">This may take a minute or two while we fetch all your posts.</p>
     </div>
 
     <!-- SUCCESS VIEW -->
@@ -330,38 +446,164 @@
 
       <button class="btn-ghost" onclick="resetForm()">Generate for another account</button>
     </div>
+
+    <!-- UNPUBLISH SUCCESS VIEW -->
+    <div id="unpublishView" class="hidden">
+      <div class="unpublish-confirm">
+        <div class="check-icon">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2>Feed unpublished</h2>
+        <p>Your Top Skeets feed has been removed from Bluesky and deleted from our system.</p>
+        <button class="btn-ghost" onclick="resetForm()">Back</button>
+      </div>
+    </div>
   </div>
 
   <div class="footer">Top Skeets &mdash; your posts, ranked by likes</div>
 
   <script>
-    async function handleSubmit() {
-      const handle = document.getElementById('handle').value.trim();
-      const appPassword = document.getElementById('appPassword').value.trim();
-      const errorBox = document.getElementById('errorBox');
-      const submitBtn = document.getElementById('submitBtn');
-      const spinner = document.getElementById('spinner');
-      const submitLabel = document.getElementById('submitLabel');
+    var progressTimer = null;
+    var progressValue = 0;
 
-      errorBox.style.display = 'none';
+    function startProgress() {
+      progressValue = 0;
+      var fill = document.getElementById('progressFill');
+      var label = document.getElementById('progressLabel');
+      var wrap = document.getElementById('progressWrap');
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      wrap.style.display = 'block';
+      label.textContent = 'Fetching posts\u2026';
+
+      // Crawl to 85% over ~50 seconds using eased increments
+      var steps = [
+        [500, 8, 'Fetching posts\u2026'],
+        [1500, 20, 'Fetching posts\u2026'],
+        [3000, 35, 'Sorting by likes\u2026'],
+        [6000, 50, 'Sorting by likes\u2026'],
+        [12000, 62, 'Publishing feed\u2026'],
+        [20000, 72, 'Publishing feed\u2026'],
+        [32000, 80, 'Almost there\u2026'],
+        [45000, 85, 'Almost there\u2026'],
+      ];
+
+      steps.forEach(function(step) {
+        var t = setTimeout(function() {
+          fill.style.transition = 'width 0.8s ease';
+          fill.style.width = step[1] + '%';
+          label.textContent = step[2];
+        }, step[0]);
+        if (!progressTimer) progressTimer = [];
+        progressTimer.push(t);
+      });
+    }
+
+    function completeProgress(cb) {
+      if (progressTimer) {
+        progressTimer.forEach(clearTimeout);
+        progressTimer = null;
+      }
+      var fill = document.getElementById('progressFill');
+      var label = document.getElementById('progressLabel');
+      fill.style.transition = 'width 0.3s ease';
+      fill.style.width = '100%';
+      label.textContent = 'Done!';
+      setTimeout(function() {
+        document.getElementById('progressWrap').style.display = 'none';
+        if (cb) cb();
+      }, 400);
+    }
+
+    function stopProgress() {
+      if (progressTimer) {
+        progressTimer.forEach(clearTimeout);
+        progressTimer = null;
+      }
+      document.getElementById('progressWrap').style.display = 'none';
+    }
+
+    function setLoading(loading) {
+      var submitBtn = document.getElementById('submitBtn');
+      var unpublishBtn = document.getElementById('unpublishBtn');
+      var spinner = document.getElementById('spinner');
+      submitBtn.disabled = loading;
+      unpublishBtn.disabled = loading;
+      spinner.style.display = loading ? 'block' : 'none';
+      if (!loading) document.getElementById('submitLabel').textContent = 'Generate feed';
+    }
+
+    async function handleSubmit() {
+      var handle = document.getElementById('handle').value.trim();
+      var appPassword = document.getElementById('appPassword').value.trim();
+
+      document.getElementById('errorBox').style.display = 'none';
 
       if (!handle || !appPassword) {
         showError('Please enter your handle and app password.');
         return;
       }
 
-      submitBtn.disabled = true;
-      spinner.style.display = 'block';
-      submitLabel.textContent = 'Generating\u2026';
+      setLoading(true);
+      document.getElementById('submitLabel').textContent = 'Generating\u2026';
+      startProgress();
 
+      var data;
       try {
-        const res = await fetch('/api/register', {
+        var res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handle, appPassword }),
+          body: JSON.stringify({ handle: handle, appPassword: appPassword }),
         });
+        data = await res.json();
 
-        const data = await res.json();
+        if (!res.ok) {
+          stopProgress();
+          setLoading(false);
+          if (res.status === 401) {
+            showError('Invalid handle or app password. Please check and try again.');
+          } else {
+            showError(data.message || 'Something went wrong. Please try again.');
+          }
+          return;
+        }
+      } catch (err) {
+        stopProgress();
+        setLoading(false);
+        showError('Network error. Please check your connection and try again.');
+        return;
+      }
+
+      completeProgress(function() {
+        setLoading(false);
+        showSuccess(data);
+      });
+    }
+
+    async function handleUnpublish() {
+      var handle = document.getElementById('handle').value.trim();
+      var appPassword = document.getElementById('appPassword').value.trim();
+
+      document.getElementById('errorBox').style.display = 'none';
+
+      if (!handle || !appPassword) {
+        showError('Please enter your handle and app password to unpublish.');
+        return;
+      }
+
+      var unpublishBtn = document.getElementById('unpublishBtn');
+      var submitBtn = document.getElementById('submitBtn');
+      unpublishBtn.disabled = true;
+      submitBtn.disabled = true;
+      unpublishBtn.textContent = 'Unpublishing\u2026';
+
+      try {
+        var res = await fetch('/api/unregister', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle: handle, appPassword: appPassword }),
+        });
+        var data = await res.json();
 
         if (!res.ok) {
           if (res.status === 401) {
@@ -372,18 +614,19 @@
           return;
         }
 
-        showSuccess(data);
+        document.getElementById('formView').classList.add('hidden');
+        document.getElementById('unpublishView').classList.remove('hidden');
       } catch (err) {
         showError('Network error. Please check your connection and try again.');
       } finally {
+        unpublishBtn.disabled = false;
         submitBtn.disabled = false;
-        spinner.style.display = 'none';
-        submitLabel.textContent = 'Generate feed';
+        unpublishBtn.textContent = 'Unpublish';
       }
     }
 
     function showError(msg) {
-      const errorBox = document.getElementById('errorBox');
+      var errorBox = document.getElementById('errorBox');
       errorBox.textContent = msg;
       errorBox.style.display = 'block';
     }
@@ -391,7 +634,7 @@
     function showSuccess(data) {
       document.getElementById('formView').classList.add('hidden');
 
-      const avatar = document.getElementById('avatarImg');
+      var avatar = document.getElementById('avatarImg');
       if (data.avatarUrl) {
         avatar.src = data.avatarUrl;
         avatar.style.display = 'block';
@@ -407,17 +650,17 @@
     }
 
     function copyUrl() {
-      const input = document.getElementById('feedUrlInput');
-      const btn = document.getElementById('copyBtn');
+      var input = document.getElementById('feedUrlInput');
+      var btn = document.getElementById('copyBtn');
 
-      navigator.clipboard.writeText(input.value).then(() => {
+      navigator.clipboard.writeText(input.value).then(function() {
         btn.textContent = 'Copied!';
         btn.classList.add('copied');
-        setTimeout(() => {
+        setTimeout(function() {
           btn.textContent = 'Copy';
           btn.classList.remove('copied');
         }, 2000);
-      }).catch(() => {
+      }).catch(function() {
         input.select();
         document.execCommand('copy');
       });
@@ -425,6 +668,7 @@
 
     function resetForm() {
       document.getElementById('successView').classList.add('hidden');
+      document.getElementById('unpublishView').classList.add('hidden');
       document.getElementById('formView').classList.remove('hidden');
       document.getElementById('handle').value = '';
       document.getElementById('appPassword').value = '';

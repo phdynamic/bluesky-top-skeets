@@ -1,6 +1,6 @@
 import { BskyAgent } from '@atproto/api';
 import { config } from './config';
-import { upsertFeed } from './db';
+import { upsertFeed, deleteFeed } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 
 export interface RegisterResult {
@@ -73,4 +73,31 @@ export async function registerUserFeed(
     postCount: posts.length,
     posts,
   };
+}
+
+export async function unregisterUserFeed(
+  handle: string,
+  appPassword: string,
+): Promise<{ handle: string; displayName: string | null }> {
+  const agent = new BskyAgent({ service: 'https://bsky.social' });
+
+  // 1. Login — throws on bad credentials
+  await agent.login({ identifier: handle, password: appPassword });
+
+  const did = agent.session!.did;
+  const userHandle = agent.session!.handle;
+  const profileRes = await agent.api.app.bsky.actor.getProfile({ actor: did });
+  const displayName = profileRes.data.displayName ?? null;
+
+  // 2. Delete the feed generator record from the user's AT Proto repo
+  await agent.api.com.atproto.repo.deleteRecord({
+    repo: did,
+    collection: 'app.bsky.feed.generator',
+    rkey: config.feedShortName,
+  });
+
+  // 3. Remove from our store
+  deleteFeed(did);
+
+  return { handle: userHandle, displayName };
 }

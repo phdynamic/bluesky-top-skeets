@@ -101,3 +101,17 @@ export function getFeedByHandle(handle: string): UserFeed | null {
   if (!did) return null;
   return getFeedByDid(did);
 }
+
+export function deleteFeed(did: string): void {
+  const filePath = feedFilePath(did);
+  if (fs.existsSync(filePath)) {
+    const record = getFeedByDid(did);
+    fs.unlinkSync(filePath);
+    if (record) {
+      const normalized = record.handle.startsWith('@') ? record.handle.slice(1) : record.handle;
+      const index = readIndex();
+      delete index[normalized];
+      writeIndex(index);
+    }
+  }
+}

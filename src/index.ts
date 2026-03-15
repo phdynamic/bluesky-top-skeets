@@ -3,7 +3,7 @@ import path from 'path';
 import { config } from './config';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
-import { registerUserFeed } from './register';
+import { registerUserFeed, unregisterUserFeed } from './register';
 import { getFeedByHandle } from './db';
 
 const app = express();
@@ -51,6 +51,36 @@ app.post('/api/register', async (req, res) => {
     }
 
     console.error('[register error]', message);
+    res.status(500).json({ error: 'InternalError', message });
+  }
+});
+
+// POST /api/unregister — delete feed generator record and remove from store
+app.post('/api/unregister', async (req, res) => {
+  const { handle, appPassword } = req.body as { handle?: string; appPassword?: string };
+
+  if (!handle || !appPassword) {
+    res.status(400).json({ error: 'MissingFields', message: 'handle and appPassword are required' });
+    return;
+  }
+
+  try {
+    const result = await unregisterUserFeed(handle, appPassword);
+    res.json({ handle: result.handle, displayName: result.displayName });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+
+    if (
+      message.includes('Invalid identifier or password') ||
+      message.includes('AuthenticationRequired') ||
+      message.includes('Unauthorized') ||
+      message.includes('BadCredentials')
+    ) {
+      res.status(401).json({ error: 'InvalidCredentials', message });
+      return;
+    }
+
+    console.error('[unregister error]', message);
     res.status(500).json({ error: 'InternalError', message });
   }
 });
