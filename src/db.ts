@@ -1,6 +1,6 @@
-import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import initSqlJs, { Database } from 'sql.js';
 import { config } from './config';
 
 export interface PostRecord {
@@ -23,21 +23,31 @@ export interface UserFeed {
   posts: string; // JSON array
 }
 
-let _db: Database.Database | null = null;
+let _db: Database | null = null;
+const dbPath = path.resolve(config.databasePath);
 
-function getDb(): Database.Database {
-  if (_db) return _db;
+/**
+ * Must be called once at startup before any query functions are used.
+ * sql.js is pure WASM — no native compilation required.
+ */
+export async function initDb(): Promise<void> {
+  if (_db) return;
 
-  const dbPath = path.resolve(config.databasePath);
   const dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  _db = new Database(dbPath);
-  _db.pragma('journal_mode = WAL');
+  const SQL = await initSqlJs();
 
-  _db.exec(`
+  if (fs.existsSync(dbPath)) {
+    const buf = fs.readFileSync(dbPath);
+    _db = new SQL.Database(buf);
+  } else {
+    _db = new SQL.Database();
+  }
+
+  _db.run(`
     CREATE TABLE IF NOT EXISTS user_feeds (
       did           TEXT PRIMARY KEY,
       handle        TEXT NOT NULL,
@@ -51,7 +61,19 @@ function getDb(): Database.Database {
     )
   `);
 
+  _persist();
+}
+
+function _db_(): Database {
+  if (!_db) throw new Error('DB not initialised — call initDb() first');
   return _db;
+}
+
+/** Write the in-memory database back to disk. */
+function _persist(): void {
+  if (!_db) return;
+  const data = _db.export();
+  fs.writeFileSync(dbPath, Buffer.from(data));
 }
 
 export interface UpsertFeedInput {
@@ -67,36 +89,40 @@ export interface UpsertFeedInput {
 }
 
 export function upsertFeed(feed: UpsertFeedInput): void {
-  const db = getDb();
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO user_feeds
-      (did, handle, display_name, avatar_url, feed_uri, feed_url, post_count, generated_at, posts)
-    VALUES
-      (@did, @handle, @displayName, @avatarUrl, @feedUri, @feedUrl, @postCount, @generatedAt, @posts)
-  `);
-  stmt.run({
-    did: feed.did,
-    handle: feed.handle,
-    displayName: feed.displayName,
-    avatarUrl: feed.avatarUrl,
-    feedUri: feed.feedUri,
-    feedUrl: feed.feedUrl,
-    postCount: feed.postCount,
-    generatedAt: feed.generatedAt,
-    posts: JSON.stringify(feed.posts),
-  });
+  _db_().run(
+    `INSERT OR REPLACE INTO user_feeds
+       (did, handle, display_name, avatar_url, feed_uri, feed_url, post_count, generated_at, posts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      feed.did,
+      feed.handle,
+      feed.displayName,
+      feed.avatarUrl,
+      feed.feedUri,
+      feed.feedUrl,
+      feed.postCount,
+      feed.generatedAt,
+      JSON.stringify(feed.posts),
+    ],
+  );
+  _persist();
 }
 
 export function getFeedByDid(did: string): UserFeed | null {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM user_feeds WHERE did = ?').get(did) as UserFeed | undefined;
-  return row ?? null;
+  const stmt = _db_().prepare('SELECT * FROM user_feeds WHERE did = ?');
+  stmt.bind([did]);
+  const found = stmt.step();
+  const row = found ? (stmt.getAsObject() as unknown as UserFeed) : null;
+  stmt.free();
+  return row;
 }
 
 export function getFeedByHandle(handle: string): UserFeed | null {
-  const db = getDb();
-  // Normalize handle — strip leading @
   const normalized = handle.startsWith('@') ? handle.slice(1) : handle;
-  const row = db.prepare('SELECT * FROM user_feeds WHERE handle = ?').get(normalized) as UserFeed | undefined;
-  return row ?? null;
+  const stmt = _db_().prepare('SELECT * FROM user_feeds WHERE handle = ?');
+  stmt.bind([normalized]);
+  const found = stmt.step();
+  const row = found ? (stmt.getAsObject() as unknown as UserFeed) : null;
+  stmt.free();
+  return row;
 }
