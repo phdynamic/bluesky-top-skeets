@@ -30,6 +30,10 @@ export interface UserFeed {
 const dataDir = path.resolve(path.dirname(config.databasePath));
 const indexPath = path.join(dataDir, '_index.json');
 
+// In-memory cache — invalidated on every upsert
+const feedCache = new Map<string, UserFeed>();
+function cacheKey(did: string, feedType: FeedType): string { return `${did}::${feedType}`; }
+
 function ensureDataDir(): void {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -83,6 +87,7 @@ export function upsertFeed(feed: UpsertFeedInput): void {
   };
 
   fs.writeFileSync(feedFilePath(feed.did, feed.feedType), JSON.stringify(record), 'utf8');
+  feedCache.set(cacheKey(feed.did, feed.feedType), record);
 
   // Index maps handle → DID (DID is stable across feed types)
   const normalized = feed.handle.startsWith('@') ? feed.handle.slice(1) : feed.handle;
@@ -92,13 +97,32 @@ export function upsertFeed(feed: UpsertFeedInput): void {
 }
 
 export function getFeedByDid(did: string, feedType: FeedType): UserFeed | null {
+  const key = cacheKey(did, feedType);
+  const cached = feedCache.get(key);
+  if (cached) return cached;
+
   const filePath = feedFilePath(did, feedType);
   if (!fs.existsSync(filePath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as UserFeed;
+    const feed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as UserFeed;
+    feedCache.set(key, feed);
+    return feed;
   } catch {
     return null;
   }
+}
+
+export function getAllFeeds(): UserFeed[] {
+  if (!fs.existsSync(dataDir)) return [];
+  const feeds: UserFeed[] = [];
+  for (const file of fs.readdirSync(dataDir)) {
+    if (file === '_index.json' || !file.endsWith('.json')) continue;
+    try {
+      const feed = JSON.parse(fs.readFileSync(path.join(dataDir, file), 'utf8')) as UserFeed;
+      feeds.push(feed);
+    } catch { /* skip corrupted file */ }
+  }
+  return feeds;
 }
 
 export function getFeedByHandle(handle: string, feedType: FeedType): UserFeed | null {
@@ -110,6 +134,7 @@ export function getFeedByHandle(handle: string, feedType: FeedType): UserFeed | 
 }
 
 export function deleteFeed(did: string, feedType: FeedType): void {
+  feedCache.delete(cacheKey(did, feedType));
   const filePath = feedFilePath(did, feedType);
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);

@@ -14,4 +14,5 @@ export const config = {
   feedDisplayName: process.env.FEED_DISPLAY_NAME ?? 'Top Skeets',
   feedDescription: process.env.FEED_DESCRIPTION ?? 'My posts, ranked by likes.',
   databasePath: process.env.DATABASE_PATH ?? './data/feeds.db',
+  refreshIntervalMinutes: parseInt(process.env.REFRESH_INTERVAL_MINUTES ?? '60', 10),
 };

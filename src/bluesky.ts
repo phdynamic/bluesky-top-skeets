@@ -11,9 +11,12 @@ export async function fetchAllOriginalPosts(
   did: string,
   userHandle: string,
   feedType: FeedType,
+  /** If provided, stop paginating once posts older than this date are seen. */
+  cutoffDate?: Date,
 ): Promise<PostRecord[]> {
   const posts: PostRecord[] = [];
   let cursor: string | undefined;
+  let reachedCutoff = false;
 
   do {
     const res: AppBskyFeedGetAuthorFeed.Response = await agent.api.app.bsky.feed.getAuthorFeed({
@@ -26,6 +29,12 @@ export async function fetchAllOriginalPosts(
     const { feed, cursor: nextCursor } = res.data;
 
     for (const item of feed) {
+      // Stop early if this post is older than the cutoff
+      if (cutoffDate && new Date(item.post.indexedAt) < cutoffDate) {
+        reachedCutoff = true;
+        break;
+      }
+
       // Skip reposts
       if (
         item.reason &&
@@ -50,7 +59,7 @@ export async function fetchAllOriginalPosts(
       });
     }
 
-    cursor = nextCursor;
+    cursor = reachedCutoff ? undefined : nextCursor;
   } while (cursor);
 
   if (feedType === 'top-skeets') {

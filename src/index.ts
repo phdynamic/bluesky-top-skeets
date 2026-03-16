@@ -5,6 +5,7 @@ import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
 import { getFeedByHandle, FEED_TYPES, FeedType, migrateV0ToV1, migrateV1ToV2 } from './db';
+import { startScheduler } from './scheduler';
 
 const app = express();
 
@@ -140,5 +141,6 @@ app.get('*', (_req, res) => {
   app.listen(config.port, () => {
     console.log(`Top Skeets running on port ${config.port}`);
     console.log(`Service DID: ${config.feedgenServiceDid}`);
+    startScheduler();
   });
 })();
