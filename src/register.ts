@@ -5,7 +5,7 @@ import { fetchAllOriginalPosts } from './bluesky';
 
 const FEED_DISPLAY_NAMES: Record<FeedType, string> = {
   'top-skeets': 'Top Skeets',
-  'chrono-skeets': 'Chrono Skeets',
+  'chrono-skeets': 'My Skeets',
 };
 
 const FEED_DESCRIPTIONS: Record<FeedType, string> = {
