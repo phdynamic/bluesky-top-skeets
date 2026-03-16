@@ -2,6 +2,10 @@ import path from 'path';
 import fs from 'fs';
 import { config } from './config';
 
+export type FeedType = 'top-skeets' | 'chrono-skeets';
+
+export const FEED_TYPES: FeedType[] = ['top-skeets', 'chrono-skeets'];
+
 export interface PostRecord {
   uri: string;
   url: string;
@@ -15,6 +19,7 @@ export interface UserFeed {
   handle: string;
   display_name: string | null;
   avatar_url: string | null;
+  feed_type: FeedType;
   feed_uri: string | null;
   feed_url: string | null;
   post_count: number | null;
@@ -22,7 +27,6 @@ export interface UserFeed {
   posts: PostRecord[];
 }
 
-// Store files alongside the configured database path directory
 const dataDir = path.resolve(path.dirname(config.databasePath));
 const indexPath = path.join(dataDir, '_index.json');
 
@@ -32,8 +36,8 @@ function ensureDataDir(): void {
   }
 }
 
-function feedFilePath(did: string): string {
-  return path.join(dataDir, did.replace(/:/g, '-') + '.json');
+function feedFilePath(did: string, feedType: FeedType): string {
+  return path.join(dataDir, did.replace(/:/g, '-') + '-' + feedType + '.json');
 }
 
 function readIndex(): Record<string, string> {
@@ -54,6 +58,7 @@ export interface UpsertFeedInput {
   handle: string;
   displayName: string | null;
   avatarUrl: string | null;
+  feedType: FeedType;
   feedUri: string;
   feedUrl: string;
   postCount: number;
@@ -69,6 +74,7 @@ export function upsertFeed(feed: UpsertFeedInput): void {
     handle: feed.handle,
     display_name: feed.displayName,
     avatar_url: feed.avatarUrl,
+    feed_type: feed.feedType,
     feed_uri: feed.feedUri,
     feed_url: feed.feedUrl,
     post_count: feed.postCount,
@@ -76,16 +82,17 @@ export function upsertFeed(feed: UpsertFeedInput): void {
     posts: feed.posts,
   };
 
-  fs.writeFileSync(feedFilePath(feed.did), JSON.stringify(record), 'utf8');
+  fs.writeFileSync(feedFilePath(feed.did, feed.feedType), JSON.stringify(record), 'utf8');
 
+  // Index maps handle → DID (DID is stable across feed types)
   const normalized = feed.handle.startsWith('@') ? feed.handle.slice(1) : feed.handle;
   const index = readIndex();
   index[normalized] = feed.did;
   writeIndex(index);
 }
 
-export function getFeedByDid(did: string): UserFeed | null {
-  const filePath = feedFilePath(did);
+export function getFeedByDid(did: string, feedType: FeedType): UserFeed | null {
+  const filePath = feedFilePath(did, feedType);
   if (!fs.existsSync(filePath)) return null;
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8')) as UserFeed;
@@ -94,24 +101,17 @@ export function getFeedByDid(did: string): UserFeed | null {
   }
 }
 
-export function getFeedByHandle(handle: string): UserFeed | null {
+export function getFeedByHandle(handle: string, feedType: FeedType): UserFeed | null {
   const normalized = handle.startsWith('@') ? handle.slice(1) : handle;
   const index = readIndex();
   const did = index[normalized];
   if (!did) return null;
-  return getFeedByDid(did);
+  return getFeedByDid(did, feedType);
 }
 
-export function deleteFeed(did: string): void {
-  const filePath = feedFilePath(did);
+export function deleteFeed(did: string, feedType: FeedType): void {
+  const filePath = feedFilePath(did, feedType);
   if (fs.existsSync(filePath)) {
-    const record = getFeedByDid(did);
     fs.unlinkSync(filePath);
-    if (record) {
-      const normalized = record.handle.startsWith('@') ? record.handle.slice(1) : record.handle;
-      const index = readIndex();
-      delete index[normalized];
-      writeIndex(index);
-    }
   }
 }

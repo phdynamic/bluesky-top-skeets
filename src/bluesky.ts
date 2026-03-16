@@ -1,14 +1,16 @@
 import { BskyAgent, AppBskyFeedGetAuthorFeed } from '@atproto/api';
-import { PostRecord } from './db';
+import { PostRecord, FeedType } from './db';
 
 /**
  * Fetch ALL original posts for a logged-in agent (no replies, no reposts).
  * Paginates until the API returns no more cursor.
+ * sortOrder: 'top' sorts by like count descending; 'chrono' keeps newest-first order.
  */
 export async function fetchAllOriginalPosts(
   agent: BskyAgent,
   did: string,
   userHandle: string,
+  feedType: FeedType,
 ): Promise<PostRecord[]> {
   const posts: PostRecord[] = [];
   let cursor: string | undefined;
@@ -51,8 +53,11 @@ export async function fetchAllOriginalPosts(
     cursor = nextCursor;
   } while (cursor);
 
-  // Sort by like count descending
-  posts.sort((a, b) => b.likeCount - a.likeCount);
+  if (feedType === 'top-skeets') {
+    // Sort by like count descending
+    posts.sort((a, b) => b.likeCount - a.likeCount);
+  }
+  // chrono-skeets: getAuthorFeed already returns newest-first; no re-sort needed
 
   return posts;
 }

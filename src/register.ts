@@ -1,7 +1,17 @@
 import { BskyAgent } from '@atproto/api';
 import { config } from './config';
-import { upsertFeed, deleteFeed } from './db';
+import { upsertFeed, deleteFeed, FeedType } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
+
+const FEED_DISPLAY_NAMES: Record<FeedType, string> = {
+  'top-skeets': 'Top Skeets',
+  'chrono-skeets': 'Chrono Skeets',
+};
+
+const FEED_DESCRIPTIONS: Record<FeedType, string> = {
+  'top-skeets': 'My posts, ranked by likes.',
+  'chrono-skeets': 'My posts, newest first.',
+};
 
 export interface RegisterResult {
   did: string;
@@ -16,6 +26,7 @@ export interface RegisterResult {
 export async function registerUserFeed(
   handle: string,
   appPassword: string,
+  feedType: FeedType,
 ): Promise<RegisterResult> {
   const agent = new BskyAgent({ service: 'https://bsky.social' });
 
@@ -31,25 +42,25 @@ export async function registerUserFeed(
   const avatarUrl = profileRes.data.avatar ?? null;
 
   // 3. Fetch and sort all original posts
-  const posts = await fetchAllOriginalPosts(agent, did, userHandle);
+  const posts = await fetchAllOriginalPosts(agent, did, userHandle, feedType);
 
   // 4. Publish feed generator record under the USER'S OWN account
   await agent.api.com.atproto.repo.putRecord({
     repo: did,
     collection: 'app.bsky.feed.generator',
-    rkey: config.feedShortName,
+    rkey: feedType,
     record: {
       $type: 'app.bsky.feed.generator',
-      did: config.feedgenServiceDid, // points to OUR server
-      displayName: config.feedDisplayName,
-      description: config.feedDescription,
+      did: config.feedgenServiceDid,
+      displayName: FEED_DISPLAY_NAMES[feedType],
+      description: FEED_DESCRIPTIONS[feedType],
       createdAt: new Date().toISOString(),
     },
   });
 
   // 5. Construct URIs
-  const feedUri = `at://${did}/app.bsky.feed.generator/${config.feedShortName}`;
-  const feedUrl = `https://bsky.app/profile/${did}/feed/${config.feedShortName}`;
+  const feedUri = `at://${did}/app.bsky.feed.generator/${feedType}`;
+  const feedUrl = `https://bsky.app/profile/${did}/feed/${feedType}`;
 
   // 6. Persist to database
   upsertFeed({
@@ -57,6 +68,7 @@ export async function registerUserFeed(
     handle: userHandle,
     displayName,
     avatarUrl,
+    feedType,
     feedUri,
     feedUrl,
     postCount: posts.length,
@@ -78,6 +90,7 @@ export async function registerUserFeed(
 export async function unregisterUserFeed(
   handle: string,
   appPassword: string,
+  feedType: FeedType,
 ): Promise<{ handle: string; displayName: string | null }> {
   const agent = new BskyAgent({ service: 'https://bsky.social' });
 
@@ -93,11 +106,11 @@ export async function unregisterUserFeed(
   await agent.api.com.atproto.repo.deleteRecord({
     repo: did,
     collection: 'app.bsky.feed.generator',
-    rkey: config.feedShortName,
+    rkey: feedType,
   });
 
   // 3. Remove from our store
-  deleteFeed(did);
+  deleteFeed(did, feedType);
 
   return { handle: userHandle, displayName };
 }

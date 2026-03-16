@@ -4,7 +4,7 @@ import { config } from './config';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
-import { getFeedByHandle } from './db';
+import { getFeedByHandle, FEED_TYPES, FeedType } from './db';
 
 const app = express();
 
@@ -18,28 +18,34 @@ app.use(feedSkeletonRouter);
 
 // POST /api/register — authenticate as user and publish feed
 app.post('/api/register', async (req, res) => {
-  const { handle, appPassword } = req.body as { handle?: string; appPassword?: string };
+  const { handle, appPassword, feedType } = req.body as {
+    handle?: string;
+    appPassword?: string;
+    feedType?: string;
+  };
 
   if (!handle || !appPassword) {
     res.status(400).json({ error: 'MissingFields', message: 'handle and appPassword are required' });
     return;
   }
 
+  if (!feedType || !(FEED_TYPES as string[]).includes(feedType)) {
+    res.status(400).json({ error: 'InvalidFeedType', message: `feedType must be one of: ${FEED_TYPES.join(', ')}` });
+    return;
+  }
+
   try {
-    const result = await registerUserFeed(handle, appPassword);
-    // Return top-5 posts for preview; never echo the password
+    const result = await registerUserFeed(handle, appPassword, feedType as FeedType);
     res.json({
       feedUrl: result.feedUrl,
       handle: result.handle,
       displayName: result.displayName,
       avatarUrl: result.avatarUrl,
       postCount: result.postCount,
-      topPosts: result.posts.slice(0, 5),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
 
-    // Detect auth failures from @atproto/api
     if (
       message.includes('Invalid identifier or password') ||
       message.includes('AuthenticationRequired') ||
@@ -57,15 +63,24 @@ app.post('/api/register', async (req, res) => {
 
 // POST /api/unregister — delete feed generator record and remove from store
 app.post('/api/unregister', async (req, res) => {
-  const { handle, appPassword } = req.body as { handle?: string; appPassword?: string };
+  const { handle, appPassword, feedType } = req.body as {
+    handle?: string;
+    appPassword?: string;
+    feedType?: string;
+  };
 
   if (!handle || !appPassword) {
     res.status(400).json({ error: 'MissingFields', message: 'handle and appPassword are required' });
     return;
   }
 
+  if (!feedType || !(FEED_TYPES as string[]).includes(feedType)) {
+    res.status(400).json({ error: 'InvalidFeedType', message: `feedType must be one of: ${FEED_TYPES.join(', ')}` });
+    return;
+  }
+
   try {
-    const result = await unregisterUserFeed(handle, appPassword);
+    const result = await unregisterUserFeed(handle, appPassword, feedType as FeedType);
     res.json({ handle: result.handle, displayName: result.displayName });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -88,7 +103,14 @@ app.post('/api/unregister', async (req, res) => {
 // GET /api/feed/:handle — look up existing feed by handle
 app.get('/api/feed/:handle', (req, res) => {
   const { handle } = req.params;
-  const feed = getFeedByHandle(handle);
+  const feedType = (req.query.feedType as string) ?? 'top-skeets';
+
+  if (!(FEED_TYPES as string[]).includes(feedType)) {
+    res.status(400).json({ error: 'InvalidFeedType', message: `feedType must be one of: ${FEED_TYPES.join(', ')}` });
+    return;
+  }
+
+  const feed = getFeedByHandle(handle, feedType as FeedType);
 
   if (!feed) {
     res.status(404).json({ error: 'NotFound', message: 'No feed found for this handle' });
@@ -114,5 +136,4 @@ app.get('*', (_req, res) => {
 app.listen(config.port, () => {
   console.log(`Top Skeets running on port ${config.port}`);
   console.log(`Service DID: ${config.feedgenServiceDid}`);
-  console.log(`Feed short name: ${config.feedShortName}`);
 });

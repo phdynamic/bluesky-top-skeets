@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { config } from './config';
-import { getFeedByDid, PostRecord } from './db';
+import { getFeedByDid, FEED_TYPES, FeedType } from './db';
 
 export const feedSkeletonRouter = Router();
 
@@ -31,18 +30,19 @@ feedSkeletonRouter.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req: Request, res
     return;
   }
 
-  if (rkey !== config.feedShortName) {
+  if (!(FEED_TYPES as string[]).includes(rkey)) {
     res.status(400).json({ error: 'UnknownFeed', message: 'Unknown feed rkey' });
     return;
   }
 
-  const feedRecord = getFeedByDid(userDid);
+  const feedType = rkey as FeedType;
+  const feedRecord = getFeedByDid(userDid, feedType);
   if (!feedRecord) {
     res.status(400).json({ error: 'UnknownFeed', message: 'No feed found for this user' });
     return;
   }
 
-  const posts: PostRecord[] = feedRecord.posts ?? [];
+  const posts = feedRecord.posts ?? [];
 
   const limit = Math.min(Math.max(parseInt((req.query.limit as string) ?? '30', 10) || 30, 1), 100);
   const cursorParam = req.query.cursor as string | undefined;
