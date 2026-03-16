@@ -31,11 +31,18 @@ async function runRefresh(): Promise<void> {
 
       const newPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, cutoffDate);
 
-      let allPosts = newPosts;
-      if (isIncremental && newPosts.length > 0) {
-        const newUris = new Set(newPosts.map(p => p.uri));
-        const retained = feed.posts.filter(p => !newUris.has(p.uri));
-        allPosts = [...newPosts, ...retained];
+      let allPosts: typeof newPosts;
+      if (isIncremental) {
+        if (newPosts.length > 0) {
+          const newUris = new Set(newPosts.map(p => p.uri));
+          const retained = feed.posts.filter(p => !newUris.has(p.uri));
+          allPosts = [...newPosts, ...retained];
+        } else {
+          // No new posts — keep the existing list unchanged
+          allPosts = feed.posts;
+        }
+      } else {
+        allPosts = newPosts;
       }
 
       upsertFeed({
