@@ -123,7 +123,11 @@ export function deleteFeed(did: string, feedType: FeedType): void {
  */
 export async function migrateV0ToV1(): Promise<void> {
   const legacyDb = path.resolve(config.databasePath);
-  if (!fs.existsSync(legacyDb)) return;
+  console.log(`[migration v0→v1] checking for legacy DB at: ${legacyDb}`);
+  if (!fs.existsSync(legacyDb)) {
+    console.log('[migration v0→v1] not found — skipping');
+    return;
+  }
 
   console.log('[migration v0→v1] found feeds.db — migrating to JSON files…');
   ensureDataDir();
