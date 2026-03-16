@@ -4,7 +4,7 @@ import { config } from './config';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
-import { getFeedByHandle, FEED_TYPES, FeedType } from './db';
+import { getFeedByHandle, FEED_TYPES, FeedType, migrateV1ToV2 } from './db';
 
 const app = express();
 
@@ -132,6 +132,8 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
+
+migrateV1ToV2();
 
 app.listen(config.port, () => {
   console.log(`Top Skeets running on port ${config.port}`);

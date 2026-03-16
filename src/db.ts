@@ -115,3 +115,27 @@ export function deleteFeed(did: string, feedType: FeedType): void {
     fs.unlinkSync(filePath);
   }
 }
+
+/**
+ * One-time migration: rename legacy {did-slug}.json files (created before
+ * feed types were introduced) to {did-slug}-top-skeets.json.
+ * Safe to call on every startup — no-op if nothing to rename.
+ */
+export function migrateV1ToV2(): void {
+  if (!fs.existsSync(dataDir)) return;
+  const files = fs.readdirSync(dataDir);
+  for (const file of files) {
+    if (
+      file.startsWith('did-') &&
+      file.endsWith('.json') &&
+      !file.endsWith('-top-skeets.json') &&
+      !file.endsWith('-chrono-skeets.json')
+    ) {
+      const oldPath = path.join(dataDir, file);
+      const newName = file.replace(/\.json$/, '-top-skeets.json');
+      const newPath = path.join(dataDir, newName);
+      fs.renameSync(oldPath, newPath);
+      console.log(`[migration] ${file} → ${newName}`);
+    }
+  }
+}
