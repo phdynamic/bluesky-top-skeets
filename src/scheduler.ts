@@ -1,5 +1,5 @@
 import { BskyAgent } from '@atproto/api';
-import { getAllFeeds, upsertFeed, UserFeed } from './db';
+import { getAllFeeds, getFeedByDid, upsertFeed, UserFeed, FeedType } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
@@ -49,6 +49,14 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
   });
 
   console.log(`[scheduler] refreshed ${feed.handle} (${feed.feed_type}): ${allPosts.length} posts`);
+}
+
+/** Force an immediate refresh for a specific feed. Throws on failure. */
+export async function refreshFeedNow(did: string, feedType: FeedType): Promise<void> {
+  const feed = getFeedByDid(did, feedType);
+  if (!feed) throw new Error('Feed not found');
+  if (!feed.feed_uri || !feed.feed_url) throw new Error('Feed is not fully registered');
+  await refreshFeed(feed);
 }
 
 async function refreshFeedWithRetry(feed: UserFeed): Promise<void> {

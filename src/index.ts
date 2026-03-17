@@ -5,7 +5,7 @@ import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
 import { getFeedByHandle, FEED_TYPES, FeedType, migrateV0ToV1, migrateV1ToV2 } from './db';
-import { startScheduler } from './scheduler';
+import { startScheduler, refreshFeedNow } from './scheduler';
 
 const app = express();
 
@@ -58,6 +58,48 @@ app.post('/api/register', async (req, res) => {
     }
 
     console.error('[register error]', message);
+    res.status(500).json({ error: 'InternalError', message });
+  }
+});
+
+// POST /api/refresh — immediately re-fetch posts for an existing feed
+app.post('/api/refresh', async (req, res) => {
+  const { handle, appPassword, feedType } = req.body as {
+    handle?: string;
+    appPassword?: string;
+    feedType?: string;
+  };
+
+  if (!handle || !appPassword) {
+    res.status(400).json({ error: 'MissingFields', message: 'handle and appPassword are required' });
+    return;
+  }
+
+  if (!feedType || !(FEED_TYPES as string[]).includes(feedType)) {
+    res.status(400).json({ error: 'InvalidFeedType', message: `feedType must be one of: ${FEED_TYPES.join(', ')}` });
+    return;
+  }
+
+  // Authenticate to verify identity and resolve DID
+  const { BskyAgent } = await import('@atproto/api');
+  const agent = new BskyAgent({ service: 'https://bsky.social' });
+  try {
+    await agent.login({ identifier: handle, password: appPassword });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(401).json({ error: 'InvalidCredentials', message });
+    return;
+  }
+
+  const did = agent.session!.did;
+
+  try {
+    await refreshFeedNow(did, feedType as FeedType);
+    const feed = getFeedByHandle(handle, feedType as FeedType);
+    res.json({ handle, feedType, generatedAt: feed?.generated_at, postCount: feed?.post_count });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[refresh error]', message);
     res.status(500).json({ error: 'InternalError', message });
   }
 });
