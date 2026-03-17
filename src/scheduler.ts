@@ -29,30 +29,11 @@ async function runRefresh(): Promise<void> {
 async function refreshFeed(feed: UserFeed): Promise<void> {
   const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
 
-  // For chrono-skeets: only fetch posts newer than the last generated_at,
-  // then prepend them to the existing list (deduplicating by URI).
-  // For top-skeets: always full refresh so like counts stay accurate.
-  const latestPostDate = feed.posts.length > 0
-    ? new Date(feed.posts[0].indexedAt)
-    : null;
-  const isIncremental = feed.feed_type === 'chrono-skeets' && latestPostDate != null;
-  const cutoffDate = isIncremental ? latestPostDate! : undefined;
-
-  const newPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, cutoffDate);
-
-  let allPosts: typeof newPosts;
-  if (isIncremental) {
-    if (newPosts.length > 0) {
-      const newUris = new Set(newPosts.map(p => p.uri));
-      const retained = feed.posts.filter(p => !newUris.has(p.uri));
-      allPosts = [...newPosts, ...retained];
-    } else {
-      // No new posts — keep the existing list unchanged
-      allPosts = feed.posts;
-    }
-  } else {
-    allPosts = newPosts;
-  }
+  // Always do a full refresh for both feed types so new posts are never missed.
+  // (top-skeets needs it for accurate like counts; chrono-skeets needs it
+  // because the Bluesky API sorts by createdAt, not indexedAt, making an
+  // incremental cutoff based on indexedAt unreliable.)
+  const allPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type);
 
   upsertFeed({
     did: feed.did,
