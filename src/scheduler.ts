@@ -32,8 +32,11 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
   // For chrono-skeets: only fetch posts newer than the last generated_at,
   // then prepend them to the existing list (deduplicating by URI).
   // For top-skeets: always full refresh so like counts stay accurate.
-  const isIncremental = feed.feed_type === 'chrono-skeets' && feed.generated_at != null;
-  const cutoffDate = isIncremental ? new Date(feed.generated_at!) : undefined;
+  const latestPostDate = feed.posts.length > 0
+    ? new Date(feed.posts[0].indexedAt)
+    : null;
+  const isIncremental = feed.feed_type === 'chrono-skeets' && latestPostDate != null;
+  const cutoffDate = isIncremental ? latestPostDate! : undefined;
 
   const newPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, cutoffDate);
 
