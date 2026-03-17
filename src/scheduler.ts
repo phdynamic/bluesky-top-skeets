@@ -1,7 +1,10 @@
 import { BskyAgent } from '@atproto/api';
-import { getAllFeeds, upsertFeed } from './db';
+import { getAllFeeds, upsertFeed, UserFeed } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
+
+const CONCURRENCY = 3;
+const RETRY_DELAY_MS = 5_000;
 
 export function startScheduler(): void {
   const intervalMs = config.refreshIntervalMinutes * 60_000;
@@ -12,55 +15,68 @@ export function startScheduler(): void {
 }
 
 async function runRefresh(): Promise<void> {
-  const feeds = getAllFeeds();
+  const feeds = getAllFeeds().filter(f => f.feed_uri && f.feed_url);
   if (feeds.length === 0) return;
-  console.log(`[scheduler] refreshing ${feeds.length} feed(s)…`);
+  console.log(`[scheduler] refreshing ${feeds.length} feed(s) (concurrency=${CONCURRENCY})…`);
 
-  for (const feed of feeds) {
-    if (!feed.feed_uri || !feed.feed_url) continue;
+  // Process feeds in batches of CONCURRENCY
+  for (let i = 0; i < feeds.length; i += CONCURRENCY) {
+    const batch = feeds.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(feed => refreshFeedWithRetry(feed)));
+  }
+}
 
+async function refreshFeed(feed: UserFeed): Promise<void> {
+  const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
+
+  // For chrono-skeets: only fetch posts newer than the last generated_at,
+  // then prepend them to the existing list (deduplicating by URI).
+  // For top-skeets: always full refresh so like counts stay accurate.
+  const isIncremental = feed.feed_type === 'chrono-skeets' && feed.generated_at != null;
+  const cutoffDate = isIncremental ? new Date(feed.generated_at!) : undefined;
+
+  const newPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, cutoffDate);
+
+  let allPosts: typeof newPosts;
+  if (isIncremental) {
+    if (newPosts.length > 0) {
+      const newUris = new Set(newPosts.map(p => p.uri));
+      const retained = feed.posts.filter(p => !newUris.has(p.uri));
+      allPosts = [...newPosts, ...retained];
+    } else {
+      // No new posts — keep the existing list unchanged
+      allPosts = feed.posts;
+    }
+  } else {
+    allPosts = newPosts;
+  }
+
+  upsertFeed({
+    did: feed.did,
+    handle: feed.handle,
+    displayName: feed.display_name,
+    avatarUrl: feed.avatar_url,
+    feedType: feed.feed_type,
+    feedUri: feed.feed_uri!,
+    feedUrl: feed.feed_url!,
+    postCount: allPosts.length,
+    generatedAt: new Date().toISOString(),
+    posts: allPosts,
+  });
+
+  console.log(`[scheduler] refreshed ${feed.handle} (${feed.feed_type}): ${allPosts.length} posts`);
+}
+
+async function refreshFeedWithRetry(feed: UserFeed): Promise<void> {
+  try {
+    await refreshFeed(feed);
+  } catch (err) {
+    console.warn(`[scheduler] first attempt failed for ${feed.handle} (${feed.feed_type}), retrying in ${RETRY_DELAY_MS / 1000}s…`, err);
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     try {
-      // Use the public read-only API — no credentials needed for public posts
-      const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
-
-      // For chrono-skeets: only fetch posts newer than the last generated_at,
-      // then prepend them to the existing list (deduplicating by URI).
-      // For top-skeets: always full refresh so like counts stay accurate.
-      const isIncremental = feed.feed_type === 'chrono-skeets' && feed.generated_at != null;
-      const cutoffDate = isIncremental ? new Date(feed.generated_at!) : undefined;
-
-      const newPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, cutoffDate);
-
-      let allPosts: typeof newPosts;
-      if (isIncremental) {
-        if (newPosts.length > 0) {
-          const newUris = new Set(newPosts.map(p => p.uri));
-          const retained = feed.posts.filter(p => !newUris.has(p.uri));
-          allPosts = [...newPosts, ...retained];
-        } else {
-          // No new posts — keep the existing list unchanged
-          allPosts = feed.posts;
-        }
-      } else {
-        allPosts = newPosts;
-      }
-
-      upsertFeed({
-        did: feed.did,
-        handle: feed.handle,
-        displayName: feed.display_name,
-        avatarUrl: feed.avatar_url,
-        feedType: feed.feed_type,
-        feedUri: feed.feed_uri,
-        feedUrl: feed.feed_url,
-        postCount: allPosts.length,
-        generatedAt: new Date().toISOString(),
-        posts: allPosts,
-      });
-
-      console.log(`[scheduler] refreshed ${feed.handle} (${feed.feed_type}): ${allPosts.length} posts`);
-    } catch (err) {
-      console.error(`[scheduler] failed to refresh ${feed.handle} (${feed.feed_type}):`, err);
+      await refreshFeed(feed);
+    } catch (retryErr) {
+      console.error(`[scheduler] retry failed for ${feed.handle} (${feed.feed_type}):`, retryErr);
     }
   }
 }

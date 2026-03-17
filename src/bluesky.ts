@@ -1,6 +1,9 @@
 import { BskyAgent, AppBskyFeedGetAuthorFeed } from '@atproto/api';
 import { PostRecord, FeedType } from './db';
 
+const REQUEST_TIMEOUT_MS = 10_000;
+const PAGE_DELAY_MS = 250;
+
 /**
  * Fetch ALL original posts for a logged-in agent (no replies, no reposts).
  * Paginates until the API returns no more cursor.
@@ -17,14 +20,31 @@ export async function fetchAllOriginalPosts(
   const posts: PostRecord[] = [];
   let cursor: string | undefined;
   let reachedCutoff = false;
+  let firstPage = true;
 
   do {
-    const res: AppBskyFeedGetAuthorFeed.Response = await agent.api.app.bsky.feed.getAuthorFeed({
-      actor: did,
-      limit: 100,
-      filter: 'posts_no_replies',
-      ...(cursor ? { cursor } : {}),
-    });
+    if (!firstPage) {
+      await new Promise(resolve => setTimeout(resolve, PAGE_DELAY_MS));
+    }
+    firstPage = false;
+
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
+
+    let res: AppBskyFeedGetAuthorFeed.Response;
+    try {
+      res = await agent.api.app.bsky.feed.getAuthorFeed(
+        {
+          actor: did,
+          limit: 100,
+          filter: 'posts_no_replies',
+          ...(cursor ? { cursor } : {}),
+        },
+        { signal: abort.signal },
+      );
+    } finally {
+      clearTimeout(timer);
+    }
 
     const { feed, cursor: nextCursor } = res.data;
 
