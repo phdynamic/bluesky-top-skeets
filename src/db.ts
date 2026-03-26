@@ -26,6 +26,7 @@ export interface UserFeed {
   generated_at: string | null;
   include_replies: boolean;
   last_full_refresh_at: string | null;
+  last_checked_at: string | null;
   posts: PostRecord[];
 }
 
@@ -77,6 +78,7 @@ export interface UpsertFeedInput {
 export function upsertFeed(feed: UpsertFeedInput): void {
   ensureDataDir();
 
+  const now = new Date().toISOString();
   const record: UserFeed = {
     did: feed.did,
     handle: feed.handle,
@@ -89,6 +91,7 @@ export function upsertFeed(feed: UpsertFeedInput): void {
     generated_at: feed.generatedAt,
     include_replies: feed.includeReplies,
     last_full_refresh_at: feed.lastFullRefreshAt,
+    last_checked_at: now,
     posts: feed.posts,
   };
 
@@ -137,6 +140,15 @@ export function getFeedByHandle(handle: string, feedType: FeedType): UserFeed | 
   const did = index[normalized];
   if (!did) return null;
   return getFeedByDid(did, feedType);
+}
+
+/** Update last_checked_at without changing posts — used when incremental refresh finds nothing new. */
+export function touchFeedChecked(did: string, feedType: FeedType): void {
+  const feed = getFeedByDid(did, feedType);
+  if (!feed) return;
+  const updated = { ...feed, last_checked_at: new Date().toISOString() };
+  fs.writeFileSync(feedFilePath(did, feedType), JSON.stringify(updated), 'utf8');
+  feedCache.set(cacheKey(did, feedType), updated);
 }
 
 export function deleteFeed(did: string, feedType: FeedType): void {
@@ -192,6 +204,7 @@ export async function migrateV0ToV1(): Promise<void> {
       generated_at: (row['generated_at'] as string | null) ?? null,
       include_replies: false,
       last_full_refresh_at: null,
+      last_checked_at: null,
       posts,
     };
 

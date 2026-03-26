@@ -1,12 +1,13 @@
 import { BskyAgent } from '@atproto/api';
-import { getAllFeeds, getFeedByDid, upsertFeed, UserFeed, FeedType, PostRecord } from './db';
+import { getAllFeeds, getFeedByDid, upsertFeed, touchFeedChecked, UserFeed, FeedType, PostRecord } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
 const CONCURRENCY = 6;
 const RETRY_DELAY_MS = 5_000;
-// How often to do a full refresh for top-skeets (to update like counts on old posts)
-const FULL_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const CHRONO_REFRESH_INTERVAL_MS = 15 * 60 * 1000;       // 15 minutes
+const TOP_REFRESH_INTERVAL_MS    = 12 * 60 * 60 * 1000;  // 12 hours
+const FULL_REFRESH_INTERVAL_MS   = 24 * 60 * 60 * 1000;  // 24 hours (like-count accuracy for top-skeets)
 
 let isRefreshing = false;
 
@@ -26,12 +27,27 @@ async function runRefresh(): Promise<void> {
     return;
   }
   isRefreshing = true;
-  const feeds = getAllFeeds().filter(f => f.feed_uri && f.feed_url);
+  const now = Date.now();
+  const allFeeds = getAllFeeds().filter(f => f.feed_uri && f.feed_url);
+
+  // Filter to feeds that are due for a refresh based on their type
+  const feeds = allFeeds.filter(f => {
+    if ((f.posts ?? []).length === 0) return true; // new registration — always refresh
+    const lastChecked = f.last_checked_at ? new Date(f.last_checked_at).getTime() : 0;
+    return f.feed_type === 'chrono-skeets'
+      ? now - lastChecked >= CHRONO_REFRESH_INTERVAL_MS
+      : now - lastChecked >= TOP_REFRESH_INTERVAL_MS;
+  });
+
   if (feeds.length === 0) {
     isRefreshing = false;
     return;
   }
-  console.log(`[scheduler] refreshing ${feeds.length} feed(s) (concurrency=${CONCURRENCY})…`);
+
+  // Priority: new registrations first, then chrono-skeets, then top-skeets
+  feeds.sort((a, b) => priority(a) - priority(b));
+
+  console.log(`[scheduler] refreshing ${feeds.length}/${allFeeds.length} feed(s) (concurrency=${CONCURRENCY})…`);
 
   try {
     // Worker pool: CONCURRENCY workers each pull the next feed as soon as they
@@ -47,6 +63,11 @@ async function runRefresh(): Promise<void> {
   } finally {
     isRefreshing = false;
   }
+}
+
+function priority(feed: UserFeed): number {
+  if ((feed.posts ?? []).length === 0) return 0;
+  return feed.feed_type === 'chrono-skeets' ? 1 : 2;
 }
 
 async function refreshFeed(feed: UserFeed): Promise<void> {
@@ -85,6 +106,7 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
 
     if (uniqueNew.length === 0) {
       console.log(`[scheduler] no new posts for ${feed.handle} (${feed.feed_type})`);
+      touchFeedChecked(feed.did, feed.feed_type);
       return;
     }
 
