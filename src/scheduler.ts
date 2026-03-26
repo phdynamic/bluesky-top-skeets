@@ -8,6 +8,8 @@ const RETRY_DELAY_MS = 5_000;
 
 let isRefreshing = false;
 
+export function getIsRefreshing(): boolean { return isRefreshing; }
+
 export function startScheduler(): void {
   const intervalMs = config.refreshIntervalMinutes * 60_000;
   console.log(`[scheduler] auto-refresh every ${config.refreshIntervalMinutes} min`);

@@ -5,7 +5,7 @@ import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
 import { getFeedByHandle, FEED_TYPES, FeedType, migrateV0ToV1, migrateV1ToV2 } from './db';
-import { startScheduler, refreshFeedNow } from './scheduler';
+import { startScheduler, refreshFeedNow, getIsRefreshing } from './scheduler';
 
 const app = express();
 
@@ -48,12 +48,17 @@ app.post('/api/register', async (req, res) => {
       postCount: result.postCount,
     });
 
-    // Fetch posts in the background — decoupled from the HTTP response to avoid timeouts
-    refreshFeedNow(result.did, feedType as FeedType).then(() => {
-      console.log(`[register] background refresh done for ${handle} (${feedType})`);
-    }).catch((err: unknown) => {
-      console.error(`[register] background refresh failed for ${handle} (${feedType}):`, err instanceof Error ? err.message : String(err));
-    });
+    // Fetch posts in the background only if the scheduler isn't already running.
+    // If it is running, the next scheduler cycle will pick up the new feed.
+    if (!getIsRefreshing()) {
+      refreshFeedNow(result.did, feedType as FeedType).then(() => {
+        console.log(`[register] background refresh done for ${handle} (${feedType})`);
+      }).catch((err: unknown) => {
+        console.error(`[register] background refresh failed for ${handle} (${feedType}):`, err instanceof Error ? err.message : String(err));
+      });
+    } else {
+      console.log(`[register] scheduler running — ${handle} (${feedType}) will be refreshed in next cycle`);
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
 
