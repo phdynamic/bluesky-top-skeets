@@ -37,7 +37,9 @@ app.post('/api/register', async (req, res) => {
   }
 
   try {
+    console.log(`[register] starting for ${handle} (${feedType}, includeReplies=${includeReplies ?? false})`);
     const result = await registerUserFeed(handle, appPassword, feedType as FeedType, includeReplies ?? false);
+    console.log(`[register] done for ${handle} (${feedType}): ${result.postCount} posts`);
     res.json({
       feedUrl: result.feedUrl,
       handle: result.handle,
