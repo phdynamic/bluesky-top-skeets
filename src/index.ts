@@ -39,13 +39,20 @@ app.post('/api/register', async (req, res) => {
   try {
     console.log(`[register] starting for ${handle} (${feedType}, includeReplies=${includeReplies ?? false})`);
     const result = await registerUserFeed(handle, appPassword, feedType as FeedType, includeReplies ?? false);
-    console.log(`[register] done for ${handle} (${feedType}): ${result.postCount} posts`);
+    console.log(`[register] done for ${handle} (${feedType}), refreshing posts in background`);
     res.json({
       feedUrl: result.feedUrl,
       handle: result.handle,
       displayName: result.displayName,
       avatarUrl: result.avatarUrl,
       postCount: result.postCount,
+    });
+
+    // Fetch posts in the background — decoupled from the HTTP response to avoid timeouts
+    refreshFeedNow(result.did, feedType as FeedType).then(() => {
+      console.log(`[register] background refresh done for ${handle} (${feedType})`);
+    }).catch((err: unknown) => {
+      console.error(`[register] background refresh failed for ${handle} (${feedType}):`, err instanceof Error ? err.message : String(err));
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

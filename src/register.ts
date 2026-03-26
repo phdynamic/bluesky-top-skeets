@@ -1,7 +1,6 @@
 import { BskyAgent } from '@atproto/api';
 import { config } from './config';
 import { upsertFeed, deleteFeed, FeedType } from './db';
-import { fetchAllOriginalPosts } from './bluesky';
 
 const FEED_DISPLAY_NAMES: Record<FeedType, string> = {
   'top-skeets': 'Top Skeets',
@@ -42,10 +41,7 @@ export async function registerUserFeed(
   const displayName = profileRes.data.displayName ?? null;
   const avatarUrl = profileRes.data.avatar ?? null;
 
-  // 3. Fetch and sort all original posts
-  const posts = await fetchAllOriginalPosts(agent, did, userHandle, feedType, undefined, includeReplies);
-
-  // 4. Publish feed generator record under the USER'S OWN account
+  // 3. Publish feed generator record under the USER'S OWN account
   await agent.api.com.atproto.repo.putRecord({
     repo: did,
     collection: 'app.bsky.feed.generator',
@@ -59,11 +55,11 @@ export async function registerUserFeed(
     },
   });
 
-  // 5. Construct URIs
+  // 4. Construct URIs
   const feedUri = `at://${did}/app.bsky.feed.generator/${feedType}`;
   const feedUrl = `https://bsky.app/profile/${did}/feed/${feedType}`;
 
-  // 6. Persist to database
+  // 5. Persist placeholder — posts will be populated by a background refresh
   upsertFeed({
     did,
     handle: userHandle,
@@ -72,10 +68,10 @@ export async function registerUserFeed(
     feedType,
     feedUri,
     feedUrl,
-    postCount: posts.length,
+    postCount: 0,
     generatedAt: new Date().toISOString(),
     includeReplies,
-    posts,
+    posts: [],
   });
 
   return {
@@ -84,8 +80,8 @@ export async function registerUserFeed(
     displayName,
     avatarUrl,
     feedUrl,
-    postCount: posts.length,
-    posts,
+    postCount: 0,
+    posts: [],
   };
 }
 
