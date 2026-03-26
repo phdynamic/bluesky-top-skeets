@@ -32,11 +32,16 @@ async function runRefresh(): Promise<void> {
   console.log(`[scheduler] refreshing ${feeds.length} feed(s) (concurrency=${CONCURRENCY})…`);
 
   try {
-    // Process feeds in batches of CONCURRENCY
-    for (let i = 0; i < feeds.length; i += CONCURRENCY) {
-      const batch = feeds.slice(i, i + CONCURRENCY);
-      await Promise.all(batch.map(feed => refreshFeedWithRetry(feed)));
-    }
+    // Worker pool: CONCURRENCY workers each pull the next feed as soon as they
+    // finish their current one, so a slow feed never blocks a fast one.
+    const queue = [...feeds];
+    const workers = Array.from({ length: Math.min(CONCURRENCY, feeds.length) }, async () => {
+      while (queue.length > 0) {
+        const feed = queue.shift();
+        if (feed) await refreshFeedWithRetry(feed);
+      }
+    });
+    await Promise.all(workers);
   } finally {
     isRefreshing = false;
   }
