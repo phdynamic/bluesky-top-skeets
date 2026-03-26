@@ -23,7 +23,10 @@ async function runRefresh(): Promise<void> {
   }
   isRefreshing = true;
   const feeds = getAllFeeds().filter(f => f.feed_uri && f.feed_url);
-  if (feeds.length === 0) return;
+  if (feeds.length === 0) {
+    isRefreshing = false;
+    return;
+  }
   console.log(`[scheduler] refreshing ${feeds.length} feed(s) (concurrency=${CONCURRENCY})…`);
 
   try {
