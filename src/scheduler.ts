@@ -3,8 +3,10 @@ import { getAllFeeds, getFeedByDid, upsertFeed, UserFeed, FeedType } from './db'
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
-const CONCURRENCY = 3;
+const CONCURRENCY = 6;
 const RETRY_DELAY_MS = 5_000;
+
+let isRefreshing = false;
 
 export function startScheduler(): void {
   const intervalMs = config.refreshIntervalMinutes * 60_000;
@@ -15,14 +17,23 @@ export function startScheduler(): void {
 }
 
 async function runRefresh(): Promise<void> {
+  if (isRefreshing) {
+    console.log('[scheduler] previous refresh still running — skipping this tick');
+    return;
+  }
+  isRefreshing = true;
   const feeds = getAllFeeds().filter(f => f.feed_uri && f.feed_url);
   if (feeds.length === 0) return;
   console.log(`[scheduler] refreshing ${feeds.length} feed(s) (concurrency=${CONCURRENCY})…`);
 
-  // Process feeds in batches of CONCURRENCY
-  for (let i = 0; i < feeds.length; i += CONCURRENCY) {
-    const batch = feeds.slice(i, i + CONCURRENCY);
-    await Promise.all(batch.map(feed => refreshFeedWithRetry(feed)));
+  try {
+    // Process feeds in batches of CONCURRENCY
+    for (let i = 0; i < feeds.length; i += CONCURRENCY) {
+      const batch = feeds.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(feed => refreshFeedWithRetry(feed)));
+    }
+  } finally {
+    isRefreshing = false;
   }
 }
 
