@@ -474,7 +474,7 @@
         <button class="btn-copy" id="copyBtn" onclick="copyUrl()">Copy</button>
       </div>
 
-      <div class="info-box">
+      <div class="info-box" id="infoBox">
         Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts ranked by likes.
         <br /><br />
         Your posts are fetched in the background — the feed may take up to 30 minutes to fully populate for the first time.
@@ -554,7 +554,7 @@
         }
 
         setLoading(false);
-        showSuccess(data);
+        showSuccess(data, selectedFeedType);
       } catch (err) {
         setLoading(false);
         showError('Network error. Please check your connection and try again.');
@@ -612,8 +612,14 @@
       errorBox.style.display = 'block';
     }
 
-    function showSuccess(data) {
+    function showSuccess(data, feedType) {
       document.getElementById('formView').classList.add('hidden');
+
+      var postDesc = feedType === 'chrono-skeets' ? 'newest first' : 'ranked by likes';
+      document.getElementById('infoBox').innerHTML =
+        'Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts, ' + postDesc + '.' +
+        '<br /><br />' +
+        'Your posts are fetched in the background \u2014 the feed may take up to 30 minutes to fully populate for the first time.';
 
       var avatar = document.getElementById('avatarImg');
       if (data.avatarUrl) {
