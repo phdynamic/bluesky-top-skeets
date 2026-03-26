@@ -27,6 +27,7 @@ export async function registerUserFeed(
   handle: string,
   appPassword: string,
   feedType: FeedType,
+  includeReplies = false,
 ): Promise<RegisterResult> {
   const agent = new BskyAgent({ service: 'https://bsky.social' });
 
@@ -42,7 +43,7 @@ export async function registerUserFeed(
   const avatarUrl = profileRes.data.avatar ?? null;
 
   // 3. Fetch and sort all original posts
-  const posts = await fetchAllOriginalPosts(agent, did, userHandle, feedType);
+  const posts = await fetchAllOriginalPosts(agent, did, userHandle, feedType, undefined, includeReplies);
 
   // 4. Publish feed generator record under the USER'S OWN account
   await agent.api.com.atproto.repo.putRecord({
@@ -73,6 +74,7 @@ export async function registerUserFeed(
     feedUrl,
     postCount: posts.length,
     generatedAt: new Date().toISOString(),
+    includeReplies,
     posts,
   });
 

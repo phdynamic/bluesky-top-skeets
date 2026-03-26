@@ -33,7 +33,8 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
   // (top-skeets needs it for accurate like counts; chrono-skeets needs it
   // because the Bluesky API sorts by createdAt, not indexedAt, making an
   // incremental cutoff based on indexedAt unreliable.)
-  const allPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type);
+  const includeReplies = feed.include_replies ?? false;
+  const allPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, undefined, includeReplies);
 
   upsertFeed({
     did: feed.did,
@@ -45,6 +46,7 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
     feedUrl: feed.feed_url!,
     postCount: allPosts.length,
     generatedAt: new Date().toISOString(),
+    includeReplies,
     posts: allPosts,
   });
 

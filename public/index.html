@@ -225,6 +225,30 @@
       text-align: center;
     }
 
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: #1d9bf0;
+      flex-shrink: 0;
+    }
+
+    .checkbox-row label {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 400;
+      color: #555;
+      cursor: pointer;
+    }
+
     .processing-note {
       font-size: 12px;
       color: #999;
@@ -424,6 +448,11 @@
       </div>
       <p class="feed-type-desc" id="feedTypeDesc">Ranked by most likes</p>
 
+      <div class="checkbox-row">
+        <input type="checkbox" id="includeReplies" />
+        <label for="includeReplies">Include replies</label>
+      </div>
+
       <div class="btn-row">
         <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">
           <span class="spinner" id="spinner"></span>
@@ -506,10 +535,11 @@
       document.getElementById('submitLabel').textContent = 'Generating\u2026';
 
       try {
+        var includeReplies = document.getElementById('includeReplies').checked;
         var res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType }),
+          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType, includeReplies: includeReplies }),
         });
         var data = await res.json();
 
@@ -623,6 +653,7 @@
       document.getElementById('formView').classList.remove('hidden');
       document.getElementById('handle').value = '';
       document.getElementById('appPassword').value = '';
+      document.getElementById('includeReplies').checked = false;
       document.getElementById('errorBox').style.display = 'none';
     }
 

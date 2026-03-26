@@ -19,10 +19,11 @@ app.use(feedSkeletonRouter);
 
 // POST /api/register — authenticate as user and publish feed
 app.post('/api/register', async (req, res) => {
-  const { handle, appPassword, feedType } = req.body as {
+  const { handle, appPassword, feedType, includeReplies } = req.body as {
     handle?: string;
     appPassword?: string;
     feedType?: string;
+    includeReplies?: boolean;
   };
 
   if (!handle || !appPassword) {
@@ -36,7 +37,7 @@ app.post('/api/register', async (req, res) => {
   }
 
   try {
-    const result = await registerUserFeed(handle, appPassword, feedType as FeedType);
+    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, includeReplies ?? false);
     res.json({
       feedUrl: result.feedUrl,
       handle: result.handle,

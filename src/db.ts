@@ -24,6 +24,7 @@ export interface UserFeed {
   feed_url: string | null;
   post_count: number | null;
   generated_at: string | null;
+  include_replies: boolean;
   posts: PostRecord[];
 }
 
@@ -67,6 +68,7 @@ export interface UpsertFeedInput {
   feedUrl: string;
   postCount: number;
   generatedAt: string;
+  includeReplies: boolean;
   posts: PostRecord[];
 }
 
@@ -83,6 +85,7 @@ export function upsertFeed(feed: UpsertFeedInput): void {
     feed_url: feed.feedUrl,
     post_count: feed.postCount,
     generated_at: feed.generatedAt,
+    include_replies: feed.includeReplies,
     posts: feed.posts,
   };
 
@@ -184,6 +187,7 @@ export async function migrateV0ToV1(): Promise<void> {
       feed_url: (row['feed_url'] as string | null) ?? null,
       post_count: (row['post_count'] as number | null) ?? null,
       generated_at: (row['generated_at'] as string | null) ?? null,
+      include_replies: false,
       posts,
     };
 

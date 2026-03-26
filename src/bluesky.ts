@@ -5,7 +5,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const PAGE_DELAY_MS = 250;
 
 /**
- * Fetch ALL original posts for a logged-in agent (no replies, no reposts).
+ * Fetch ALL posts for a logged-in agent (no reposts).
+ * When includeReplies is false (default), replies are excluded server- and client-side.
  * Paginates until the API returns no more cursor.
  * sortOrder: 'top' sorts by like count descending; 'chrono' keeps newest-first order.
  */
@@ -16,6 +17,7 @@ export async function fetchAllOriginalPosts(
   feedType: FeedType,
   /** If provided, stop paginating once posts older than this date are seen. */
   cutoffDate?: Date,
+  includeReplies = false,
 ): Promise<PostRecord[]> {
   const posts: PostRecord[] = [];
   let cursor: string | undefined;
@@ -37,7 +39,7 @@ export async function fetchAllOriginalPosts(
         {
           actor: did,
           limit: 100,
-          filter: 'posts_no_replies',
+          filter: includeReplies ? 'posts_with_replies' : 'posts_no_replies',
           ...(cursor ? { cursor } : {}),
         },
         { signal: abort.signal },
@@ -63,9 +65,9 @@ export async function fetchAllOriginalPosts(
         continue;
       }
 
-      // Skip replies (belt-and-suspenders — filter param should handle this too)
+      // Skip replies unless includeReplies is set
       const record = item.post.record as Record<string, unknown> | null;
-      if (record && record.reply) {
+      if (!includeReplies && record && record.reply) {
         continue;
       }
 
