@@ -71,6 +71,7 @@ export async function registerUserFeed(
     postCount: 0,
     generatedAt: new Date().toISOString(),
     includeReplies,
+    lastFullRefreshAt: null,
     posts: [],
   });
 

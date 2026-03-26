@@ -1,10 +1,12 @@
 import { BskyAgent } from '@atproto/api';
-import { getAllFeeds, getFeedByDid, upsertFeed, UserFeed, FeedType } from './db';
+import { getAllFeeds, getFeedByDid, upsertFeed, UserFeed, FeedType, PostRecord } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
 const CONCURRENCY = 6;
 const RETRY_DELAY_MS = 5_000;
+// How often to do a full refresh for top-skeets (to update like counts on old posts)
+const FULL_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 let isRefreshing = false;
 
@@ -49,13 +51,53 @@ async function runRefresh(): Promise<void> {
 
 async function refreshFeed(feed: UserFeed): Promise<void> {
   const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
-
-  // Always do a full refresh for both feed types so new posts are never missed.
-  // (top-skeets needs it for accurate like counts; chrono-skeets needs it
-  // because the Bluesky API sorts by createdAt, not indexedAt, making an
-  // incremental cutoff based on indexedAt unreliable.)
   const includeReplies = feed.include_replies ?? false;
-  const allPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, undefined, includeReplies);
+  const existingPosts = feed.posts ?? [];
+
+  // Decide between full and incremental refresh.
+  // Full refresh when:
+  //   - no posts stored yet (first-time fetch)
+  //   - top-skeets and 24h have elapsed since last full refresh (to update like counts)
+  const lastFullMs = feed.last_full_refresh_at ? new Date(feed.last_full_refresh_at).getTime() : 0;
+  const needsFullRefresh =
+    existingPosts.length === 0 ||
+    (feed.feed_type === 'top-skeets' && Date.now() - lastFullMs > FULL_REFRESH_INTERVAL_MS);
+
+  let allPosts: PostRecord[];
+  let lastFullRefreshAt = feed.last_full_refresh_at ?? null;
+
+  if (needsFullRefresh) {
+    allPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, undefined, includeReplies);
+    lastFullRefreshAt = new Date().toISOString();
+    console.log(`[scheduler] full refresh ${feed.handle} (${feed.feed_type}): ${allPosts.length} posts`);
+  } else {
+    // Find the newest indexedAt among stored posts.
+    // Subtract 1s as a buffer to handle same-millisecond edge cases; dedup by URI handles any overlap.
+    const newestIndexedAt = existingPosts.reduce((latest, p) =>
+      p.indexedAt > latest ? p.indexedAt : latest, '');
+    const cutoff = new Date(new Date(newestIndexedAt).getTime() - 1000);
+
+    const newPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, cutoff, includeReplies);
+
+    // Deduplicate against existing posts (handles the 1s overlap)
+    const existingUris = new Set(existingPosts.map(p => p.uri));
+    const uniqueNew = newPosts.filter(p => !existingUris.has(p.uri));
+
+    if (uniqueNew.length === 0) {
+      console.log(`[scheduler] no new posts for ${feed.handle} (${feed.feed_type})`);
+      return;
+    }
+
+    if (feed.feed_type === 'top-skeets') {
+      allPosts = [...uniqueNew, ...existingPosts];
+      allPosts.sort((a, b) => b.likeCount - a.likeCount);
+    } else {
+      // chrono-skeets: newest first — new posts go at the front
+      allPosts = [...uniqueNew, ...existingPosts];
+    }
+
+    console.log(`[scheduler] incremental refresh ${feed.handle} (${feed.feed_type}): +${uniqueNew.length} new (${allPosts.length} total)`);
+  }
 
   upsertFeed({
     did: feed.did,
@@ -68,10 +110,9 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
     postCount: allPosts.length,
     generatedAt: new Date().toISOString(),
     includeReplies,
+    lastFullRefreshAt,
     posts: allPosts,
   });
-
-  console.log(`[scheduler] refreshed ${feed.handle} (${feed.feed_type}): ${allPosts.length} posts`);
 }
 
 /** Force an immediate refresh for a specific feed. Throws on failure. */
