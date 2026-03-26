@@ -1,7 +1,7 @@
 import { BskyAgent, AppBskyFeedGetAuthorFeed } from '@atproto/api';
 import { PostRecord, FeedType } from './db';
 
-const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 const PAGE_DELAY_MS = 250;
 
 /**
