@@ -492,7 +492,7 @@
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <h2>Feed unpublished</h2>
-        <p>Your Top Skeets feed has been removed from Bluesky and deleted from our system.</p>
+        <p id="unpublishMsg">Your feed has been removed from Bluesky and deleted from our system.</p>
         <button class="btn-ghost" onclick="resetForm()">Back</button>
       </div>
     </div>
@@ -595,6 +595,8 @@
           return;
         }
 
+        var feedLabel = selectedFeedType === 'chrono-skeets' ? 'My Skeets' : 'Top Skeets';
+        document.getElementById('unpublishMsg').textContent = 'Your ' + feedLabel + ' feed has been removed from Bluesky and deleted from our system.';
         document.getElementById('formView').classList.add('hidden');
         document.getElementById('unpublishView').classList.remove('hidden');
       } catch (err) {

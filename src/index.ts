@@ -11,6 +11,36 @@ const app = express();
 
 app.use(express.json());
 
+// ---------------------------------------------------------------------------
+// Simple in-memory rate limiter — max 5 requests per IP per 60 seconds.
+// Applies to the three mutation endpoints (register, refresh, unregister).
+// ---------------------------------------------------------------------------
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function rateLimitMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now >= entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    next();
+    return;
+  }
+
+  entry.count += 1;
+  if (entry.count > RATE_LIMIT_MAX) {
+    res.status(429).json({ error: 'TooManyRequests', message: 'Too many requests. Please wait a moment and try again.' });
+    return;
+  }
+
+  next();
+}
+
+const MAX_FIELD_LENGTH = 200;
+
 // DID document
 app.use(wellKnownRouter);
 
@@ -18,7 +48,7 @@ app.use(wellKnownRouter);
 app.use(feedSkeletonRouter);
 
 // POST /api/register — authenticate as user and publish feed
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', rateLimitMiddleware, async (req, res) => {
   const { handle, appPassword, feedType, includeReplies } = req.body as {
     handle?: string;
     appPassword?: string;
@@ -28,6 +58,11 @@ app.post('/api/register', async (req, res) => {
 
   if (!handle || !appPassword) {
     res.status(400).json({ error: 'MissingFields', message: 'handle and appPassword are required' });
+    return;
+  }
+
+  if (handle.length > MAX_FIELD_LENGTH || appPassword.length > MAX_FIELD_LENGTH) {
+    res.status(400).json({ error: 'FieldTooLong', message: 'handle and appPassword must be 200 characters or fewer' });
     return;
   }
 
@@ -78,7 +113,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // POST /api/refresh — immediately re-fetch posts for an existing feed
-app.post('/api/refresh', async (req, res) => {
+app.post('/api/refresh', rateLimitMiddleware, async (req, res) => {
   const { handle, appPassword, feedType } = req.body as {
     handle?: string;
     appPassword?: string;
@@ -87,6 +122,11 @@ app.post('/api/refresh', async (req, res) => {
 
   if (!handle || !appPassword) {
     res.status(400).json({ error: 'MissingFields', message: 'handle and appPassword are required' });
+    return;
+  }
+
+  if (handle.length > MAX_FIELD_LENGTH || appPassword.length > MAX_FIELD_LENGTH) {
+    res.status(400).json({ error: 'FieldTooLong', message: 'handle and appPassword must be 200 characters or fewer' });
     return;
   }
 
@@ -120,7 +160,7 @@ app.post('/api/refresh', async (req, res) => {
 });
 
 // POST /api/unregister — delete feed generator record and remove from store
-app.post('/api/unregister', async (req, res) => {
+app.post('/api/unregister', rateLimitMiddleware, async (req, res) => {
   const { handle, appPassword, feedType } = req.body as {
     handle?: string;
     appPassword?: string;
@@ -129,6 +169,11 @@ app.post('/api/unregister', async (req, res) => {
 
   if (!handle || !appPassword) {
     res.status(400).json({ error: 'MissingFields', message: 'handle and appPassword are required' });
+    return;
+  }
+
+  if (handle.length > MAX_FIELD_LENGTH || appPassword.length > MAX_FIELD_LENGTH) {
+    res.status(400).json({ error: 'FieldTooLong', message: 'handle and appPassword must be 200 characters or fewer' });
     return;
   }
 

@@ -46,12 +46,13 @@ feedSkeletonRouter.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req: Request, res
 
   const limit = Math.min(Math.max(parseInt((req.query.limit as string) ?? '30', 10) || 30, 1), 100);
   const cursorParam = req.query.cursor as string | undefined;
-  const cursorIndex = cursorParam ? parseInt(cursorParam, 10) : 0;
+  const cursorIndex = Math.max(0, parseInt(cursorParam ?? '0', 10) || 0);
 
   const page = posts.slice(cursorIndex, cursorIndex + limit);
   const nextCursor =
     cursorIndex + limit < posts.length ? String(cursorIndex + limit) : undefined;
 
+  res.set('Cache-Control', 'public, max-age=60');
   res.json({
     ...(nextCursor !== undefined ? { cursor: nextCursor } : {}),
     feed: page.map((p) => ({ post: p.uri })),
