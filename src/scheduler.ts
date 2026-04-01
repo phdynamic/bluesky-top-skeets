@@ -1,5 +1,5 @@
 import { BskyAgent } from '@atproto/api';
-import { getAllFeeds, getFeedByDid, upsertFeed, touchFeedChecked, UserFeed, FeedType, PostRecord } from './db';
+import { getAllFeeds, getFeedByDid, upsertFeed, touchFeedChecked, deleteFeed, UserFeed, FeedType, PostRecord } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
@@ -145,15 +145,36 @@ export async function refreshFeedNow(did: string, feedType: FeedType): Promise<v
   await refreshFeed(feed);
 }
 
+function isGoneError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes('Profile not found') ||
+    msg.includes('Account has been deactivated') ||
+    msg.includes('Account has been suspended') ||
+    msg.includes('AccountDeactivated') ||
+    msg.includes('AccountTakedown')
+  );
+}
+
 async function refreshFeedWithRetry(feed: UserFeed): Promise<void> {
   try {
     await refreshFeed(feed);
   } catch (err) {
+    if (isGoneError(err)) {
+      console.log(`[scheduler] pruning ${feed.handle} (${feed.feed_type}) — account gone`);
+      deleteFeed(feed.did, feed.feed_type);
+      return;
+    }
     console.warn(`[scheduler] first attempt failed for ${feed.handle} (${feed.feed_type}), retrying in ${RETRY_DELAY_MS / 1000}s…`, err);
     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     try {
       await refreshFeed(feed);
     } catch (retryErr) {
+      if (isGoneError(retryErr)) {
+        console.log(`[scheduler] pruning ${feed.handle} (${feed.feed_type}) — account gone`);
+        deleteFeed(feed.did, feed.feed_type);
+        return;
+      }
       console.error(`[scheduler] retry failed for ${feed.handle} (${feed.feed_type}):`, retryErr);
     }
   }
