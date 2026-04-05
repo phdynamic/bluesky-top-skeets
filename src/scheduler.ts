@@ -82,7 +82,7 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
   const lastFullMs = feed.last_full_refresh_at ? new Date(feed.last_full_refresh_at).getTime() : 0;
   const needsFullRefresh =
     existingPosts.length === 0 ||
-    (feed.feed_type === 'top-skeets' && Date.now() - lastFullMs > FULL_REFRESH_INTERVAL_MS);
+    Date.now() - lastFullMs > FULL_REFRESH_INTERVAL_MS;
 
   let allPosts: PostRecord[];
   let lastFullRefreshAt = feed.last_full_refresh_at ?? null;
