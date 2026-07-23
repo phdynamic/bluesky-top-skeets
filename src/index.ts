@@ -245,6 +245,7 @@ app.get('/api/feed/:handle', (req, res) => {
     avatarUrl: meta.avatar_url,
     postCount: meta.post_count,
     generatedAt: meta.generated_at,
+    lastFullRefreshAt: meta.last_full_refresh_at,
     feedUrl: meta.feed_url,
   });
 });

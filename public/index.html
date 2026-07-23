@@ -249,14 +249,6 @@
       cursor: pointer;
     }
 
-    .processing-note {
-      font-size: 12px;
-      color: #999;
-      text-align: center;
-      margin-top: 28px;
-      line-height: 1.5;
-    }
-
     .error-box {
       background: #fff5f5;
       border: 1px solid #fecaca;
@@ -405,13 +397,6 @@
       margin: 20px 0;
     }
 
-    .footer {
-      margin-top: 24px;
-      text-align: center;
-      font-size: 12px;
-      color: #aaa;
-    }
-
     .hidden { display: none !important; }
   </style>
 </head>
@@ -429,7 +414,7 @@
     <!-- FORM VIEW -->
     <div id="formView">
       <h1>Generate your feed</h1>
-      <p class="subtitle">Rank your Bluesky posts by likes and get a shareable feed link.</p>
+      <p class="subtitle">Turn your Bluesky posts into a shareable feed &mdash; top-liked or newest first.</p>
 
       <div id="errorBox" class="error-box"></div>
 
@@ -475,9 +460,9 @@
       </div>
 
       <div class="info-box" id="infoBox">
-        Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts ranked by likes.
+        Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts.
         <br /><br />
-        Your posts are fetched in the background — the feed may take up to 30 minutes to fully populate for the first time.
+        <span id="fetchStatus">Your posts are fetched in the background — the feed may take up to 30 minutes to fully populate for the first time.</span>
       </div>
 
       <div class="divider"></div>
@@ -501,6 +486,13 @@
 
   <script>
     var selectedFeedType = 'top-skeets';
+    var inFlight = false;
+
+    // Parse a JSON body defensively — a 502 HTML error page from the host
+    // shouldn't masquerade as a network error.
+    async function safeJson(res) {
+      try { return await res.json(); } catch (e) { return null; }
+    }
 
     function selectFeedType(type) {
       selectedFeedType = type;
@@ -521,6 +513,9 @@
     }
 
     async function handleSubmit() {
+      if (inFlight) return;
+      disarmUnpublish();
+
       var handle = document.getElementById('handle').value.trim();
       var appPassword = document.getElementById('appPassword').value.trim();
 
@@ -531,6 +526,7 @@
         return;
       }
 
+      inFlight = true;
       setLoading(true);
       document.getElementById('submitLabel').textContent = 'Generating\u2026';
 
@@ -541,14 +537,14 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType, includeReplies: includeReplies }),
         });
-        var data = await res.json();
+        var data = await safeJson(res);
 
-        if (!res.ok) {
+        if (!res.ok || !data) {
           setLoading(false);
           if (res.status === 401) {
             showError('Invalid handle or app password. Please check and try again.');
           } else {
-            showError(data.message || 'Something went wrong. Please try again.');
+            showError((data && data.message) || 'Something went wrong. Please try again.');
           }
           return;
         }
@@ -558,10 +554,29 @@
       } catch (err) {
         setLoading(false);
         showError('Network error. Please check your connection and try again.');
+      } finally {
+        inFlight = false;
       }
     }
 
+    // Unpublish is destructive \u2014 the first click arms the button, the second
+    // (within 5s) actually unpublishes. Mirrors the Copy \u2192 "Copied!" pattern.
+    var unpublishArmed = false;
+    var unpublishArmTimer = null;
+
+    function disarmUnpublish() {
+      unpublishArmed = false;
+      if (unpublishArmTimer) {
+        clearTimeout(unpublishArmTimer);
+        unpublishArmTimer = null;
+      }
+      var btn = document.getElementById('unpublishBtn');
+      if (btn && btn.textContent === 'Confirm unpublish?') btn.textContent = 'Unpublish';
+    }
+
     async function handleUnpublish() {
+      if (inFlight) return;
+
       var handle = document.getElementById('handle').value.trim();
       var appPassword = document.getElementById('appPassword').value.trim();
 
@@ -573,7 +588,17 @@
       }
 
       var unpublishBtn = document.getElementById('unpublishBtn');
+
+      if (!unpublishArmed) {
+        unpublishArmed = true;
+        unpublishBtn.textContent = 'Confirm unpublish?';
+        unpublishArmTimer = setTimeout(disarmUnpublish, 5000);
+        return;
+      }
+      disarmUnpublish();
+
       var submitBtn = document.getElementById('submitBtn');
+      inFlight = true;
       unpublishBtn.disabled = true;
       submitBtn.disabled = true;
       unpublishBtn.textContent = 'Unpublishing\u2026';
@@ -584,13 +609,13 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType }),
         });
-        var data = await res.json();
+        var data = await safeJson(res);
 
         if (!res.ok) {
           if (res.status === 401) {
             showError('Invalid handle or app password. Please check and try again.');
           } else {
-            showError(data.message || 'Something went wrong. Please try again.');
+            showError((data && data.message) || 'Something went wrong. Please try again.');
           }
           return;
         }
@@ -602,6 +627,7 @@
       } catch (err) {
         showError('Network error. Please check your connection and try again.');
       } finally {
+        inFlight = false;
         unpublishBtn.disabled = false;
         submitBtn.disabled = false;
         unpublishBtn.textContent = 'Unpublish';
@@ -614,6 +640,43 @@
       errorBox.style.display = 'block';
     }
 
+    // Poll the feed status while the background fetch runs, so the success
+    // screen can show a live post count instead of a static wait message.
+    var pollTimer = null;
+    var pollCount = 0;
+
+    function stopFeedPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    function startFeedPolling(handle, feedType) {
+      stopFeedPolling();
+      pollCount = 0;
+      pollTimer = setInterval(function() {
+        pollCount++;
+        if (pollCount > 180) { // give up after 15 minutes
+          stopFeedPolling();
+          return;
+        }
+        fetch('/api/feed/' + encodeURIComponent(handle) + '?feedType=' + feedType)
+          .then(function(res) { return res.ok ? res.json() : null; })
+          .then(function(info) {
+            if (!info || !info.lastFullRefreshAt) return; // still fetching
+            var el = document.getElementById('fetchStatus');
+            if (el) {
+              el.textContent = info.postCount > 0
+                ? info.postCount.toLocaleString() + ' posts in your feed.'
+                : 'Your feed is ready \u2014 no posts found yet.';
+            }
+            stopFeedPolling();
+          })
+          .catch(function() { /* transient \u2014 keep polling */ });
+      }, 5000);
+    }
+
     function showSuccess(data, feedType) {
       document.getElementById('formView').classList.add('hidden');
 
@@ -621,7 +684,9 @@
       document.getElementById('infoBox').innerHTML =
         'Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts, ' + postDesc + '.' +
         '<br /><br />' +
-        'Your posts are fetched in the background \u2014 the feed may take up to 30 minutes to fully populate for the first time.';
+        '<span id="fetchStatus">Your posts are fetched in the background \u2014 the feed may take up to 30 minutes to fully populate for the first time.</span>';
+
+      startFeedPolling(data.handle, feedType);
 
       var avatar = document.getElementById('avatarImg');
       if (data.avatarUrl) {
@@ -656,6 +721,8 @@
     }
 
     function resetForm() {
+      stopFeedPolling();
+      disarmUnpublish();
       document.getElementById('successView').classList.add('hidden');
       document.getElementById('unpublishView').classList.add('hidden');
       document.getElementById('formView').classList.remove('hidden');
