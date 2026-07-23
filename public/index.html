@@ -7,14 +7,90 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    // Apply the theme before first paint to avoid a light flash
+    (function() {
+      var saved = null;
+      try { saved = localStorage.getItem('theme'); } catch (e) {}
+      var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg-grad-a: #eaf4fe;
+      --bg-grad-b: #f6f7f9;
+      --bg-grad-c: #eef1f6;
+      --card-bg: #fff;
+      --card-border: rgba(16,24,40,0.05);
+      --text: #1a1a1a;
+      --text-secondary: #667085;
+      --text-tertiary: #8a919c;
+      --text-faint: #98a1ab;
+      --label: #444;
+      --input-bg: #fff;
+      --input-border: #dfe3e8;
+      --surface-alt: #f0f2f5;
+      --surface-raised: #fff;
+      --divider: #f0f0f0;
+      --info-bg: #f0f8ff;
+      --info-border: #bfdbfe;
+      --info-text: #1e40af;
+      --error-bg: #fff5f5;
+      --error-border: #fecaca;
+      --error-text: #b91c1c;
+      --track: #dbeafe;
+      --accent: #1d9bf0;
+      --ghost-border: #e0e0e0;
+      --ghost-hover: #f0f8ff;
+      --url-input-bg: #fafafa;
+      --danger-text: #dc2626;
+      --danger-border: #fca5a5;
+      --danger-hover: #fff5f5;
+      --check-bg: #f0fdf4;
+    }
+
+    html[data-theme="dark"] {
+      --bg-grad-a: #0d1520;
+      --bg-grad-b: #10161f;
+      --bg-grad-c: #0b0f16;
+      --card-bg: #161d29;
+      --card-border: rgba(255,255,255,0.07);
+      --text: #e7ecf3;
+      --text-secondary: #9aa6b5;
+      --text-tertiary: #7d8899;
+      --text-faint: #6b7686;
+      --label: #c3ccd8;
+      --input-bg: #0f1520;
+      --input-border: #2a3441;
+      --surface-alt: #0f1520;
+      --surface-raised: #222b3a;
+      --divider: #242e3c;
+      --info-bg: #12253a;
+      --info-border: #1e3a5f;
+      --info-text: #93c5fd;
+      --error-bg: #2a1416;
+      --error-border: #5f2120;
+      --error-text: #fca5a5;
+      --track: #1e3a5f;
+      --accent: #1d9bf0;
+      --ghost-border: #2a3441;
+      --ghost-hover: #12253a;
+      --url-input-bg: #0f1520;
+      --danger-text: #f87171;
+      --danger-border: #7f1d1d;
+      --danger-hover: #2a1416;
+      --check-bg: #122918;
+    }
+
     body {
       font-family: 'Inter', system-ui, sans-serif;
-      background: linear-gradient(160deg, #eaf4fe 0%, #f6f7f9 45%, #eef1f6 100%);
+      background: linear-gradient(160deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 45%, var(--bg-grad-c) 100%);
       background-attachment: fixed;
-      color: #1a1a1a;
+      color: var(--text);
+      transition: color 0.2s;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -24,13 +100,14 @@
     }
 
     .card {
-      background: #fff;
-      border: 1px solid rgba(16,24,40,0.05);
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
       border-radius: 20px;
       box-shadow: 0 1px 2px rgba(16,24,40,0.06), 0 12px 32px rgba(16,24,40,0.10);
       padding: 40px 36px;
       width: 100%;
       max-width: 460px;
+      transition: background-color 0.2s;
     }
 
     .logo {
@@ -61,7 +138,7 @@
       font-size: 18px;
       font-weight: 600;
       letter-spacing: -0.3px;
-      color: #1a1a1a;
+      color: var(--text);
     }
 
     h1 {
@@ -73,7 +150,7 @@
 
     .subtitle {
       font-size: 14px;
-      color: #667085;
+      color: var(--text-secondary);
       margin-bottom: 26px;
       line-height: 1.5;
     }
@@ -82,7 +159,7 @@
       display: block;
       font-size: 13px;
       font-weight: 500;
-      color: #444;
+      color: var(--label);
       margin-bottom: 6px;
     }
 
@@ -93,27 +170,27 @@
       font-weight: 600;
       letter-spacing: 0.8px;
       text-transform: uppercase;
-      color: #8a919c;
+      color: var(--text-tertiary);
       margin-bottom: 10px;
     }
 
     .label-hint {
       font-weight: 400;
       font-size: 11px;
-      color: #98a1ab;
+      color: var(--text-faint);
     }
 
     input[type="text"],
     input[type="password"] {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid #dfe3e8;
+      border: 1px solid var(--input-border);
       border-radius: 10px;
       font-size: 14px;
       font-family: inherit;
-      color: #1a1a1a;
-      background: #fff;
-      transition: border-color 0.15s;
+      color: var(--text);
+      background: var(--input-bg);
+      transition: border-color 0.15s, background-color 0.2s;
       outline: none;
       margin-bottom: 14px;
     }
@@ -126,7 +203,7 @@
 
     .help-text {
       font-size: 12px;
-      color: #6b7280;
+      color: var(--text-secondary);
       margin-top: -8px;
       margin-bottom: 0;
       line-height: 1.5;
@@ -175,8 +252,8 @@
       gap: 8px;
       padding: 12px 16px;
       background: transparent;
-      color: #dc2626;
-      border: 1px solid #fca5a5;
+      color: var(--danger-text);
+      border: 1px solid var(--danger-border);
       border-radius: 10px;
       font-size: 14px;
       font-weight: 500;
@@ -186,7 +263,7 @@
       white-space: nowrap;
     }
 
-    .btn-danger:hover:not(:disabled) { background: #fff5f5; border-color: #f87171; }
+    .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
     .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-ghost {
@@ -195,8 +272,8 @@
       justify-content: center;
       padding: 9px 16px;
       background: transparent;
-      color: #1d9bf0;
-      border: 1px solid #e0e0e0;
+      color: var(--accent);
+      border: 1px solid var(--ghost-border);
       border-radius: 10px;
       font-size: 13px;
       font-weight: 500;
@@ -205,13 +282,13 @@
       transition: background 0.15s;
     }
 
-    .btn-ghost:hover { background: #f0f8ff; }
+    .btn-ghost:hover { background: var(--ghost-hover); }
 
     .unpublish-row {
       text-align: center;
       margin-top: 16px;
       font-size: 12.5px;
-      color: #98a1ab;
+      color: var(--text-faint);
     }
 
     .link-danger {
@@ -221,7 +298,7 @@
       font-family: inherit;
       font-size: 12.5px;
       font-weight: 500;
-      color: #b91c1c;
+      color: var(--error-text);
       cursor: pointer;
     }
 
@@ -243,7 +320,7 @@
     /* Feed type toggle */
     .feed-type-toggle {
       display: flex;
-      background: #f0f2f5;
+      background: var(--surface-alt);
       border-radius: 12px;
       padding: 4px;
       margin-bottom: 14px;
@@ -269,20 +346,20 @@
     .feed-type-toggle .toggle-name {
       font-size: 13px;
       font-weight: 600;
-      color: #667085;
+      color: var(--text-secondary);
     }
 
     .feed-type-toggle .toggle-sub {
       font-size: 11px;
-      color: #98a1ab;
+      color: var(--text-faint);
     }
 
     .feed-type-toggle button.active {
-      background: #fff;
+      background: var(--surface-raised);
       box-shadow: 0 1px 3px rgba(16,24,40,0.12);
     }
 
-    .feed-type-toggle button.active .toggle-name { color: #1a1a1a; }
+    .feed-type-toggle button.active .toggle-name { color: var(--text); }
     .feed-type-toggle button.active .toggle-sub { color: #1d9bf0; }
 
     .checkbox-row {
@@ -305,17 +382,17 @@
       margin: 0;
       font-size: 13px;
       font-weight: 400;
-      color: #555;
+      color: var(--label);
       cursor: pointer;
     }
 
     .error-box {
-      background: #fff5f5;
-      border: 1px solid #fecaca;
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
       border-radius: 8px;
       padding: 12px 14px;
       font-size: 13px;
-      color: #b91c1c;
+      color: var(--error-text);
       margin-bottom: 16px;
       display: none;
     }
@@ -341,7 +418,7 @@
       object-fit: cover;
       display: block;
       margin: 0 auto 10px;
-      box-shadow: 0 0 0 3px #fff, 0 0 0 4px #e3e8ee;
+      box-shadow: 0 0 0 3px var(--card-bg), 0 0 0 4px var(--divider);
     }
 
     .success-name {
@@ -353,7 +430,7 @@
 
     .success-handle {
       font-size: 13px;
-      color: #8a919c;
+      color: var(--text-tertiary);
       text-align: center;
       margin-bottom: 22px;
     }
@@ -361,7 +438,7 @@
     .success-label {
       font-size: 13px;
       font-weight: 500;
-      color: #444;
+      color: var(--label);
       margin-bottom: 8px;
     }
 
@@ -377,12 +454,12 @@
       height: 38px;
       margin: 0;
       padding: 0 12px;
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--input-border);
       border-radius: 8px;
       font-size: 13px;
       font-family: inherit;
-      color: #444;
-      background: #fafafa;
+      color: var(--text-secondary);
+      background: var(--url-input-bg);
       outline: none;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -409,19 +486,19 @@
     .btn-copy.copied { background: #16a34a; }
 
     .info-box {
-      background: #f0f8ff;
-      border: 1px solid #bfdbfe;
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
       border-radius: 8px;
       padding: 12px 14px;
       font-size: 13px;
-      color: #1e40af;
+      color: var(--info-text);
       line-height: 1.6;
       margin-bottom: 20px;
     }
 
     .progress-track {
       height: 6px;
-      background: #dbeafe;
+      background: var(--track);
       border-radius: 3px;
       overflow: hidden;
       margin-top: 10px;
@@ -444,7 +521,7 @@
     .unpublish-confirm .check-icon {
       width: 44px;
       height: 44px;
-      background: #f0fdf4;
+      background: var(--check-bg);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -470,14 +547,14 @@
 
     .unpublish-confirm p {
       font-size: 13px;
-      color: #666;
+      color: var(--text-secondary);
       margin-bottom: 20px;
       line-height: 1.6;
     }
 
     .divider {
       height: 1px;
-      background: #f0f0f0;
+      background: var(--divider);
       margin: 20px 0;
     }
 
@@ -512,7 +589,7 @@
 
     .modal {
       position: relative;
-      background: #fff;
+      background: var(--card-bg);
       border-radius: 16px;
       padding: 28px;
       width: 100%;
@@ -531,13 +608,13 @@
     .modal h3 {
       font-size: 13px;
       font-weight: 600;
-      color: #1a1a1a;
+      color: var(--text);
       margin: 14px 0 4px;
     }
 
     .modal p {
       font-size: 13px;
-      color: #555;
+      color: var(--text-secondary);
       line-height: 1.6;
     }
 
@@ -552,12 +629,21 @@
       border: none;
       font-size: 20px;
       line-height: 1;
-      color: #999;
+      color: var(--text-tertiary);
       cursor: pointer;
       padding: 4px;
     }
 
-    .modal-close:hover { color: #444; }
+    .modal-close:hover { color: var(--text); }
+
+    .theme-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      padding: 4px;
+    }
   </style>
 </head>
 <body>
@@ -570,6 +656,7 @@
       </div>
       <span class="logo-text">Top Skeets</span>
       <button class="help-link" onclick="openHelp()">Help</button>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode">🌙</button>
     </div>
 
     <!-- FORM VIEW -->
@@ -921,6 +1008,25 @@
     function helpIsOpen() {
       return !document.getElementById('helpOverlay').classList.contains('hidden');
     }
+
+    // Dark mode — system preference by default, manual choice persists
+    function applyThemeIcon() {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+    }
+
+    function toggleTheme() {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (dark) {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (e) {}
+      applyThemeIcon();
+    }
+
+    applyThemeIcon();
 
     function showError(msg) {
       var errorBox = document.getElementById('errorBox');
