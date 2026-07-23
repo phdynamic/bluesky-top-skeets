@@ -20,7 +20,8 @@ process.on('uncaughtException', (err) => {
 
 const app = express();
 
-app.use(express.json());
+// 2mb: feed icons arrive as base64 in the register body (~33% inflation)
+app.use(express.json({ limit: '2mb' }));
 
 // ---------------------------------------------------------------------------
 // Simple in-memory rate limiter — max 5 requests per IP per 60 seconds.
@@ -70,11 +71,12 @@ app.use(feedSkeletonRouter);
 app.post('/api/register', rateLimitMiddleware, async (req, res) => {
   // includeReplies is no longer read from the body — the replies variants are
   // separate feed types (top-skeets-replies / chrono-skeets-replies).
-  const { handle, appPassword, feedType, feedName } = req.body as {
+  const { handle, appPassword, feedType, feedName, feedIcon } = req.body as {
     handle?: string;
     appPassword?: string;
     feedType?: string;
     feedName?: string;
+    feedIcon?: string;
   };
 
   if (!handle || !appPassword) {
@@ -94,6 +96,14 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
     return;
   }
 
+  // Feed icon arrives as base64 JPEG (client crops/downsizes before sending)
+  if (feedIcon !== undefined) {
+    if (typeof feedIcon !== 'string' || feedIcon.length > 1_400_000 || !/^[A-Za-z0-9+/=]+$/.test(feedIcon)) {
+      res.status(400).json({ error: 'InvalidFeedIcon', message: 'Feed icon must be a valid image under 1MB' });
+      return;
+    }
+  }
+
   if (!feedType || !(FEED_TYPES as string[]).includes(feedType)) {
     res.status(400).json({ error: 'InvalidFeedType', message: `feedType must be one of: ${FEED_TYPES.join(', ')}` });
     return;
@@ -101,7 +111,7 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
 
   try {
     console.log(`[register] starting for ${handle} (${feedType})`);
-    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, trimmedFeedName || null);
+    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, trimmedFeedName || null, feedIcon || null);
     console.log(`[register] done for ${handle} (${feedType}), refreshing posts in background`);
     res.json({
       feedUrl: result.feedUrl,

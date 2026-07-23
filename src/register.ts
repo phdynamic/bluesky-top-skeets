@@ -33,6 +33,7 @@ export async function registerUserFeed(
   appPassword: string,
   feedType: FeedType,
   feedName: string | null = null,
+  feedIconBase64: string | null = null,
 ): Promise<RegisterResult> {
   // Replies variants are separate feeds — the type itself encodes the setting
   const includeReplies = feedType.endsWith('-replies');
@@ -50,7 +51,29 @@ export async function registerUserFeed(
   const avatarUrl = profileRes.data.avatar ?? null;
   const expectedPosts = profileRes.data.postsCount ?? null;
 
-  // 3. Publish feed generator record under the USER'S OWN account
+  // 3. Resolve the feed icon: a newly uploaded image becomes a blob in the
+  // user's own repo; otherwise carry over any existing icon so re-registers
+  // and renames don't silently delete it (putRecord replaces the whole record).
+  let avatarBlob: unknown = null;
+  if (feedIconBase64) {
+    const bytes = Buffer.from(feedIconBase64, 'base64');
+    if (bytes.length > 1_000_000) {
+      throw new Error('Feed icon must be 1MB or smaller');
+    }
+    const uploaded = await agent.uploadBlob(bytes, { encoding: 'image/jpeg' });
+    avatarBlob = uploaded.data.blob;
+  } else {
+    try {
+      const existingRecord = await agent.api.com.atproto.repo.getRecord({
+        repo: did,
+        collection: 'app.bsky.feed.generator',
+        rkey: feedType,
+      });
+      avatarBlob = (existingRecord.data.value as Record<string, unknown>).avatar ?? null;
+    } catch { /* no existing record — first registration */ }
+  }
+
+  // 4. Publish feed generator record under the USER'S OWN account
   const effectiveFeedName = feedName || FEED_DISPLAY_NAMES[feedType];
   await agent.api.com.atproto.repo.putRecord({
     repo: did,
@@ -61,15 +84,16 @@ export async function registerUserFeed(
       did: config.feedgenServiceDid,
       displayName: effectiveFeedName,
       description: FEED_DESCRIPTIONS[feedType],
+      ...(avatarBlob ? { avatar: avatarBlob } : {}),
       createdAt: new Date().toISOString(),
     },
   });
 
-  // 4. Construct URIs
+  // 5. Construct URIs
   const feedUri = `at://${did}/app.bsky.feed.generator/${feedType}`;
   const feedUrl = `https://bsky.app/profile/${did}/feed/${feedType}`;
 
-  // 5. Persist. If the feed already exists (re-register / rename), keep its
+  // 6. Persist. If the feed already exists (re-register / rename), keep its
   // posts so the live feed never goes empty while a refetch runs. If the
   // include-replies setting changed, null lastFullRefreshAt so the next
   // refresh is a full refetch honoring the new setting.

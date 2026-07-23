@@ -364,6 +364,30 @@
     .feed-type-toggle button.active .toggle-name { color: var(--text); }
     .feed-type-toggle button.active .toggle-sub { color: #1d9bf0; }
 
+    .icon-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .icon-row input[type="file"] {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--text-secondary);
+    }
+
+    .icon-preview {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 0 0 2px var(--divider);
+      flex-shrink: 0;
+    }
+
     .checkbox-row {
       display: flex;
       align-items: center;
@@ -729,6 +753,13 @@
         <label for="feedName">Feed name <span class="label-hint">(optional, max 24 characters)</span></label>
         <input type="text" id="feedName" placeholder="Top Skeets" maxlength="24" spellcheck="false" />
 
+        <label for="feedIcon">Feed icon <span class="label-hint">(optional — square works best)</span></label>
+        <div class="icon-row">
+          <img id="iconPreview" class="icon-preview hidden" alt="" />
+          <input type="file" id="feedIcon" accept="image/png,image/jpeg" onchange="handleIconSelect()" />
+          <button type="button" class="link-danger hidden" id="iconClearBtn" onclick="clearFeedIcon()">Remove</button>
+        </div>
+
         <div class="checkbox-row">
           <input type="checkbox" id="includeReplies" onchange="updateFeedNamePlaceholder()" />
           <label for="includeReplies">Include replies <span class="label-hint">(a separate feed — you can have both)</span></label>
@@ -799,7 +830,7 @@
       <h2 id="helpTitle">How Top Skeets works</h2>
 
       <h3>Create your feed</h3>
-      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
+      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name and an icon (any image — it's cropped square automatically), and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
 
       <h3>Share it</h3>
       <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load in the background — a progress bar shows how it's going.</p>
@@ -834,6 +865,50 @@
 
     function updateFeedNamePlaceholder() {
       document.getElementById('feedName').placeholder = FEED_LABELS[currentFeedKey()];
+    }
+
+    // Feed icon: center-crop square and downscale on a canvas so any image
+    // fits Bluesky's 1MB avatar cap, then hold the JPEG base64 for submit.
+    var feedIconData = null;
+
+    function handleIconSelect() {
+      var input = document.getElementById('feedIcon');
+      var file = input.files && input.files[0];
+      if (!file) { clearFeedIcon(); return; }
+
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function() {
+        URL.revokeObjectURL(url);
+        var srcSize = Math.min(img.width, img.height);
+        var outSize = Math.min(srcSize, 800);
+        var canvas = document.createElement('canvas');
+        canvas.width = outSize;
+        canvas.height = outSize;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, (img.width - srcSize) / 2, (img.height - srcSize) / 2, srcSize, srcSize, 0, 0, outSize, outSize);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        feedIconData = dataUrl.split(',')[1];
+        var preview = document.getElementById('iconPreview');
+        preview.src = dataUrl;
+        preview.classList.remove('hidden');
+        document.getElementById('iconClearBtn').classList.remove('hidden');
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(url);
+        clearFeedIcon();
+        showError('That image could not be read — try a PNG or JPEG.');
+      };
+      img.src = url;
+    }
+
+    function clearFeedIcon() {
+      feedIconData = null;
+      document.getElementById('feedIcon').value = '';
+      var preview = document.getElementById('iconPreview');
+      preview.src = '';
+      preview.classList.add('hidden');
+      document.getElementById('iconClearBtn').classList.add('hidden');
     }
 
     // Parse a JSON body defensively — a 502 HTML error page from the host
@@ -884,7 +959,7 @@
         var res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey, feedName: feedName || undefined }),
+          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey, feedName: feedName || undefined, feedIcon: feedIconData || undefined }),
         });
         var data = await safeJson(res);
 
@@ -1249,6 +1324,7 @@
       document.getElementById('feedName').value = '';
       document.getElementById('includeReplies').checked = false;
       updateFeedNamePlaceholder();
+      clearFeedIcon();
       document.getElementById('errorBox').style.display = 'none';
     }
 
