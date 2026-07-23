@@ -674,12 +674,19 @@
       }
     }
 
+    var sawProgress = false;
+
     function startFeedPolling(handle, feedType, expectedPosts) {
       stopFeedPolling();
       pollCount = 0;
+      sawProgress = false;
       pollTimer = setInterval(function() {
         pollCount++;
-        if (pollCount > 300) { // give up after 15 minutes
+        if (pollCount > 700) { // stop polling after ~35 minutes
+          var el = document.getElementById('fetchStatus');
+          if (el) {
+            el.textContent = 'Still fetching in the background — your feed will finish populating on its own. Check it on Bluesky in a little while.';
+          }
           stopFeedPolling();
           return;
         }
@@ -702,6 +709,7 @@
             } else if (typeof info.fetchProgress === 'number') {
               // Fetch in progress \u2014 fetchProgress counts raw posts scanned,
               // expectedPosts is the profile total (approximate), so cap at 97%
+              sawProgress = true;
               if (expectedPosts > 0 && fill) {
                 var pct = Math.min(97, Math.round(info.fetchProgress / expectedPosts * 100));
                 fill.style.width = pct + '%';
@@ -712,9 +720,12 @@
                   : 'Fetching your posts\u2026 ' + info.fetchProgress.toLocaleString() + ' scanned so far.';
               }
             } else {
-              // Fetch hasn't started yet \u2014 be honest about the queue
+              // Fetch not currently running \u2014 either still queued, or it
+              // failed partway and will restart shortly
               if (status) {
-                status.textContent = 'Waiting for a fetch slot \u2014 this can take a couple of minutes\u2026';
+                status.textContent = sawProgress
+                  ? 'Fetch restarting\u2026'
+                  : 'Waiting for a fetch slot \u2014 this can take a couple of minutes\u2026';
               }
             }
           })

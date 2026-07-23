@@ -3,6 +3,8 @@ import { PostRecord, FeedType } from './db';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const PAGE_DELAY_MS = 250;
+const PAGE_RETRIES = 3;
+const RATE_LIMIT_BACKOFF_MS = 15_000;
 
 /**
  * Fetch ALL posts for a logged-in agent (no reposts).
@@ -33,22 +35,35 @@ export async function fetchAllOriginalPosts(
     }
     firstPage = false;
 
-    const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
-
+    // Retry individual pages so one flaky request doesn't discard a
+    // multi-hundred-page fetch of a large account.
     let res: AppBskyFeedGetAuthorFeed.Response;
-    try {
-      res = await agent.api.app.bsky.feed.getAuthorFeed(
-        {
-          actor: did,
-          limit: 100,
-          filter: includeReplies ? 'posts_with_replies' : 'posts_no_replies',
-          ...(cursor ? { cursor } : {}),
-        },
-        { signal: abort.signal },
-      );
-    } finally {
-      clearTimeout(timer);
+    for (let attempt = 1; ; attempt++) {
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
+      try {
+        res = await agent.api.app.bsky.feed.getAuthorFeed(
+          {
+            actor: did,
+            limit: 100,
+            filter: includeReplies ? 'posts_with_replies' : 'posts_no_replies',
+            ...(cursor ? { cursor } : {}),
+          },
+          { signal: abort.signal },
+        );
+        break;
+      } catch (err) {
+        if (attempt >= PAGE_RETRIES) throw err;
+        const status = (err as { status?: number }).status;
+        const backoffMs = status === 429 ? RATE_LIMIT_BACKOFF_MS : attempt * 2_000;
+        console.warn(
+          `[fetch] page failed for ${userHandle} (attempt ${attempt}/${PAGE_RETRIES}), retrying in ${backoffMs / 1000}s:`,
+          err instanceof Error ? err.message : String(err),
+        );
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      } finally {
+        clearTimeout(timer);
+      }
     }
 
     const { feed, cursor: nextCursor } = res.data;

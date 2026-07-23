@@ -133,7 +133,26 @@ function priority(meta: FeedMeta): number {
   return meta.feed_type === 'chrono-skeets' ? 1 : 2;
 }
 
+// Guards against two concurrent refreshes of the same feed (e.g. the
+// registration fetch plus a scheduler tick that still sees post_count 0).
+// Duplicates wasted API quota and made the shared progress counter bounce.
+const inFlightRefreshes = new Set<string>();
+
 async function refreshFeed(feed: UserFeed): Promise<void> {
+  const inFlightKey = `${feed.did}::${feed.feed_type}`;
+  if (inFlightRefreshes.has(inFlightKey)) {
+    console.log(`[scheduler] refresh already in flight for ${feed.handle} (${feed.feed_type}) — skipping duplicate`);
+    return;
+  }
+  inFlightRefreshes.add(inFlightKey);
+  try {
+    await doRefreshFeed(feed);
+  } finally {
+    inFlightRefreshes.delete(inFlightKey);
+  }
+}
+
+async function doRefreshFeed(feed: UserFeed): Promise<void> {
   const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
   const includeReplies = feed.include_replies ?? false;
   const existingPosts = feed.posts ?? [];
@@ -221,8 +240,9 @@ export async function refreshFeedNow(did: string, feedType: FeedType): Promise<v
 /**
  * Refresh a feed as soon as possible: if a scheduler cycle is running, wait
  * for it to finish (so we don't compete for API quota), then fetch — unless
- * the scheduler already populated the feed while we waited. A tick starting
- * mid-fetch can rarely double-fetch the same feed; last write wins, benign.
+ * the scheduler already populated the feed while we waited. The in-flight
+ * lock in refreshFeed prevents a tick starting mid-fetch from launching a
+ * duplicate fetch of the same feed.
  */
 export async function refreshFeedSoon(did: string, feedType: FeedType): Promise<void> {
   const start = Date.now();
