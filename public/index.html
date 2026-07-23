@@ -201,6 +201,27 @@
       box-shadow: 0 0 0 3px rgba(29,155,240,0.12);
     }
 
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--input-bg);
+      transition: border-color 0.15s, background-color 0.2s;
+      outline: none;
+      margin-bottom: 14px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    textarea:focus {
+      border-color: #1d9bf0;
+      box-shadow: 0 0 0 3px rgba(29,155,240,0.12);
+    }
+
     .help-text {
       font-size: 12px;
       color: var(--text-secondary);
@@ -538,6 +559,13 @@
       transition: width 0.6s ease;
     }
 
+    .close-note {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.75;
+    }
+
     /* Unpublish success */
     .unpublish-confirm {
       text-align: center;
@@ -753,6 +781,9 @@
         <label for="feedName">Feed name <span class="label-hint">(optional, max 24 characters)</span></label>
         <input type="text" id="feedName" placeholder="Top Skeets" maxlength="24" spellcheck="false" />
 
+        <label for="feedDescription">Feed description <span class="label-hint">(optional, max 300 characters)</span></label>
+        <textarea id="feedDescription" rows="2" maxlength="300" placeholder="My posts, ranked by likes."></textarea>
+
         <label for="feedIcon">Feed icon <span class="label-hint">(optional — square works best)</span></label>
         <div class="icon-row">
           <img id="iconPreview" class="icon-preview hidden" alt="" />
@@ -761,7 +792,7 @@
         </div>
 
         <div class="checkbox-row">
-          <input type="checkbox" id="includeReplies" onchange="updateFeedNamePlaceholder()" />
+          <input type="checkbox" id="includeReplies" onchange="updateFeedPlaceholders()" />
           <label for="includeReplies">Include replies <span class="label-hint">(a separate feed — you can have both)</span></label>
         </div>
       </div>
@@ -830,16 +861,16 @@
       <h2 id="helpTitle">How Top Skeets works</h2>
 
       <h3>Create your feed</h3>
-      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name and an icon (any image — it's cropped square automatically), and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
+      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, description, and icon (any image — it's cropped square automatically), and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
 
       <h3>Share it</h3>
-      <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load in the background — a progress bar shows how it's going.</p>
+      <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load on our server, not in your browser — a progress bar shows how it's going, but you can close the page anytime and the feed will finish populating on its own.</p>
 
       <h3>Updates are automatic</h3>
       <p>New posts show up on their own: within about 15 minutes for My Skeets and about an hour for Top Skeets. Like-count rankings refresh about once a day.</p>
 
       <h3>Rename anytime</h3>
-      <p>Re-submit the form with the same account and a new feed name. Your feed link never changes, so nobody loses it. The same works for the icon: upload a new image to replace it, or leave it empty to keep the current one.</p>
+      <p>Re-submit the form with the same account and a new feed name or description. Your feed link never changes, so nobody loses it. The same works for the icon: upload a new image to replace it, or leave it empty to keep the current one.</p>
 
       <h3>Unpublish</h3>
       <p>Enter your credentials, select the feed type (and the replies checkbox, if it's a replies feed), and click Unpublish — it's also available right after creating a feed. This removes that feed from Bluesky and deletes it from our system.</p>
@@ -857,14 +888,23 @@
       'chrono-skeets-replies': 'My Skeets + Replies'
     };
 
+    var FEED_DESCRIPTIONS = {
+      'top-skeets': 'My posts, ranked by likes.',
+      'chrono-skeets': 'My posts, newest first.',
+      'top-skeets-replies': 'My posts and replies, ranked by likes.',
+      'chrono-skeets-replies': 'My posts and replies, newest first.'
+    };
+
     // The replies checkbox selects a separate feed — up to four per account
     function currentFeedKey() {
       var replies = document.getElementById('includeReplies').checked;
       return selectedFeedType + (replies ? '-replies' : '');
     }
 
-    function updateFeedNamePlaceholder() {
-      document.getElementById('feedName').placeholder = FEED_LABELS[currentFeedKey()];
+    function updateFeedPlaceholders() {
+      var key = currentFeedKey();
+      document.getElementById('feedName').placeholder = FEED_LABELS[key];
+      document.getElementById('feedDescription').placeholder = FEED_DESCRIPTIONS[key];
     }
 
     // Feed icon: center-crop square and downscale on a canvas so any image
@@ -921,7 +961,7 @@
       selectedFeedType = type;
       document.getElementById('toggleTop').classList.toggle('active', type === 'top-skeets');
       document.getElementById('toggleChrono').classList.toggle('active', type === 'chrono-skeets');
-      updateFeedNamePlaceholder();
+      updateFeedPlaceholders();
     }
 
     function setLoading(loading) {
@@ -959,7 +999,7 @@
         var res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey, feedName: feedName || undefined, feedIcon: feedIconData || undefined }),
+          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey, feedName: feedName || undefined, feedDescription: document.getElementById('feedDescription').value.trim() || undefined, feedIcon: feedIconData || undefined }),
         });
         var data = await safeJson(res);
 
@@ -1227,6 +1267,8 @@
                   ? '\u2713 Fetch complete \u2014 ' + info.postCount.toLocaleString() + ' posts in your feed.'
                   : '\u2713 Fetch complete \u2014 no posts found.';
               }
+              var note = document.getElementById('closeNote');
+              if (note) note.classList.add('hidden');
               stopFeedPolling();
             } else if (typeof info.fetchProgress === 'number') {
               // Fetch in progress \u2014 fetchProgress counts raw posts scanned,
@@ -1269,7 +1311,8 @@
       } else {
         statusHtml =
           '<span id="fetchStatus">Fetching your posts\u2026</span>' +
-          '<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>';
+          '<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>' +
+          '<span class="close-note" id="closeNote">You can safely close this page \u2014 fetching continues on the server.</span>';
       }
       document.getElementById('infoBox').innerHTML =
         'Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts, ' + postDesc + '.' +
@@ -1322,8 +1365,9 @@
       document.getElementById('handle').value = '';
       document.getElementById('appPassword').value = '';
       document.getElementById('feedName').value = '';
+      document.getElementById('feedDescription').value = '';
       document.getElementById('includeReplies').checked = false;
-      updateFeedNamePlaceholder();
+      updateFeedPlaceholders();
       clearFeedIcon();
       document.getElementById('errorBox').style.display = 'none';
     }

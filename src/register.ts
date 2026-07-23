@@ -33,6 +33,7 @@ export async function registerUserFeed(
   appPassword: string,
   feedType: FeedType,
   feedName: string | null = null,
+  feedDescription: string | null = null,
   feedIconBase64: string | null = null,
 ): Promise<RegisterResult> {
   // Replies variants are separate feeds — the type itself encodes the setting
@@ -83,7 +84,7 @@ export async function registerUserFeed(
       $type: 'app.bsky.feed.generator',
       did: config.feedgenServiceDid,
       displayName: effectiveFeedName,
-      description: FEED_DESCRIPTIONS[feedType],
+      description: feedDescription || FEED_DESCRIPTIONS[feedType],
       ...(avatarBlob ? { avatar: avatarBlob } : {}),
       createdAt: new Date().toISOString(),
     },

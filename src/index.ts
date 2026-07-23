@@ -71,11 +71,12 @@ app.use(feedSkeletonRouter);
 app.post('/api/register', rateLimitMiddleware, async (req, res) => {
   // includeReplies is no longer read from the body — the replies variants are
   // separate feed types (top-skeets-replies / chrono-skeets-replies).
-  const { handle, appPassword, feedType, feedName, feedIcon } = req.body as {
+  const { handle, appPassword, feedType, feedName, feedDescription, feedIcon } = req.body as {
     handle?: string;
     appPassword?: string;
     feedType?: string;
     feedName?: string;
+    feedDescription?: string;
     feedIcon?: string;
   };
 
@@ -96,6 +97,13 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
     return;
   }
 
+  // AT Protocol caps feed generator descriptions at 300 graphemes
+  const trimmedFeedDescription = typeof feedDescription === 'string' ? feedDescription.trim() : '';
+  if (Array.from(trimmedFeedDescription).length > 300) {
+    res.status(400).json({ error: 'FeedDescriptionTooLong', message: 'Feed description must be 300 characters or fewer' });
+    return;
+  }
+
   // Feed icon arrives as base64 JPEG (client crops/downsizes before sending)
   if (feedIcon !== undefined) {
     if (typeof feedIcon !== 'string' || feedIcon.length > 1_400_000 || !/^[A-Za-z0-9+/=]+$/.test(feedIcon)) {
@@ -111,7 +119,7 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
 
   try {
     console.log(`[register] starting for ${handle} (${feedType})`);
-    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, trimmedFeedName || null, feedIcon || null);
+    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, trimmedFeedName || null, trimmedFeedDescription || null, feedIcon || null);
     console.log(`[register] done for ${handle} (${feedType}), refreshing posts in background`);
     res.json({
       feedUrl: result.feedUrl,
