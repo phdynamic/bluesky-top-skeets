@@ -277,9 +277,15 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Serve frontend for all other routes
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Serve frontend for all other routes. HTML is always revalidated so UI
+// fixes show up on the next reload after a deploy.
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 app.get('*', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
