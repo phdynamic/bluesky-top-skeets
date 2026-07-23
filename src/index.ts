@@ -4,7 +4,7 @@ import { config } from './config';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
-import { getFeedByHandle, FEED_TYPES, FeedType } from './db';
+import { getFeedMetaByHandle, FEED_TYPES, FeedType } from './db';
 import { startScheduler, stopScheduler, refreshFeedNow, getIsRefreshing } from './scheduler';
 
 // A stray rejected promise shouldn't kill a healthy server; log and move on.
@@ -49,6 +49,14 @@ function rateLimitMiddleware(req: express.Request, res: express.Response, next: 
 
   next();
 }
+
+// Sweep expired rate-limit entries so the map can't grow without bound
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(ip);
+  }
+}, 5 * 60_000).unref();
 
 const MAX_FIELD_LENGTH = 200;
 
@@ -161,8 +169,8 @@ app.post('/api/refresh', rateLimitMiddleware, async (req, res) => {
 
   try {
     await refreshFeedNow(did, feedType as FeedType);
-    const feed = getFeedByHandle(handle, feedType as FeedType);
-    res.json({ handle, feedType, generatedAt: feed?.generated_at, postCount: feed?.post_count });
+    const meta = getFeedMetaByHandle(handle, feedType as FeedType);
+    res.json({ handle, feedType, generatedAt: meta?.generated_at, postCount: meta?.post_count });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[refresh error]', message);
@@ -224,20 +232,20 @@ app.get('/api/feed/:handle', (req, res) => {
     return;
   }
 
-  const feed = getFeedByHandle(handle, feedType as FeedType);
+  const meta = getFeedMetaByHandle(handle, feedType as FeedType);
 
-  if (!feed) {
+  if (!meta) {
     res.status(404).json({ error: 'NotFound', message: 'No feed found for this handle' });
     return;
   }
 
   res.json({
-    handle: feed.handle,
-    displayName: feed.display_name,
-    avatarUrl: feed.avatar_url,
-    postCount: feed.post_count,
-    generatedAt: feed.generated_at,
-    feedUrl: feed.feed_url,
+    handle: meta.handle,
+    displayName: meta.display_name,
+    avatarUrl: meta.avatar_url,
+    postCount: meta.post_count,
+    generatedAt: meta.generated_at,
+    feedUrl: meta.feed_url,
   });
 });
 

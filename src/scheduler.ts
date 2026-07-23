@@ -1,5 +1,5 @@
 import { BskyAgent } from '@atproto/api';
-import { getAllFeeds, getFeedByDid, upsertFeed, touchFeedChecked, deleteFeed, UserFeed, FeedType, PostRecord } from './db';
+import { getAllFeedMetas, getFeedByDid, upsertFeed, touchFeedChecked, deleteFeed, UserFeed, FeedMeta, FeedType, PostRecord } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
@@ -38,35 +38,43 @@ async function runRefresh(): Promise<void> {
   }
   isRefreshing = true;
   const now = Date.now();
-  const allFeeds = getAllFeeds().filter(f => f.feed_uri && f.feed_url);
+  // Metadata only — no post arrays are parsed for feeds that aren't due
+  const allMetas = getAllFeedMetas().filter(m => m.feed_uri && m.feed_url);
 
   // Filter to feeds that are due for a refresh based on their type
-  const feeds = allFeeds.filter(f => {
-    if ((f.posts ?? []).length === 0) return true; // new registration — always refresh
-    const lastChecked = f.last_checked_at ? new Date(f.last_checked_at).getTime() : 0;
-    return f.feed_type === 'chrono-skeets'
+  const dueMetas = allMetas.filter(m => {
+    if (m.post_count === 0) return true; // new registration — always refresh
+    const lastChecked = m.last_checked_at ? new Date(m.last_checked_at).getTime() : 0;
+    return m.feed_type === 'chrono-skeets'
       ? now - lastChecked >= CHRONO_REFRESH_INTERVAL_MS
       : now - lastChecked >= TOP_REFRESH_INTERVAL_MS;
   });
 
-  if (feeds.length === 0) {
+  if (dueMetas.length === 0) {
     isRefreshing = false;
     return;
   }
 
   // Priority: new registrations first, then chrono-skeets, then top-skeets
-  feeds.sort((a, b) => priority(a) - priority(b));
+  dueMetas.sort((a, b) => priority(a) - priority(b));
 
-  console.log(`[scheduler] refreshing ${feeds.length}/${allFeeds.length} feed(s) (concurrency=${CONCURRENCY})…`);
+  console.log(`[scheduler] refreshing ${dueMetas.length}/${allMetas.length} feed(s) (concurrency=${CONCURRENCY})…`);
 
   try {
     // Worker pool: CONCURRENCY workers each pull the next feed as soon as they
     // finish their current one, so a slow feed never blocks a fast one.
-    const queue = [...feeds];
-    const workers = Array.from({ length: Math.min(CONCURRENCY, feeds.length) }, async () => {
+    const queue = [...dueMetas];
+    const workers = Array.from({ length: Math.min(CONCURRENCY, dueMetas.length) }, async () => {
       while (!stopped && queue.length > 0) {
-        const feed = queue.shift();
-        if (feed) await refreshFeedWithRetry(feed);
+        const meta = queue.shift();
+        if (!meta) continue;
+        // The full feed (posts included) is only loaded for feeds actually due
+        const feed = getFeedByDid(meta.did, meta.feed_type);
+        if (!feed) {
+          console.warn(`[scheduler] feed file missing for ${meta.handle} (${meta.feed_type}) — skipping`);
+          continue;
+        }
+        await refreshFeedWithRetry(feed);
       }
     });
     await Promise.all(workers);
@@ -75,9 +83,9 @@ async function runRefresh(): Promise<void> {
   }
 }
 
-function priority(feed: UserFeed): number {
-  if ((feed.posts ?? []).length === 0) return 0;
-  return feed.feed_type === 'chrono-skeets' ? 1 : 2;
+function priority(meta: FeedMeta): number {
+  if (meta.post_count === 0) return 0;
+  return meta.feed_type === 'chrono-skeets' ? 1 : 2;
 }
 
 async function refreshFeed(feed: UserFeed): Promise<void> {

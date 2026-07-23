@@ -30,12 +30,55 @@ export interface UserFeed {
   posts: PostRecord[];
 }
 
+/**
+ * UserFeed minus posts — kept in the _meta.json sidecar so the scheduler's
+ * due-check and status lookups never parse full post arrays. Strictly derived
+ * state: always rebuildable from the feed files.
+ */
+export interface FeedMeta {
+  did: string;
+  handle: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  feed_type: FeedType;
+  feed_uri: string | null;
+  feed_url: string | null;
+  post_count: number;
+  generated_at: string | null;
+  include_replies: boolean;
+  last_full_refresh_at: string | null;
+  last_checked_at: string | null;
+}
+
 const dataDir = path.resolve(config.dataDir);
 const indexPath = path.join(dataDir, '_index.json');
+const metaPath = path.join(dataDir, '_meta.json');
 
-// In-memory cache — invalidated on every upsert
+// In-memory LRU cache of full feeds (posts included) — bounded so hundreds of
+// feeds can't accumulate unbounded memory. Writes keep entries coherent.
+const MAX_CACHED_FEEDS = 50;
 const feedCache = new Map<string, UserFeed>();
 function cacheKey(did: string, feedType: FeedType): string { return `${did}::${feedType}`; }
+
+function cacheGet(key: string): UserFeed | undefined {
+  const feed = feedCache.get(key);
+  if (feed) {
+    // Re-insert so Map iteration order tracks recency
+    feedCache.delete(key);
+    feedCache.set(key, feed);
+  }
+  return feed;
+}
+
+function cacheSet(key: string, feed: UserFeed): void {
+  feedCache.delete(key);
+  feedCache.set(key, feed);
+  while (feedCache.size > MAX_CACHED_FEEDS) {
+    const oldest = feedCache.keys().next().value;
+    if (oldest === undefined) break;
+    feedCache.delete(oldest);
+  }
+}
 
 function ensureDataDir(): void {
   if (!fs.existsSync(dataDir)) {
@@ -80,9 +123,13 @@ function readFeedFile(filePath: string): UserFeed | null {
   }
 }
 
+function scanFeedFiles(): string[] {
+  if (!fs.existsSync(dataDir)) return [];
+  return fs.readdirSync(dataDir).filter(f => !f.startsWith('_') && f.endsWith('.json'));
+}
+
 function hasFeedFiles(): boolean {
-  if (!fs.existsSync(dataDir)) return false;
-  return fs.readdirSync(dataDir).some(f => !f.startsWith('_') && f.endsWith('.json'));
+  return scanFeedFiles().length > 0;
 }
 
 /**
@@ -91,14 +138,11 @@ function hasFeedFiles(): boolean {
  */
 function rebuildIndex(): Record<string, string> {
   const index: Record<string, string> = {};
-  if (fs.existsSync(dataDir)) {
-    for (const file of fs.readdirSync(dataDir)) {
-      if (file.startsWith('_') || !file.endsWith('.json')) continue;
-      const feed = readFeedFile(path.join(dataDir, file));
-      if (!feed) continue;
-      const normalized = feed.handle.startsWith('@') ? feed.handle.slice(1) : feed.handle;
-      index[normalized] = feed.did;
-    }
+  for (const file of scanFeedFiles()) {
+    const feed = readFeedFile(path.join(dataDir, file));
+    if (!feed) continue;
+    const normalized = feed.handle.startsWith('@') ? feed.handle.slice(1) : feed.handle;
+    index[normalized] = feed.did;
   }
   writeIndex(index);
   console.log(`[db] rebuilt _index.json with ${Object.keys(index).length} entries`);
@@ -121,6 +165,90 @@ function readIndex(): Record<string, string> {
 function writeIndex(index: Record<string, string>): void {
   ensureDataDir();
   atomicWriteFileSync(indexPath, JSON.stringify(index));
+}
+
+// ---------------------------------------------------------------------------
+// Feed metadata sidecar (_meta.json) — held in memory and written through on
+// every persist, so the scheduler and status lookups cost zero feed-file
+// reads. Missing or corrupt, it is rebuilt from the feed files.
+// ---------------------------------------------------------------------------
+let metas: Record<string, FeedMeta> | null = null;
+
+function metaFromFeed(feed: UserFeed): FeedMeta {
+  return {
+    did: feed.did,
+    handle: feed.handle,
+    display_name: feed.display_name,
+    avatar_url: feed.avatar_url,
+    feed_type: feed.feed_type,
+    feed_uri: feed.feed_uri,
+    feed_url: feed.feed_url,
+    post_count: feed.post_count ?? (feed.posts ?? []).length,
+    generated_at: feed.generated_at,
+    include_replies: feed.include_replies ?? false,
+    last_full_refresh_at: feed.last_full_refresh_at ?? null,
+    last_checked_at: feed.last_checked_at ?? null,
+  };
+}
+
+function rebuildMetas(): Record<string, FeedMeta> {
+  const result: Record<string, FeedMeta> = {};
+  for (const file of scanFeedFiles()) {
+    const feed = readFeedFile(path.join(dataDir, file));
+    if (!feed) continue;
+    result[cacheKey(feed.did, feed.feed_type)] = metaFromFeed(feed);
+  }
+  console.log(`[db] rebuilt feed metadata with ${Object.keys(result).length} entries`);
+  return result;
+}
+
+/** Repair drift from a crash between a feed-file write and the meta write. */
+function reconcileMetas(m: Record<string, FeedMeta>): void {
+  for (const key of Object.keys(m)) {
+    if (!fs.existsSync(feedFilePath(m[key].did, m[key].feed_type))) delete m[key];
+  }
+  const known = new Set(
+    Object.values(m).map(meta => path.basename(feedFilePath(meta.did, meta.feed_type)))
+  );
+  for (const file of scanFeedFiles()) {
+    if (known.has(file)) continue;
+    const feed = readFeedFile(path.join(dataDir, file));
+    if (feed) m[cacheKey(feed.did, feed.feed_type)] = metaFromFeed(feed);
+  }
+}
+
+function loadMetas(): Record<string, FeedMeta> {
+  if (metas) return metas;
+  let loaded: Record<string, FeedMeta> | null = null;
+  if (fs.existsSync(metaPath)) {
+    try {
+      loaded = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as Record<string, FeedMeta>;
+    } catch {
+      console.error('[db] corrupt _meta.json — rebuilding from feed files');
+    }
+  }
+  if (!loaded) loaded = rebuildMetas();
+  reconcileMetas(loaded);
+  metas = loaded;
+  writeMetas();
+  return metas;
+}
+
+function writeMetas(): void {
+  if (!metas) return;
+  ensureDataDir();
+  atomicWriteFileSync(metaPath, JSON.stringify(metas));
+}
+
+export function getAllFeedMetas(): FeedMeta[] {
+  return Object.values(loadMetas());
+}
+
+export function getFeedMetaByHandle(handle: string, feedType: FeedType): FeedMeta | null {
+  const normalized = handle.startsWith('@') ? handle.slice(1) : handle;
+  const did = readIndex()[normalized];
+  if (!did) return null;
+  return loadMetas()[cacheKey(did, feedType)] ?? null;
 }
 
 export interface UpsertFeedInput {
@@ -159,7 +287,11 @@ export function upsertFeed(feed: UpsertFeedInput): void {
   };
 
   atomicWriteFileSync(feedFilePath(feed.did, feed.feedType), JSON.stringify(record));
-  feedCache.set(cacheKey(feed.did, feed.feedType), record);
+  cacheSet(cacheKey(feed.did, feed.feedType), record);
+
+  const m = loadMetas();
+  m[cacheKey(feed.did, feed.feedType)] = metaFromFeed(record);
+  writeMetas();
 
   // Index maps handle → DID (DID is stable across feed types)
   const normalized = feed.handle.startsWith('@') ? feed.handle.slice(1) : feed.handle;
@@ -170,32 +302,13 @@ export function upsertFeed(feed: UpsertFeedInput): void {
 
 export function getFeedByDid(did: string, feedType: FeedType): UserFeed | null {
   const key = cacheKey(did, feedType);
-  const cached = feedCache.get(key);
+  const cached = cacheGet(key);
   if (cached) return cached;
 
   const feed = readFeedFile(feedFilePath(did, feedType));
   if (!feed) return null;
-  feedCache.set(key, feed);
+  cacheSet(key, feed);
   return feed;
-}
-
-export function getAllFeeds(): UserFeed[] {
-  if (!fs.existsSync(dataDir)) return [];
-  const feeds: UserFeed[] = [];
-  for (const file of fs.readdirSync(dataDir)) {
-    if (file.startsWith('_') || !file.endsWith('.json')) continue;
-    const feed = readFeedFile(path.join(dataDir, file));
-    if (feed) feeds.push(feed);
-  }
-  return feeds;
-}
-
-export function getFeedByHandle(handle: string, feedType: FeedType): UserFeed | null {
-  const normalized = handle.startsWith('@') ? handle.slice(1) : handle;
-  const index = readIndex();
-  const did = index[normalized];
-  if (!did) return null;
-  return getFeedByDid(did, feedType);
 }
 
 /** Update last_checked_at without changing posts — used when incremental refresh finds nothing new. */
@@ -204,7 +317,11 @@ export function touchFeedChecked(did: string, feedType: FeedType): void {
   if (!feed) return;
   const updated = { ...feed, last_checked_at: new Date().toISOString() };
   atomicWriteFileSync(feedFilePath(did, feedType), JSON.stringify(updated));
-  feedCache.set(cacheKey(did, feedType), updated);
+  cacheSet(cacheKey(did, feedType), updated);
+
+  const m = loadMetas();
+  m[cacheKey(did, feedType)] = metaFromFeed(updated);
+  writeMetas();
 }
 
 export function deleteFeed(did: string, feedType: FeedType): void {
@@ -213,4 +330,8 @@ export function deleteFeed(did: string, feedType: FeedType): void {
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
   }
+
+  const m = loadMetas();
+  delete m[cacheKey(did, feedType)];
+  writeMetas();
 }
