@@ -47,17 +47,80 @@ function feedFilePath(did: string, feedType: FeedType): string {
   return path.join(dataDir, did.replace(/:/g, '-') + '-' + feedType + '.json');
 }
 
+/**
+ * Write via a temp file + rename so a crash mid-write can never leave a
+ * truncated JSON file behind (rename is atomic on the same filesystem).
+ */
+function atomicWriteFileSync(filePath: string, data: string): void {
+  const tmpPath = filePath + '.tmp';
+  fs.writeFileSync(tmpPath, data, 'utf8');
+  fs.renameSync(tmpPath, filePath);
+}
+
+/**
+ * Read and parse a feed file. On corruption, quarantine it as .corrupt so the
+ * failure is loud once, visible on the volume, and the data is preserved for
+ * inspection. With atomic writes this should never fire for new corruption.
+ */
+function readFeedFile(filePath: string): UserFeed | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null; // missing file
+  }
+  try {
+    return JSON.parse(raw) as UserFeed;
+  } catch (err) {
+    console.error(`[db] CORRUPT feed file, quarantining: ${filePath}`, err instanceof Error ? err.message : String(err));
+    try {
+      fs.renameSync(filePath, filePath + '.corrupt');
+    } catch { /* quarantine is best-effort */ }
+    return null;
+  }
+}
+
+function hasFeedFiles(): boolean {
+  if (!fs.existsSync(dataDir)) return false;
+  return fs.readdirSync(dataDir).some(f => !f.startsWith('_') && f.endsWith('.json'));
+}
+
+/**
+ * Rebuild _index.json from the feed files themselves. Feed files are the
+ * source of truth; the index is derived and can always be regenerated.
+ */
+function rebuildIndex(): Record<string, string> {
+  const index: Record<string, string> = {};
+  if (fs.existsSync(dataDir)) {
+    for (const file of fs.readdirSync(dataDir)) {
+      if (file.startsWith('_') || !file.endsWith('.json')) continue;
+      const feed = readFeedFile(path.join(dataDir, file));
+      if (!feed) continue;
+      const normalized = feed.handle.startsWith('@') ? feed.handle.slice(1) : feed.handle;
+      index[normalized] = feed.did;
+    }
+  }
+  writeIndex(index);
+  console.log(`[db] rebuilt _index.json with ${Object.keys(index).length} entries`);
+  return index;
+}
+
 function readIndex(): Record<string, string> {
-  if (!fs.existsSync(indexPath)) return {};
+  if (!fs.existsSync(indexPath)) {
+    // Missing index but feed files present — regenerate rather than letting
+    // the next upsert write a near-empty index over everyone's lookups.
+    return hasFeedFiles() ? rebuildIndex() : {};
+  }
   try {
     return JSON.parse(fs.readFileSync(indexPath, 'utf8')) as Record<string, string>;
   } catch {
-    return {};
+    return rebuildIndex();
   }
 }
 
 function writeIndex(index: Record<string, string>): void {
-  fs.writeFileSync(indexPath, JSON.stringify(index), 'utf8');
+  ensureDataDir();
+  atomicWriteFileSync(indexPath, JSON.stringify(index));
 }
 
 export interface UpsertFeedInput {
@@ -95,7 +158,7 @@ export function upsertFeed(feed: UpsertFeedInput): void {
     posts: feed.posts,
   };
 
-  fs.writeFileSync(feedFilePath(feed.did, feed.feedType), JSON.stringify(record), 'utf8');
+  atomicWriteFileSync(feedFilePath(feed.did, feed.feedType), JSON.stringify(record));
   feedCache.set(cacheKey(feed.did, feed.feedType), record);
 
   // Index maps handle → DID (DID is stable across feed types)
@@ -110,26 +173,19 @@ export function getFeedByDid(did: string, feedType: FeedType): UserFeed | null {
   const cached = feedCache.get(key);
   if (cached) return cached;
 
-  const filePath = feedFilePath(did, feedType);
-  if (!fs.existsSync(filePath)) return null;
-  try {
-    const feed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as UserFeed;
-    feedCache.set(key, feed);
-    return feed;
-  } catch {
-    return null;
-  }
+  const feed = readFeedFile(feedFilePath(did, feedType));
+  if (!feed) return null;
+  feedCache.set(key, feed);
+  return feed;
 }
 
 export function getAllFeeds(): UserFeed[] {
   if (!fs.existsSync(dataDir)) return [];
   const feeds: UserFeed[] = [];
   for (const file of fs.readdirSync(dataDir)) {
-    if (file === '_index.json' || !file.endsWith('.json')) continue;
-    try {
-      const feed = JSON.parse(fs.readFileSync(path.join(dataDir, file), 'utf8')) as UserFeed;
-      feeds.push(feed);
-    } catch { /* skip corrupted file */ }
+    if (file.startsWith('_') || !file.endsWith('.json')) continue;
+    const feed = readFeedFile(path.join(dataDir, file));
+    if (feed) feeds.push(feed);
   }
   return feeds;
 }
@@ -147,7 +203,7 @@ export function touchFeedChecked(did: string, feedType: FeedType): void {
   const feed = getFeedByDid(did, feedType);
   if (!feed) return;
   const updated = { ...feed, last_checked_at: new Date().toISOString() };
-  fs.writeFileSync(feedFilePath(did, feedType), JSON.stringify(updated), 'utf8');
+  atomicWriteFileSync(feedFilePath(did, feedType), JSON.stringify(updated));
   feedCache.set(cacheKey(did, feedType), updated);
 }
 
