@@ -562,6 +562,37 @@
 
     .hidden { display: none !important; }
 
+    /* Site footer / attribution */
+    .site-footer {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--text-tertiary);
+    }
+
+    .site-footer a {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .site-footer a:hover { color: var(--accent); }
+
+    .footer-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 0 0 2px var(--card-bg);
+    }
+
     /* Help link + modal */
     .help-link {
       margin-left: auto;
@@ -750,6 +781,15 @@
         <button class="btn-ghost" onclick="resetForm()">Back</button>
       </div>
     </div>
+  </div>
+
+  <div class="site-footer">
+    <a href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener">
+      <img id="footerAvatar" class="footer-avatar" src="" alt="" hidden />
+      Made by @professorkiosk.wtf
+    </a>
+    <span aria-hidden="true">·</span>
+    <a href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">Support this project ☕</a>
   </div>
 
   <!-- HELP MODAL -->
@@ -1049,6 +1089,19 @@
     }
 
     applyThemeIcon();
+
+    // Footer avatar — fetched live so it always matches the current Bluesky
+    // profile picture. Stays hidden if the lookup fails.
+    fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=professorkiosk.wtf')
+      .then(function(res) { return res.ok ? res.json() : null; })
+      .then(function(profile) {
+        if (profile && profile.avatar) {
+          var img = document.getElementById('footerAvatar');
+          img.src = profile.avatar;
+          img.hidden = false;
+        }
+      })
+      .catch(function() { /* footer text stands alone */ });
 
     function showError(msg) {
       var errorBox = document.getElementById('errorBox');
