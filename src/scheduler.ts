@@ -13,8 +13,18 @@ let isRefreshing = false;
 let stopped = false;
 let initialTimer: NodeJS.Timeout | null = null;
 let intervalTimer: NodeJS.Timeout | null = null;
+let lastCycleCompletedAt: string | null = null;
+let lastCycleDurationMs: number | null = null;
 
 export function getIsRefreshing(): boolean { return isRefreshing; }
+
+export function getSchedulerStatus(): {
+  isRefreshing: boolean;
+  lastCycleCompletedAt: string | null;
+  lastCycleDurationMs: number | null;
+} {
+  return { isRefreshing, lastCycleCompletedAt, lastCycleDurationMs };
+}
 
 export function startScheduler(): void {
   const intervalMs = config.refreshIntervalMinutes * 60_000;
@@ -37,49 +47,49 @@ async function runRefresh(): Promise<void> {
     return;
   }
   isRefreshing = true;
-  const now = Date.now();
-  // Metadata only — no post arrays are parsed for feeds that aren't due
-  const allMetas = getAllFeedMetas().filter(m => m.feed_uri && m.feed_url);
-
-  // Filter to feeds that are due for a refresh based on their type
-  const dueMetas = allMetas.filter(m => {
-    if (m.post_count === 0) return true; // new registration — always refresh
-    const lastChecked = m.last_checked_at ? new Date(m.last_checked_at).getTime() : 0;
-    return m.feed_type === 'chrono-skeets'
-      ? now - lastChecked >= CHRONO_REFRESH_INTERVAL_MS
-      : now - lastChecked >= TOP_REFRESH_INTERVAL_MS;
-  });
-
-  if (dueMetas.length === 0) {
-    isRefreshing = false;
-    return;
-  }
-
-  // Priority: new registrations first, then chrono-skeets, then top-skeets
-  dueMetas.sort((a, b) => priority(a) - priority(b));
-
-  console.log(`[scheduler] refreshing ${dueMetas.length}/${allMetas.length} feed(s) (concurrency=${CONCURRENCY})…`);
-
+  const cycleStart = Date.now();
   try {
-    // Worker pool: CONCURRENCY workers each pull the next feed as soon as they
-    // finish their current one, so a slow feed never blocks a fast one.
-    const queue = [...dueMetas];
-    const workers = Array.from({ length: Math.min(CONCURRENCY, dueMetas.length) }, async () => {
-      while (!stopped && queue.length > 0) {
-        const meta = queue.shift();
-        if (!meta) continue;
-        // The full feed (posts included) is only loaded for feeds actually due
-        const feed = getFeedByDid(meta.did, meta.feed_type);
-        if (!feed) {
-          console.warn(`[scheduler] feed file missing for ${meta.handle} (${meta.feed_type}) — skipping`);
-          continue;
-        }
-        await refreshFeedWithRetry(feed);
-      }
+    const now = Date.now();
+    // Metadata only — no post arrays are parsed for feeds that aren't due
+    const allMetas = getAllFeedMetas().filter(m => m.feed_uri && m.feed_url);
+
+    // Filter to feeds that are due for a refresh based on their type
+    const dueMetas = allMetas.filter(m => {
+      if (m.post_count === 0) return true; // new registration — always refresh
+      const lastChecked = m.last_checked_at ? new Date(m.last_checked_at).getTime() : 0;
+      return m.feed_type === 'chrono-skeets'
+        ? now - lastChecked >= CHRONO_REFRESH_INTERVAL_MS
+        : now - lastChecked >= TOP_REFRESH_INTERVAL_MS;
     });
-    await Promise.all(workers);
+
+    if (dueMetas.length > 0) {
+      // Priority: new registrations first, then chrono-skeets, then top-skeets
+      dueMetas.sort((a, b) => priority(a) - priority(b));
+
+      console.log(`[scheduler] refreshing ${dueMetas.length}/${allMetas.length} feed(s) (concurrency=${CONCURRENCY})…`);
+
+      // Worker pool: CONCURRENCY workers each pull the next feed as soon as they
+      // finish their current one, so a slow feed never blocks a fast one.
+      const queue = [...dueMetas];
+      const workers = Array.from({ length: Math.min(CONCURRENCY, dueMetas.length) }, async () => {
+        while (!stopped && queue.length > 0) {
+          const meta = queue.shift();
+          if (!meta) continue;
+          // The full feed (posts included) is only loaded for feeds actually due
+          const feed = getFeedByDid(meta.did, meta.feed_type);
+          if (!feed) {
+            console.warn(`[scheduler] feed file missing for ${meta.handle} (${meta.feed_type}) — skipping`);
+            continue;
+          }
+          await refreshFeedWithRetry(feed);
+        }
+      });
+      await Promise.all(workers);
+    }
   } finally {
     isRefreshing = false;
+    lastCycleCompletedAt = new Date().toISOString();
+    lastCycleDurationMs = Date.now() - cycleStart;
   }
 }
 

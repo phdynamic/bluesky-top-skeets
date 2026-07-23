@@ -4,8 +4,8 @@ import { config } from './config';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
-import { getFeedMetaByHandle, FEED_TYPES, FeedType } from './db';
-import { startScheduler, stopScheduler, refreshFeedNow, getIsRefreshing } from './scheduler';
+import { getFeedMetaByHandle, getAllFeedMetas, FEED_TYPES, FeedType } from './db';
+import { startScheduler, stopScheduler, refreshFeedNow, getIsRefreshing, getSchedulerStatus } from './scheduler';
 
 // A stray rejected promise shouldn't kill a healthy server; log and move on.
 process.on('unhandledRejection', (reason) => {
@@ -246,6 +246,19 @@ app.get('/api/feed/:handle', (req, res) => {
     postCount: meta.post_count,
     generatedAt: meta.generated_at,
     feedUrl: meta.feed_url,
+  });
+});
+
+// GET /health — cheap liveness/status endpoint (metas are in memory)
+app.get('/health', (_req, res) => {
+  const sched = getSchedulerStatus();
+  res.json({
+    status: 'ok',
+    uptimeSeconds: Math.round(process.uptime()),
+    feedCount: getAllFeedMetas().length,
+    isRefreshing: sched.isRefreshing,
+    lastCycleCompletedAt: sched.lastCycleCompletedAt,
+    lastCycleDurationMs: sched.lastCycleDurationMs,
   });
 });
 
