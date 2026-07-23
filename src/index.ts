@@ -4,7 +4,7 @@ import { config } from './config';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
-import { getFeedByHandle, FEED_TYPES, FeedType, migrateV0ToV1, migrateV1ToV2 } from './db';
+import { getFeedByHandle, FEED_TYPES, FeedType } from './db';
 import { startScheduler, refreshFeedNow, getIsRefreshing } from './scheduler';
 
 const app = express();
@@ -236,13 +236,8 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-(async () => {
-  await migrateV0ToV1();
-  migrateV1ToV2();
-
-  app.listen(config.port, () => {
-    console.log(`Top Skeets running on port ${config.port}`);
-    console.log(`Service DID: ${config.feedgenServiceDid}`);
-    startScheduler();
-  });
-})();
+app.listen(config.port, () => {
+  console.log(`Top Skeets running on port ${config.port}`);
+  console.log(`Service DID: ${config.feedgenServiceDid}`);
+  startScheduler();
+});

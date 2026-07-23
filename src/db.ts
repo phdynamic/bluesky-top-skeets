@@ -30,7 +30,7 @@ export interface UserFeed {
   posts: PostRecord[];
 }
 
-const dataDir = path.resolve(path.dirname(config.databasePath));
+const dataDir = path.resolve(config.dataDir);
 const indexPath = path.join(dataDir, '_index.json');
 
 // In-memory cache — invalidated on every upsert
@@ -212,97 +212,5 @@ export function deleteFeed(did: string, feedType: FeedType): void {
   const filePath = feedFilePath(did, feedType);
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
-  }
-}
-
-/**
- * One-time migration: read the legacy sql.js SQLite database (feeds.db) and
- * write each row as a {did}-top-skeets.json file. Renames feeds.db to
- * feeds.db.migrated afterward so it never runs again.
- */
-export async function migrateV0ToV1(): Promise<void> {
-  const legacyDb = path.resolve(config.databasePath);
-  console.log(`[migration v0→v1] checking for legacy DB at: ${legacyDb}`);
-  if (!fs.existsSync(legacyDb)) {
-    console.log('[migration v0→v1] not found — skipping');
-    return;
-  }
-
-  console.log('[migration v0→v1] found feeds.db — migrating to JSON files…');
-  ensureDataDir();
-
-  const initSqlJs = (await import('sql.js')).default;
-  const SQL = await initSqlJs();
-  const buf = fs.readFileSync(legacyDb);
-  const db = new SQL.Database(buf);
-
-  const stmt = db.prepare('SELECT * FROM user_feeds');
-  let count = 0;
-
-  while (stmt.step()) {
-    const row = stmt.getAsObject() as Record<string, unknown>;
-    const did = row['did'] as string;
-    const handle = row['handle'] as string;
-    let posts: PostRecord[] = [];
-    try {
-      posts = JSON.parse(row['posts'] as string) as PostRecord[];
-    } catch { /* leave empty */ }
-
-    const record: UserFeed = {
-      did,
-      handle,
-      display_name: (row['display_name'] as string | null) ?? null,
-      avatar_url: (row['avatar_url'] as string | null) ?? null,
-      feed_type: 'top-skeets',
-      feed_uri: (row['feed_uri'] as string | null) ?? null,
-      feed_url: (row['feed_url'] as string | null) ?? null,
-      post_count: (row['post_count'] as number | null) ?? null,
-      generated_at: (row['generated_at'] as string | null) ?? null,
-      include_replies: false,
-      last_full_refresh_at: null,
-      last_checked_at: null,
-      posts,
-    };
-
-    fs.writeFileSync(feedFilePath(did, 'top-skeets'), JSON.stringify(record), 'utf8');
-
-    const normalized = handle.startsWith('@') ? handle.slice(1) : handle;
-    const index = readIndex();
-    index[normalized] = did;
-    writeIndex(index);
-
-    console.log(`[migration v0→v1] migrated ${handle}`);
-    count++;
-  }
-
-  stmt.free();
-  db.close();
-
-  // Rename so this migration never runs again
-  fs.renameSync(legacyDb, legacyDb + '.migrated');
-  console.log(`[migration v0→v1] done — migrated ${count} feed(s), renamed feeds.db → feeds.db.migrated`);
-}
-
-/**
- * One-time migration: rename legacy {did-slug}.json files (created before
- * feed types were introduced) to {did-slug}-top-skeets.json.
- * Safe to call on every startup — no-op if nothing to rename.
- */
-export function migrateV1ToV2(): void {
-  if (!fs.existsSync(dataDir)) return;
-  const files = fs.readdirSync(dataDir);
-  for (const file of files) {
-    if (
-      file.startsWith('did-') &&
-      file.endsWith('.json') &&
-      !file.endsWith('-top-skeets.json') &&
-      !file.endsWith('-chrono-skeets.json')
-    ) {
-      const oldPath = path.join(dataDir, file);
-      const newName = file.replace(/\.json$/, '-top-skeets.json');
-      const newPath = path.join(dataDir, newName);
-      fs.renameSync(oldPath, newPath);
-      console.log(`[migration] ${file} → ${newName}`);
-    }
   }
 }
