@@ -5,7 +5,7 @@ import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
 import { getFeedMetaByHandle, getAllFeedMetas, FEED_TYPES, FeedType } from './db';
-import { startScheduler, stopScheduler, refreshFeedNow, getIsRefreshing, getSchedulerStatus, getFetchProgress } from './scheduler';
+import { startScheduler, stopScheduler, refreshFeedNow, refreshFeedSoon, getSchedulerStatus, getFetchProgress } from './scheduler';
 
 // A stray rejected promise shouldn't kill a healthy server; log and move on.
 process.on('unhandledRejection', (reason) => {
@@ -112,17 +112,14 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
       expectedPosts: result.expectedPosts,
     });
 
-    // Fetch posts in the background only if the scheduler isn't already running.
-    // If it is running, the next scheduler cycle will pick up the new feed.
-    if (!getIsRefreshing()) {
-      refreshFeedNow(result.did, feedType as FeedType).then(() => {
-        console.log(`[register] background refresh done for ${handle} (${feedType})`);
-      }).catch((err: unknown) => {
-        console.error(`[register] background refresh failed for ${handle} (${feedType}):`, err instanceof Error ? err.message : String(err));
-      });
-    } else {
-      console.log(`[register] scheduler running — ${handle} (${feedType}) will be refreshed in next cycle`);
-    }
+    // Fetch posts in the background. If the scheduler is mid-cycle this waits
+    // for it to finish, then starts immediately (instead of waiting for the
+    // next tick).
+    refreshFeedSoon(result.did, feedType as FeedType).then(() => {
+      console.log(`[register] background refresh done for ${handle} (${feedType})`);
+    }).catch((err: unknown) => {
+      console.error(`[register] background refresh failed for ${handle} (${feedType}):`, err instanceof Error ? err.message : String(err));
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
 

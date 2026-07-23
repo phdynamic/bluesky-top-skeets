@@ -6,8 +6,19 @@ import { config } from './config';
 const CONCURRENCY = 6;
 const RETRY_DELAY_MS = 5_000;
 const CHRONO_REFRESH_INTERVAL_MS = 15 * 60 * 1000;       // 15 minutes
-const TOP_REFRESH_INTERVAL_MS    = 12 * 60 * 60 * 1000;  // 12 hours
-const FULL_REFRESH_INTERVAL_MS   = 24 * 60 * 60 * 1000;  // 24 hours (like-count accuracy for top-skeets)
+const TOP_REFRESH_INTERVAL_MS    = 60 * 60 * 1000;       // 1 hour (incremental checks are ~1 page)
+const FULL_REFRESH_INTERVAL_MS   = 24 * 60 * 60 * 1000;  // 24 hours (like-count accuracy)
+
+/**
+ * Deterministic 0–6h per-feed offset added to the full-refresh interval so the
+ * daily full refreshes spread out instead of piling into one long cycle.
+ */
+function fullRefreshJitterMs(did: string, feedType: FeedType): number {
+  const key = `${did}:${feedType}`;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return h % (6 * 60 * 60 * 1000);
+}
 
 // Live progress of full refetches (raw feed items scanned), keyed did::feedType.
 // Ephemeral — only exists while a fetch is running; served by /api/feed/:handle.
@@ -134,7 +145,7 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
   const lastFullMs = feed.last_full_refresh_at ? new Date(feed.last_full_refresh_at).getTime() : 0;
   const needsFullRefresh =
     existingPosts.length === 0 ||
-    Date.now() - lastFullMs > FULL_REFRESH_INTERVAL_MS;
+    Date.now() - lastFullMs > FULL_REFRESH_INTERVAL_MS + fullRefreshJitterMs(feed.did, feed.feed_type);
 
   let allPosts: PostRecord[];
   let lastFullRefreshAt = feed.last_full_refresh_at ?? null;
@@ -204,6 +215,27 @@ export async function refreshFeedNow(did: string, feedType: FeedType): Promise<v
   const feed = getFeedByDid(did, feedType);
   if (!feed) throw new Error('Feed not found');
   if (!feed.feed_uri || !feed.feed_url) throw new Error('Feed is not fully registered');
+  await refreshFeed(feed);
+}
+
+/**
+ * Refresh a feed as soon as possible: if a scheduler cycle is running, wait
+ * for it to finish (so we don't compete for API quota), then fetch — unless
+ * the scheduler already populated the feed while we waited. A tick starting
+ * mid-fetch can rarely double-fetch the same feed; last write wins, benign.
+ */
+export async function refreshFeedSoon(did: string, feedType: FeedType): Promise<void> {
+  const start = Date.now();
+  if (isRefreshing) {
+    console.log(`[scheduler] refresh queued for ${did} (${feedType}) — waiting for current cycle to finish`);
+  }
+  while (isRefreshing && Date.now() - start < 30 * 60_000) {
+    await new Promise(resolve => setTimeout(resolve, 5_000));
+  }
+  const feed = getFeedByDid(did, feedType);
+  if (!feed || !feed.feed_uri || !feed.feed_url) return;
+  // Already populated (e.g. by the cycle we waited on, or a rename re-register)
+  if (feed.last_full_refresh_at && (feed.posts ?? []).length > 0) return;
   await refreshFeed(feed);
 }
 

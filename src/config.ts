@@ -13,5 +13,5 @@ export const config = {
   feedgenServiceDid: required('FEEDGEN_SERVICE_DID'),
   // DATABASE_PATH is a legacy var from the SQLite era — only its directory is used
   dataDir: process.env.DATA_DIR ?? path.dirname(process.env.DATABASE_PATH ?? './data/feeds.db'),
-  refreshIntervalMinutes: parseInt(process.env.REFRESH_INTERVAL_MINUTES ?? '15', 10),
+  refreshIntervalMinutes: parseInt(process.env.REFRESH_INTERVAL_MINUTES ?? '5', 10),
 };

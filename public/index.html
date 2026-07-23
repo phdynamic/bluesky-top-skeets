@@ -711,6 +711,11 @@
                   ? 'Fetching your posts\u2026 ' + info.fetchProgress.toLocaleString() + ' of ~' + expectedPosts.toLocaleString() + ' scanned.'
                   : 'Fetching your posts\u2026 ' + info.fetchProgress.toLocaleString() + ' scanned so far.';
               }
+            } else {
+              // Fetch hasn't started yet \u2014 be honest about the queue
+              if (status) {
+                status.textContent = 'Waiting for a fetch slot \u2014 this can take a couple of minutes\u2026';
+              }
             }
           })
           .catch(function() { /* transient \u2014 keep polling */ });

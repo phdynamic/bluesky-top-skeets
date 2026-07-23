@@ -46,11 +46,11 @@ Both sidecar files are derived state: if either is missing or corrupt it is auto
 
 ### Background refresh
 
-A scheduler ticks every `REFRESH_INTERVAL_MINUTES` (default 15) and refreshes feeds that are due, with new registrations always first:
+A scheduler ticks every `REFRESH_INTERVAL_MINUTES` (default 5) and refreshes feeds that are due, with new registrations always first:
 
 - **chrono-skeets**: incremental refresh every 15 minutes (only new posts fetched)
-- **top-skeets**: incremental refresh every 12 hours
-- **both types**: a full refresh every 24 hours (updates like counts, drops deleted posts)
+- **top-skeets**: incremental refresh every hour
+- **both types**: a full refresh every ~24 hours (updates like counts, drops deleted posts; a per-feed 0–6h jitter spreads these out so they don't pile into one long cycle)
 
 Feeds whose accounts have been deleted, deactivated, or suspended are pruned automatically.
 
@@ -109,7 +109,7 @@ curl "http://localhost:3000/api/feed/yourhandle.bsky.social?feedType=top-skeets"
    FEEDGEN_HOSTNAME=your-app.up.railway.app
    FEEDGEN_SERVICE_DID=did:web:your-app.up.railway.app
    DATA_DIR=/app/data
-   REFRESH_INTERVAL_MINUTES=15
+   REFRESH_INTERVAL_MINUTES=5
    ```
    (`DATABASE_PATH` from older deployments is still honored as a fallback — its directory is used as the data dir.)
 
