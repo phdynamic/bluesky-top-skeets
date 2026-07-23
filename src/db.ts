@@ -247,11 +247,15 @@ export function getAllFeedMetas(): FeedMeta[] {
   return Object.values(loadMetas());
 }
 
+export function getFeedMetaByDid(did: string, feedType: FeedType): FeedMeta | null {
+  return loadMetas()[cacheKey(did, feedType)] ?? null;
+}
+
 export function getFeedMetaByHandle(handle: string, feedType: FeedType): FeedMeta | null {
   const normalized = handle.startsWith('@') ? handle.slice(1) : handle;
   const did = readIndex()[normalized];
   if (!did) return null;
-  return loadMetas()[cacheKey(did, feedType)] ?? null;
+  return getFeedMetaByDid(did, feedType);
 }
 
 export interface UpsertFeedInput {

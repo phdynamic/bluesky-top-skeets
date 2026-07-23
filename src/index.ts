@@ -112,11 +112,16 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
       expectedPosts: result.expectedPosts,
     });
 
-    // Fetch posts in the background. If the scheduler is mid-cycle this waits
-    // for it to finish, then starts immediately (instead of waiting for the
-    // next tick).
-    refreshFeedSoon(result.did, feedType as FeedType).then(() => {
-      console.log(`[register] background refresh done for ${handle} (${feedType})`);
+    // Fetch posts in the background. If the scheduler is mid-cycle, the new
+    // feed jumps to the front of the running queue instead of waiting.
+    refreshFeedSoon(result.did, feedType as FeedType).then((status) => {
+      if (status === 'fetched') {
+        console.log(`[register] background refresh done for ${handle} (${feedType})`);
+      } else if (status === 'queued') {
+        console.log(`[register] ${handle} (${feedType}) queued at front of running cycle`);
+      } else {
+        console.log(`[register] ${handle} (${feedType}) already populated — no refresh needed`);
+      }
     }).catch((err: unknown) => {
       console.error(`[register] background refresh failed for ${handle} (${feedType}):`, err instanceof Error ? err.message : String(err));
     });

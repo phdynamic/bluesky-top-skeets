@@ -1,5 +1,5 @@
 import { BskyAgent } from '@atproto/api';
-import { getAllFeedMetas, getFeedByDid, upsertFeed, touchFeedChecked, deleteFeed, UserFeed, FeedMeta, FeedType, PostRecord } from './db';
+import { getAllFeedMetas, getFeedMetaByDid, getFeedByDid, upsertFeed, touchFeedChecked, deleteFeed, UserFeed, FeedMeta, FeedType, PostRecord } from './db';
 import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
@@ -27,6 +27,10 @@ const fetchProgress = new Map<string, number>();
 export function getFetchProgress(did: string, feedType: FeedType): number | null {
   return fetchProgress.get(`${did}::${feedType}`) ?? null;
 }
+
+// The running cycle's live queue — non-null only while a cycle is in flight.
+// refreshFeedSoon unshifts new registrations onto it so they jump the line.
+let activeQueue: FeedMeta[] | null = null;
 
 let isRefreshing = false;
 let stopped = false;
@@ -97,6 +101,7 @@ async function runRefresh(): Promise<void> {
       // Worker pool: CONCURRENCY workers each pull the next feed as soon as they
       // finish their current one, so a slow feed never blocks a fast one.
       const queue = [...dueMetas];
+      activeQueue = queue;
       const workers = Array.from({ length: Math.min(CONCURRENCY, dueMetas.length) }, async () => {
         while (!stopped && queue.length > 0) {
           const meta = queue.shift();
@@ -111,8 +116,20 @@ async function runRefresh(): Promise<void> {
         }
       });
       await Promise.all(workers);
+
+      // Sweep anything injected after the workers drained the queue. No await
+      // between the final length check and clearing activeQueue, so nothing
+      // can slip in unprocessed.
+      while (!stopped && queue.length > 0) {
+        const meta = queue.shift();
+        if (!meta) continue;
+        const feed = getFeedByDid(meta.did, meta.feed_type);
+        if (feed) await refreshFeedWithRetry(feed);
+      }
+      activeQueue = null;
     }
   } finally {
+    activeQueue = null;
     isRefreshing = false;
     lastCycleCompletedAt = new Date().toISOString();
     lastCycleDurationMs = Date.now() - cycleStart;
@@ -238,25 +255,28 @@ export async function refreshFeedNow(did: string, feedType: FeedType): Promise<v
 }
 
 /**
- * Refresh a feed as soon as possible: if a scheduler cycle is running, wait
- * for it to finish (so we don't compete for API quota), then fetch — unless
- * the scheduler already populated the feed while we waited. The in-flight
- * lock in refreshFeed prevents a tick starting mid-fetch from launching a
- * duplicate fetch of the same feed.
+ * Refresh a feed as soon as possible. If a scheduler cycle is running, the
+ * feed jumps to the front of its live queue (next free worker picks it up in
+ * seconds); otherwise it is fetched directly. The in-flight lock in
+ * refreshFeed prevents duplicate concurrent fetches either way.
  */
-export async function refreshFeedSoon(did: string, feedType: FeedType): Promise<void> {
-  const start = Date.now();
-  if (isRefreshing) {
-    console.log(`[scheduler] refresh queued for ${did} (${feedType}) — waiting for current cycle to finish`);
+export async function refreshFeedSoon(did: string, feedType: FeedType): Promise<'skipped' | 'queued' | 'fetched'> {
+  const meta = getFeedMetaByDid(did, feedType);
+  if (!meta || !meta.feed_uri || !meta.feed_url) return 'skipped';
+  // Already populated (e.g. a rename re-register). An include-replies change
+  // nulls last_full_refresh_at in register.ts, so those still refetch.
+  if (meta.last_full_refresh_at && meta.post_count > 0) return 'skipped';
+
+  if (isRefreshing && activeQueue) {
+    activeQueue.unshift(meta);
+    console.log(`[scheduler] ${meta.handle} (${feedType}) jumped to the front of the running cycle`);
+    return 'queued';
   }
-  while (isRefreshing && Date.now() - start < 30 * 60_000) {
-    await new Promise(resolve => setTimeout(resolve, 5_000));
-  }
+
   const feed = getFeedByDid(did, feedType);
-  if (!feed || !feed.feed_uri || !feed.feed_url) return;
-  // Already populated (e.g. by the cycle we waited on, or a rename re-register)
-  if (feed.last_full_refresh_at && (feed.posts ?? []).length > 0) return;
+  if (!feed) return 'skipped';
   await refreshFeed(feed);
+  return 'fetched';
 }
 
 function isGoneError(err: unknown): boolean {
