@@ -171,6 +171,7 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
     displayName: feed.display_name,
     avatarUrl: feed.avatar_url,
     feedType: feed.feed_type,
+    feedName: feed.feed_name ?? null,
     feedUri: feed.feed_uri!,
     feedUrl: feed.feed_url!,
     postCount: allPosts.length,

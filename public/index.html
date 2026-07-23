@@ -433,6 +433,9 @@
       </div>
       <p class="feed-type-desc" id="feedTypeDesc">Ranked by most likes</p>
 
+      <label for="feedName">Feed name <span style="font-weight:400;color:#999;">(optional, max 24 characters)</span></label>
+      <input type="text" id="feedName" placeholder="Top Skeets" maxlength="24" spellcheck="false" />
+
       <div class="checkbox-row">
         <input type="checkbox" id="includeReplies" />
         <label for="includeReplies">Include replies</label>
@@ -500,6 +503,8 @@
       document.getElementById('toggleChrono').classList.toggle('active', type === 'chrono-skeets');
       document.getElementById('feedTypeDesc').textContent =
         type === 'top-skeets' ? 'Ranked by most likes' : 'Newest posts first';
+      document.getElementById('feedName').placeholder =
+        type === 'top-skeets' ? 'Top Skeets' : 'My Skeets';
     }
 
     function setLoading(loading) {
@@ -532,10 +537,11 @@
 
       try {
         var includeReplies = document.getElementById('includeReplies').checked;
+        var feedName = document.getElementById('feedName').value.trim();
         var res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType, includeReplies: includeReplies }),
+          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType, includeReplies: includeReplies, feedName: feedName || undefined }),
         });
         var data = await safeJson(res);
 
@@ -728,6 +734,7 @@
       document.getElementById('formView').classList.remove('hidden');
       document.getElementById('handle').value = '';
       document.getElementById('appPassword').value = '';
+      document.getElementById('feedName').value = '';
       document.getElementById('includeReplies').checked = false;
       document.getElementById('errorBox').style.display = 'none';
     }

@@ -1,6 +1,6 @@
 import { BskyAgent } from '@atproto/api';
 import { config } from './config';
-import { upsertFeed, deleteFeed, FeedType } from './db';
+import { upsertFeed, deleteFeed, getFeedByDid, FeedType } from './db';
 
 const FEED_DISPLAY_NAMES: Record<FeedType, string> = {
   'top-skeets': 'Top Skeets',
@@ -18,8 +18,10 @@ export interface RegisterResult {
   displayName: string | null;
   avatarUrl: string | null;
   feedUrl: string;
+  feedName: string;
   postCount: number;
-  posts: Array<{ uri: string; url: string; text: string; likeCount: number; indexedAt: string }>;
+  /** Total posts on the user's profile (incl. replies/reposts) — progress denominator. */
+  expectedPosts: number | null;
 }
 
 export async function registerUserFeed(
@@ -27,6 +29,7 @@ export async function registerUserFeed(
   appPassword: string,
   feedType: FeedType,
   includeReplies = false,
+  feedName: string | null = null,
 ): Promise<RegisterResult> {
   const agent = new BskyAgent({ service: 'https://bsky.social' });
 
@@ -40,8 +43,10 @@ export async function registerUserFeed(
   const profileRes = await agent.api.app.bsky.actor.getProfile({ actor: did });
   const displayName = profileRes.data.displayName ?? null;
   const avatarUrl = profileRes.data.avatar ?? null;
+  const expectedPosts = profileRes.data.postsCount ?? null;
 
   // 3. Publish feed generator record under the USER'S OWN account
+  const effectiveFeedName = feedName || FEED_DISPLAY_NAMES[feedType];
   await agent.api.com.atproto.repo.putRecord({
     repo: did,
     collection: 'app.bsky.feed.generator',
@@ -49,7 +54,7 @@ export async function registerUserFeed(
     record: {
       $type: 'app.bsky.feed.generator',
       did: config.feedgenServiceDid,
-      displayName: FEED_DISPLAY_NAMES[feedType],
+      displayName: effectiveFeedName,
       description: FEED_DESCRIPTIONS[feedType],
       createdAt: new Date().toISOString(),
     },
@@ -59,20 +64,27 @@ export async function registerUserFeed(
   const feedUri = `at://${did}/app.bsky.feed.generator/${feedType}`;
   const feedUrl = `https://bsky.app/profile/${did}/feed/${feedType}`;
 
-  // 5. Persist placeholder — posts will be populated by a background refresh
+  // 5. Persist. If the feed already exists (re-register / rename), keep its
+  // posts so the live feed never goes empty while a refetch runs. If the
+  // include-replies setting changed, null lastFullRefreshAt so the next
+  // refresh is a full refetch honoring the new setting.
+  const existing = getFeedByDid(did, feedType);
+  const existingPosts = existing?.posts ?? [];
+  const settingsChanged = existing ? (existing.include_replies ?? false) !== includeReplies : false;
   upsertFeed({
     did,
     handle: userHandle,
     displayName,
     avatarUrl,
     feedType,
+    feedName: feedName ?? null,
     feedUri,
     feedUrl,
-    postCount: 0,
-    generatedAt: new Date().toISOString(),
+    postCount: existingPosts.length,
+    generatedAt: existing?.generated_at ?? new Date().toISOString(),
     includeReplies,
-    lastFullRefreshAt: null,
-    posts: [],
+    lastFullRefreshAt: settingsChanged ? null : existing?.last_full_refresh_at ?? null,
+    posts: existingPosts,
   });
 
   return {
@@ -81,8 +93,9 @@ export async function registerUserFeed(
     displayName,
     avatarUrl,
     feedUrl,
-    postCount: 0,
-    posts: [],
+    feedName: effectiveFeedName,
+    postCount: existingPosts.length,
+    expectedPosts,
   };
 }
 

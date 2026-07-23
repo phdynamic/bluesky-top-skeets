@@ -68,11 +68,12 @@ app.use(feedSkeletonRouter);
 
 // POST /api/register — authenticate as user and publish feed
 app.post('/api/register', rateLimitMiddleware, async (req, res) => {
-  const { handle, appPassword, feedType, includeReplies } = req.body as {
+  const { handle, appPassword, feedType, includeReplies, feedName } = req.body as {
     handle?: string;
     appPassword?: string;
     feedType?: string;
     includeReplies?: boolean;
+    feedName?: string;
   };
 
   if (!handle || !appPassword) {
@@ -85,6 +86,13 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
     return;
   }
 
+  // AT Protocol caps feed generator display names at 24 graphemes
+  const trimmedFeedName = typeof feedName === 'string' ? feedName.trim() : '';
+  if (Array.from(trimmedFeedName).length > 24) {
+    res.status(400).json({ error: 'FeedNameTooLong', message: 'Feed name must be 24 characters or fewer' });
+    return;
+  }
+
   if (!feedType || !(FEED_TYPES as string[]).includes(feedType)) {
     res.status(400).json({ error: 'InvalidFeedType', message: `feedType must be one of: ${FEED_TYPES.join(', ')}` });
     return;
@@ -92,14 +100,16 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
 
   try {
     console.log(`[register] starting for ${handle} (${feedType}, includeReplies=${includeReplies ?? false})`);
-    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, includeReplies ?? false);
+    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, includeReplies ?? false, trimmedFeedName || null);
     console.log(`[register] done for ${handle} (${feedType}), refreshing posts in background`);
     res.json({
       feedUrl: result.feedUrl,
       handle: result.handle,
       displayName: result.displayName,
       avatarUrl: result.avatarUrl,
+      feedName: result.feedName,
       postCount: result.postCount,
+      expectedPosts: result.expectedPosts,
     });
 
     // Fetch posts in the background only if the scheduler isn't already running.

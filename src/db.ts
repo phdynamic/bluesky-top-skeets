@@ -20,6 +20,7 @@ export interface UserFeed {
   display_name: string | null;
   avatar_url: string | null;
   feed_type: FeedType;
+  feed_name: string | null;
   feed_uri: string | null;
   feed_url: string | null;
   post_count: number | null;
@@ -41,6 +42,7 @@ export interface FeedMeta {
   display_name: string | null;
   avatar_url: string | null;
   feed_type: FeedType;
+  feed_name: string | null;
   feed_uri: string | null;
   feed_url: string | null;
   post_count: number;
@@ -181,6 +183,7 @@ function metaFromFeed(feed: UserFeed): FeedMeta {
     display_name: feed.display_name,
     avatar_url: feed.avatar_url,
     feed_type: feed.feed_type,
+    feed_name: feed.feed_name ?? null,
     feed_uri: feed.feed_uri,
     feed_url: feed.feed_url,
     post_count: feed.post_count ?? (feed.posts ?? []).length,
@@ -257,6 +260,7 @@ export interface UpsertFeedInput {
   displayName: string | null;
   avatarUrl: string | null;
   feedType: FeedType;
+  feedName: string | null;
   feedUri: string;
   feedUrl: string;
   postCount: number;
@@ -276,6 +280,7 @@ export function upsertFeed(feed: UpsertFeedInput): void {
     display_name: feed.displayName,
     avatar_url: feed.avatarUrl,
     feed_type: feed.feedType,
+    feed_name: feed.feedName,
     feed_uri: feed.feedUri,
     feed_url: feed.feedUrl,
     post_count: feed.postCount,
