@@ -10,6 +10,9 @@ const TOP_REFRESH_INTERVAL_MS    = 12 * 60 * 60 * 1000;  // 12 hours
 const FULL_REFRESH_INTERVAL_MS   = 24 * 60 * 60 * 1000;  // 24 hours (like-count accuracy for top-skeets)
 
 let isRefreshing = false;
+let stopped = false;
+let initialTimer: NodeJS.Timeout | null = null;
+let intervalTimer: NodeJS.Timeout | null = null;
 
 export function getIsRefreshing(): boolean { return isRefreshing; }
 
@@ -17,8 +20,15 @@ export function startScheduler(): void {
   const intervalMs = config.refreshIntervalMinutes * 60_000;
   console.log(`[scheduler] auto-refresh every ${config.refreshIntervalMinutes} min`);
   // First run after 30s so startup isn't slammed; then on the regular interval
-  setTimeout(() => { void runRefresh(); }, 30_000);
-  setInterval(() => { void runRefresh(); }, intervalMs);
+  initialTimer = setTimeout(() => { void runRefresh(); }, 30_000);
+  intervalTimer = setInterval(() => { void runRefresh(); }, intervalMs);
+}
+
+/** Stop scheduling new work. In-flight feeds finish their current write. */
+export function stopScheduler(): void {
+  stopped = true;
+  if (initialTimer) clearTimeout(initialTimer);
+  if (intervalTimer) clearInterval(intervalTimer);
 }
 
 async function runRefresh(): Promise<void> {
@@ -54,7 +64,7 @@ async function runRefresh(): Promise<void> {
     // finish their current one, so a slow feed never blocks a fast one.
     const queue = [...feeds];
     const workers = Array.from({ length: Math.min(CONCURRENCY, feeds.length) }, async () => {
-      while (queue.length > 0) {
+      while (!stopped && queue.length > 0) {
         const feed = queue.shift();
         if (feed) await refreshFeedWithRetry(feed);
       }

@@ -5,7 +5,18 @@ import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
 import { getFeedByHandle, FEED_TYPES, FeedType } from './db';
-import { startScheduler, refreshFeedNow, getIsRefreshing } from './scheduler';
+import { startScheduler, stopScheduler, refreshFeedNow, getIsRefreshing } from './scheduler';
+
+// A stray rejected promise shouldn't kill a healthy server; log and move on.
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandled rejection:', reason);
+});
+// Unknown state after a sync throw — log and exit; Railway restarts the
+// instance and all persistence writes are atomic, so exiting is safe.
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaught exception:', err);
+  process.exit(1);
+});
 
 const app = express();
 
@@ -236,8 +247,16 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`Top Skeets running on port ${config.port}`);
   console.log(`Service DID: ${config.feedgenServiceDid}`);
   startScheduler();
+});
+
+process.on('SIGTERM', () => {
+  console.log('[shutdown] SIGTERM received — stopping scheduler and closing server');
+  stopScheduler();
+  server.close(() => process.exit(0));
+  // Force exit if keep-alive connections linger past Railway's grace period
+  setTimeout(() => process.exit(0), 10_000).unref();
 });
