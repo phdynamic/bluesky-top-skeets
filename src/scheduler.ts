@@ -9,6 +9,14 @@ const CHRONO_REFRESH_INTERVAL_MS = 15 * 60 * 1000;       // 15 minutes
 const TOP_REFRESH_INTERVAL_MS    = 12 * 60 * 60 * 1000;  // 12 hours
 const FULL_REFRESH_INTERVAL_MS   = 24 * 60 * 60 * 1000;  // 24 hours (like-count accuracy for top-skeets)
 
+// Live progress of full refetches (raw feed items scanned), keyed did::feedType.
+// Ephemeral — only exists while a fetch is running; served by /api/feed/:handle.
+const fetchProgress = new Map<string, number>();
+
+export function getFetchProgress(did: string, feedType: FeedType): number | null {
+  return fetchProgress.get(`${did}::${feedType}`) ?? null;
+}
+
 let isRefreshing = false;
 let stopped = false;
 let initialTimer: NodeJS.Timeout | null = null;
@@ -132,7 +140,16 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
   let lastFullRefreshAt = feed.last_full_refresh_at ?? null;
 
   if (needsFullRefresh) {
-    allPosts = await fetchAllOriginalPosts(agent, feed.did, feed.handle, feed.feed_type, undefined, includeReplies);
+    const progressKey = `${feed.did}::${feed.feed_type}`;
+    fetchProgress.set(progressKey, 0);
+    try {
+      allPosts = await fetchAllOriginalPosts(
+        agent, feed.did, feed.handle, feed.feed_type, undefined, includeReplies,
+        scanned => fetchProgress.set(progressKey, scanned),
+      );
+    } finally {
+      fetchProgress.delete(progressKey);
+    }
     lastFullRefreshAt = new Date().toISOString();
     console.log(`[scheduler] full refresh ${feed.handle} (${feed.feed_type}): ${allPosts.length} posts`);
   } else {

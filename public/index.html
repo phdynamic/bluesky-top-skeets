@@ -351,6 +351,22 @@
       margin-bottom: 20px;
     }
 
+    .progress-track {
+      height: 6px;
+      background: #dbeafe;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #1d9bf0;
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.6s ease;
+    }
+
     /* Unpublish success */
     .unpublish-confirm {
       text-align: center;
@@ -658,41 +674,69 @@
       }
     }
 
-    function startFeedPolling(handle, feedType) {
+    function startFeedPolling(handle, feedType, expectedPosts) {
       stopFeedPolling();
       pollCount = 0;
       pollTimer = setInterval(function() {
         pollCount++;
-        if (pollCount > 180) { // give up after 15 minutes
+        if (pollCount > 300) { // give up after 15 minutes
           stopFeedPolling();
           return;
         }
         fetch('/api/feed/' + encodeURIComponent(handle) + '?feedType=' + feedType)
           .then(function(res) { return res.ok ? res.json() : null; })
           .then(function(info) {
-            if (!info || !info.lastFullRefreshAt) return; // still fetching
-            var el = document.getElementById('fetchStatus');
-            if (el) {
-              el.textContent = info.postCount > 0
-                ? info.postCount.toLocaleString() + ' posts in your feed.'
-                : 'Your feed is ready \u2014 no posts found yet.';
+            if (!info) return;
+            var status = document.getElementById('fetchStatus');
+            var fill = document.getElementById('progressFill');
+
+            if (info.lastFullRefreshAt) {
+              // Initial fetch complete
+              if (fill) fill.style.width = '100%';
+              if (status) {
+                status.textContent = info.postCount > 0
+                  ? info.postCount.toLocaleString() + ' posts in your feed.'
+                  : 'Your feed is ready \u2014 no posts found yet.';
+              }
+              stopFeedPolling();
+            } else if (typeof info.fetchProgress === 'number') {
+              // Fetch in progress \u2014 fetchProgress counts raw posts scanned,
+              // expectedPosts is the profile total (approximate), so cap at 97%
+              if (expectedPosts > 0 && fill) {
+                var pct = Math.min(97, Math.round(info.fetchProgress / expectedPosts * 100));
+                fill.style.width = pct + '%';
+              }
+              if (status) {
+                status.textContent = expectedPosts > 0
+                  ? 'Fetching your posts\u2026 ' + info.fetchProgress.toLocaleString() + ' of ~' + expectedPosts.toLocaleString() + ' scanned.'
+                  : 'Fetching your posts\u2026 ' + info.fetchProgress.toLocaleString() + ' scanned so far.';
+              }
             }
-            stopFeedPolling();
           })
           .catch(function() { /* transient \u2014 keep polling */ });
-      }, 5000);
+      }, 3000);
     }
 
     function showSuccess(data, feedType) {
       document.getElementById('formView').classList.add('hidden');
 
       var postDesc = feedType === 'chrono-skeets' ? 'newest first' : 'ranked by likes';
+      var statusHtml;
+      if (data.postCount > 0) {
+        // Re-register / rename \u2014 the feed is already populated
+        statusHtml = '<span id="fetchStatus">' + data.postCount.toLocaleString() + ' posts in your feed.</span>';
+      } else {
+        statusHtml =
+          '<span id="fetchStatus">Fetching your posts\u2026</span>' +
+          '<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>';
+      }
       document.getElementById('infoBox').innerHTML =
         'Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts, ' + postDesc + '.' +
-        '<br /><br />' +
-        '<span id="fetchStatus">Your posts are fetched in the background \u2014 the feed may take up to 30 minutes to fully populate for the first time.</span>';
+        '<br /><br />' + statusHtml;
 
-      startFeedPolling(data.handle, feedType);
+      if (!(data.postCount > 0)) {
+        startFeedPolling(data.handle, feedType, data.expectedPosts || 0);
+      }
 
       var avatar = document.getElementById('avatarImg');
       if (data.avatarUrl) {

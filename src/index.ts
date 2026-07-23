@@ -5,7 +5,7 @@ import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
 import { getFeedMetaByHandle, getAllFeedMetas, FEED_TYPES, FeedType } from './db';
-import { startScheduler, stopScheduler, refreshFeedNow, getIsRefreshing, getSchedulerStatus } from './scheduler';
+import { startScheduler, stopScheduler, refreshFeedNow, getIsRefreshing, getSchedulerStatus, getFetchProgress } from './scheduler';
 
 // A stray rejected promise shouldn't kill a healthy server; log and move on.
 process.on('unhandledRejection', (reason) => {
@@ -253,9 +253,11 @@ app.get('/api/feed/:handle', (req, res) => {
     handle: meta.handle,
     displayName: meta.display_name,
     avatarUrl: meta.avatar_url,
+    feedName: meta.feed_name,
     postCount: meta.post_count,
     generatedAt: meta.generated_at,
     lastFullRefreshAt: meta.last_full_refresh_at,
+    fetchProgress: getFetchProgress(meta.did, meta.feed_type),
     feedUrl: meta.feed_url,
   });
 });

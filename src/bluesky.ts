@@ -18,11 +18,14 @@ export async function fetchAllOriginalPosts(
   /** If provided, stop paginating once posts older than this date are seen. */
   cutoffDate?: Date,
   includeReplies = false,
+  /** Called after each page with the cumulative count of raw feed items scanned. */
+  onProgress?: (scanned: number) => void,
 ): Promise<PostRecord[]> {
   const posts: PostRecord[] = [];
   let cursor: string | undefined;
   let reachedCutoff = false;
   let firstPage = true;
+  let scanned = 0;
 
   do {
     if (!firstPage) {
@@ -49,6 +52,9 @@ export async function fetchAllOriginalPosts(
     }
 
     const { feed, cursor: nextCursor } = res.data;
+
+    scanned += feed.length;
+    if (onProgress) onProgress(scanned);
 
     for (const item of feed) {
       // Stop early if this post is older than the cutoff
