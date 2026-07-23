@@ -48,6 +48,9 @@ async function runRefresh(): Promise<void> {
   }
   isRefreshing = true;
   const cycleStart = Date.now();
+  let totalFeeds = 0;
+  let dueChrono = 0;
+  let dueTop = 0;
   try {
     const now = Date.now();
     // Metadata only — no post arrays are parsed for feeds that aren't due
@@ -61,6 +64,10 @@ async function runRefresh(): Promise<void> {
         ? now - lastChecked >= CHRONO_REFRESH_INTERVAL_MS
         : now - lastChecked >= TOP_REFRESH_INTERVAL_MS;
     });
+
+    totalFeeds = allMetas.length;
+    dueChrono = dueMetas.filter(m => m.feed_type === 'chrono-skeets').length;
+    dueTop = dueMetas.length - dueChrono;
 
     if (dueMetas.length > 0) {
       // Priority: new registrations first, then chrono-skeets, then top-skeets
@@ -90,6 +97,15 @@ async function runRefresh(): Promise<void> {
     isRefreshing = false;
     lastCycleCompletedAt = new Date().toISOString();
     lastCycleDurationMs = Date.now() - cycleStart;
+
+    // One self-explanatory line per cycle, so quiet logs never look like a stall
+    const dueTotal = dueChrono + dueTop;
+    if (dueTotal === 0) {
+      console.log(`[scheduler] cycle done: nothing due (${totalFeeds} feeds)`);
+    } else {
+      const durationS = Math.round(lastCycleDurationMs / 1000);
+      console.log(`[scheduler] cycle done in ${durationS}s: processed ${dueTotal}/${totalFeeds} (${dueChrono} chrono, ${dueTop} top), ${totalFeeds - dueTotal} not yet due`);
+    }
   }
 }
 
