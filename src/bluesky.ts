@@ -68,9 +68,6 @@ export async function fetchAllOriginalPosts(
 
     const { feed, cursor: nextCursor } = res.data;
 
-    scanned += feed.length;
-    if (onProgress) onProgress(scanned);
-
     for (const item of feed) {
       // Stop early if this post is older than the cutoff
       if (cutoffDate && new Date(item.post.indexedAt) < cutoffDate) {
@@ -85,6 +82,11 @@ export async function fetchAllOriginalPosts(
       ) {
         continue;
       }
+
+      // Progress counts posts + replies only — reposts are excluded so the
+      // number aligns with the profile's postsCount (the UI's denominator),
+      // which doesn't include reposts either.
+      scanned++;
 
       // Skip replies unless includeReplies is set
       const record = item.post.record as Record<string, unknown> | null;
@@ -101,6 +103,8 @@ export async function fetchAllOriginalPosts(
         indexedAt: item.post.indexedAt,
       });
     }
+
+    if (onProgress) onProgress(scanned);
 
     cursor = reachedCutoff ? undefined : nextCursor;
   } while (cursor);

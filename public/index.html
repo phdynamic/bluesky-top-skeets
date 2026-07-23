@@ -1162,9 +1162,11 @@
                 fill.style.width = pct + '%';
               }
               if (status) {
+                // Clamp so the count can never overshoot the approximate total
+                var shownCount = expectedPosts > 0 ? Math.min(info.fetchProgress, expectedPosts) : info.fetchProgress;
                 status.textContent = expectedPosts > 0
-                  ? 'Fetching your posts\u2026 ' + info.fetchProgress.toLocaleString() + ' of ~' + expectedPosts.toLocaleString() + ' scanned.'
-                  : 'Fetching your posts\u2026 ' + info.fetchProgress.toLocaleString() + ' scanned so far.';
+                  ? 'Fetching your posts\u2026 ' + shownCount.toLocaleString() + ' of ~' + expectedPosts.toLocaleString() + ' scanned.'
+                  : 'Fetching your posts\u2026 ' + shownCount.toLocaleString() + ' scanned so far.';
               }
             } else {
               // Fetch not currently running \u2014 either still queued, or it
