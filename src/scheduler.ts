@@ -83,13 +83,13 @@ async function runRefresh(): Promise<void> {
     const dueMetas = allMetas.filter(m => {
       if (m.post_count === 0) return true; // new registration — always refresh
       const lastChecked = m.last_checked_at ? new Date(m.last_checked_at).getTime() : 0;
-      return m.feed_type === 'chrono-skeets'
+      return m.feed_type.startsWith('chrono')
         ? now - lastChecked >= CHRONO_REFRESH_INTERVAL_MS
         : now - lastChecked >= TOP_REFRESH_INTERVAL_MS;
     });
 
     totalFeeds = allMetas.length;
-    dueChrono = dueMetas.filter(m => m.feed_type === 'chrono-skeets').length;
+    dueChrono = dueMetas.filter(m => m.feed_type.startsWith('chrono')).length;
     dueTop = dueMetas.length - dueChrono;
 
     if (dueMetas.length > 0) {
@@ -147,7 +147,7 @@ async function runRefresh(): Promise<void> {
 
 function priority(meta: FeedMeta): number {
   if (meta.post_count === 0) return 0;
-  return meta.feed_type === 'chrono-skeets' ? 1 : 2;
+  return meta.feed_type.startsWith('chrono') ? 1 : 2;
 }
 
 // Guards against two concurrent refreshes of the same feed (e.g. the
@@ -218,7 +218,7 @@ async function doRefreshFeed(feed: UserFeed): Promise<void> {
       return;
     }
 
-    if (feed.feed_type === 'top-skeets') {
+    if (feed.feed_type.startsWith('top-skeets')) {
       allPosts = [...uniqueNew, ...existingPosts];
       allPosts.sort((a, b) => b.likeCount - a.likeCount);
     } else {

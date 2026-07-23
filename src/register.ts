@@ -5,11 +5,15 @@ import { upsertFeed, deleteFeed, getFeedByDid, FeedType } from './db';
 const FEED_DISPLAY_NAMES: Record<FeedType, string> = {
   'top-skeets': 'Top Skeets',
   'chrono-skeets': 'My Skeets',
+  'top-skeets-replies': 'Top Skeets + Replies',
+  'chrono-skeets-replies': 'My Skeets + Replies',
 };
 
 const FEED_DESCRIPTIONS: Record<FeedType, string> = {
   'top-skeets': 'My posts, ranked by likes.',
   'chrono-skeets': 'My posts, newest first.',
+  'top-skeets-replies': 'My posts and replies, ranked by likes.',
+  'chrono-skeets-replies': 'My posts and replies, newest first.',
 };
 
 export interface RegisterResult {
@@ -28,9 +32,10 @@ export async function registerUserFeed(
   handle: string,
   appPassword: string,
   feedType: FeedType,
-  includeReplies = false,
   feedName: string | null = null,
 ): Promise<RegisterResult> {
+  // Replies variants are separate feeds — the type itself encodes the setting
+  const includeReplies = feedType.endsWith('-replies');
   const agent = new BskyAgent({ service: 'https://bsky.social' });
 
   // 1. Login — throws on bad credentials

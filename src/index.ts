@@ -68,11 +68,12 @@ app.use(feedSkeletonRouter);
 
 // POST /api/register — authenticate as user and publish feed
 app.post('/api/register', rateLimitMiddleware, async (req, res) => {
-  const { handle, appPassword, feedType, includeReplies, feedName } = req.body as {
+  // includeReplies is no longer read from the body — the replies variants are
+  // separate feed types (top-skeets-replies / chrono-skeets-replies).
+  const { handle, appPassword, feedType, feedName } = req.body as {
     handle?: string;
     appPassword?: string;
     feedType?: string;
-    includeReplies?: boolean;
     feedName?: string;
   };
 
@@ -99,8 +100,8 @@ app.post('/api/register', rateLimitMiddleware, async (req, res) => {
   }
 
   try {
-    console.log(`[register] starting for ${handle} (${feedType}, includeReplies=${includeReplies ?? false})`);
-    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, includeReplies ?? false, trimmedFeedName || null);
+    console.log(`[register] starting for ${handle} (${feedType})`);
+    const result = await registerUserFeed(handle, appPassword, feedType as FeedType, trimmedFeedName || null);
     console.log(`[register] done for ${handle} (${feedType}), refreshing posts in background`);
     res.json({
       feedUrl: result.feedUrl,

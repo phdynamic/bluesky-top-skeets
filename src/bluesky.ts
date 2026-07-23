@@ -105,7 +105,7 @@ export async function fetchAllOriginalPosts(
     cursor = reachedCutoff ? undefined : nextCursor;
   } while (cursor);
 
-  if (feedType === 'top-skeets') {
+  if (feedType.startsWith('top-skeets')) {
     // Sort by like count descending
     posts.sort((a, b) => b.likeCount - a.likeCount);
   }

@@ -2,9 +2,9 @@ import path from 'path';
 import fs from 'fs';
 import { config } from './config';
 
-export type FeedType = 'top-skeets' | 'chrono-skeets';
+export type FeedType = 'top-skeets' | 'chrono-skeets' | 'top-skeets-replies' | 'chrono-skeets-replies';
 
-export const FEED_TYPES: FeedType[] = ['top-skeets', 'chrono-skeets'];
+export const FEED_TYPES: FeedType[] = ['top-skeets', 'chrono-skeets', 'top-skeets-replies', 'chrono-skeets-replies'];
 
 export interface PostRecord {
   uri: string;

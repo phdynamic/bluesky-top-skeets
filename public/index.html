@@ -284,6 +284,8 @@
 
     .btn-ghost:hover { background: var(--ghost-hover); }
 
+    .btn-block { width: 100%; }
+
     .unpublish-row {
       text-align: center;
       margin-top: 16px;
@@ -697,8 +699,8 @@
         <input type="text" id="feedName" placeholder="Top Skeets" maxlength="24" spellcheck="false" />
 
         <div class="checkbox-row">
-          <input type="checkbox" id="includeReplies" />
-          <label for="includeReplies">Include replies</label>
+          <input type="checkbox" id="includeReplies" onchange="updateFeedNamePlaceholder()" />
+          <label for="includeReplies">Include replies <span class="label-hint">(a separate feed — you can have both)</span></label>
         </div>
       </div>
 
@@ -732,10 +734,9 @@
 
       <div id="successErrorBox" class="error-box"></div>
 
-      <div class="btn-row">
-        <button class="btn-ghost" onclick="resetForm()">Generate for another account</button>
-        <button class="btn-danger" id="successUnpublishBtn" onclick="handleUnpublishFromSuccess()">Unpublish</button>
-      </div>
+      <button class="btn-ghost btn-block" onclick="resetForm()">Generate for another account</button>
+
+      <p class="unpublish-row">Want to remove this feed? <button class="link-danger" id="successUnpublishBtn" onclick="handleUnpublishFromSuccess()">Unpublish</button></p>
     </div>
 
     <!-- UNPUBLISH SUCCESS VIEW -->
@@ -758,7 +759,7 @@
       <h2 id="helpTitle">How Top Skeets works</h2>
 
       <h3>Create your feed</h3>
-      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, and hit Generate.</p>
+      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
 
       <h3>Share it</h3>
       <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load in the background — a progress bar shows how it's going.</p>
@@ -770,13 +771,30 @@
       <p>Re-submit the form with the same account and a new feed name. Your feed link never changes, so nobody loses it.</p>
 
       <h3>Unpublish</h3>
-      <p>Enter your credentials, choose the feed type, and click Unpublish — it's also available right after creating a feed. This removes the feed from Bluesky and deletes it from our system.</p>
+      <p>Enter your credentials, select the feed type (and the replies checkbox, if it's a replies feed), and click Unpublish — it's also available right after creating a feed. This removes that feed from Bluesky and deletes it from our system.</p>
     </div>
   </div>
 
   <script>
     var selectedFeedType = 'top-skeets';
     var inFlight = false;
+
+    var FEED_LABELS = {
+      'top-skeets': 'Top Skeets',
+      'chrono-skeets': 'My Skeets',
+      'top-skeets-replies': 'Top Skeets + Replies',
+      'chrono-skeets-replies': 'My Skeets + Replies'
+    };
+
+    // The replies checkbox selects a separate feed — up to four per account
+    function currentFeedKey() {
+      var replies = document.getElementById('includeReplies').checked;
+      return selectedFeedType + (replies ? '-replies' : '');
+    }
+
+    function updateFeedNamePlaceholder() {
+      document.getElementById('feedName').placeholder = FEED_LABELS[currentFeedKey()];
+    }
 
     // Parse a JSON body defensively — a 502 HTML error page from the host
     // shouldn't masquerade as a network error.
@@ -788,8 +806,7 @@
       selectedFeedType = type;
       document.getElementById('toggleTop').classList.toggle('active', type === 'top-skeets');
       document.getElementById('toggleChrono').classList.toggle('active', type === 'chrono-skeets');
-      document.getElementById('feedName').placeholder =
-        type === 'top-skeets' ? 'Top Skeets' : 'My Skeets';
+      updateFeedNamePlaceholder();
     }
 
     function setLoading(loading) {
@@ -820,13 +837,14 @@
       setLoading(true);
       document.getElementById('submitLabel').textContent = 'Generating\u2026';
 
+      var feedKey = currentFeedKey();
+
       try {
-        var includeReplies = document.getElementById('includeReplies').checked;
         var feedName = document.getElementById('feedName').value.trim();
         var res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType, includeReplies: includeReplies, feedName: feedName || undefined }),
+          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey, feedName: feedName || undefined }),
         });
         var data = await safeJson(res);
 
@@ -841,7 +859,7 @@
         }
 
         setLoading(false);
-        showSuccess(data, selectedFeedType);
+        showSuccess(data, feedKey);
       } catch (err) {
         setLoading(false);
         showError('Network error. Please check your connection and try again.');
@@ -865,11 +883,11 @@
       if (btn && btn.textContent === 'Confirm unpublish?') btn.textContent = 'Unpublish';
     }
 
-    async function performUnpublishRequest(handle, appPassword) {
+    async function performUnpublishRequest(handle, appPassword, feedKey) {
       var res = await fetch('/api/unregister', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType }),
+        body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey }),
       });
       var data = await safeJson(res);
       return { ok: res.ok, status: res.status, data: data };
@@ -880,8 +898,8 @@
       return (result.data && result.data.message) || 'Something went wrong. Please try again.';
     }
 
-    function showUnpublishedView() {
-      var feedLabel = selectedFeedType === 'chrono-skeets' ? 'My Skeets' : 'Top Skeets';
+    function showUnpublishedView(feedKey) {
+      var feedLabel = FEED_LABELS[feedKey] || 'Top Skeets';
       document.getElementById('unpublishMsg').textContent = 'Your ' + feedLabel + ' feed has been removed from Bluesky and deleted from our system.';
       document.getElementById('formView').classList.add('hidden');
       document.getElementById('successView').classList.add('hidden');
@@ -917,13 +935,15 @@
       submitBtn.disabled = true;
       unpublishBtn.textContent = 'Unpublishing\u2026';
 
+      var feedKey = currentFeedKey();
+
       try {
-        var result = await performUnpublishRequest(handle, appPassword);
+        var result = await performUnpublishRequest(handle, appPassword, feedKey);
         if (!result.ok) {
           showError(unpublishErrorMessage(result));
           return;
         }
-        showUnpublishedView();
+        showUnpublishedView(feedKey);
       } catch (err) {
         showError('Network error. Please check your connection and try again.');
       } finally {
@@ -977,15 +997,17 @@
       btn.disabled = true;
       btn.textContent = 'Unpublishing\u2026';
 
+      var feedKey = currentFeedKey();
+
       try {
-        var result = await performUnpublishRequest(handle, appPassword);
+        var result = await performUnpublishRequest(handle, appPassword, feedKey);
         if (!result.ok) {
           errorBox.textContent = unpublishErrorMessage(result);
           errorBox.style.display = 'block';
           return;
         }
         stopFeedPolling();
-        showUnpublishedView();
+        showUnpublishedView(feedKey);
       } catch (err) {
         errorBox.textContent = 'Network error. Please check your connection and try again.';
         errorBox.style.display = 'block';
@@ -1108,7 +1130,8 @@
     function showSuccess(data, feedType) {
       document.getElementById('formView').classList.add('hidden');
 
-      var postDesc = feedType === 'chrono-skeets' ? 'newest first' : 'ranked by likes';
+      var postDesc = feedType.startsWith('chrono') ? 'newest first' : 'ranked by likes';
+      if (feedType.indexOf('-replies') !== -1) postDesc += ', including replies';
       var statusHtml;
       if (data.postCount > 0) {
         // Re-register / rename \u2014 the feed is already populated
@@ -1170,6 +1193,7 @@
       document.getElementById('appPassword').value = '';
       document.getElementById('feedName').value = '';
       document.getElementById('includeReplies').checked = false;
+      updateFeedNamePlaceholder();
       document.getElementById('errorBox').style.display = 'none';
     }
 
