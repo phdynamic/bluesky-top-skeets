@@ -418,6 +418,81 @@
     }
 
     .hidden { display: none !important; }
+
+    /* Help link + modal */
+    .help-link {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: #1d9bf0;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .help-link:hover { text-decoration: underline; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal {
+      position: relative;
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+
+    .modal h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .modal h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin: 14px 0 4px;
+    }
+
+    .modal p {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .modal a { color: #1d9bf0; text-decoration: none; }
+    .modal a:hover { text-decoration: underline; }
+
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: none;
+      border: none;
+      font-size: 20px;
+      line-height: 1;
+      color: #999;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .modal-close:hover { color: #444; }
   </style>
 </head>
 <body>
@@ -429,6 +504,7 @@
         </svg>
       </div>
       <span class="logo-text">Top Skeets</span>
+      <button class="help-link" onclick="openHelp()">Help</button>
     </div>
 
     <!-- FORM VIEW -->
@@ -490,7 +566,12 @@
 
       <div class="divider"></div>
 
-      <button class="btn-ghost" onclick="resetForm()">Generate for another account</button>
+      <div id="successErrorBox" class="error-box"></div>
+
+      <div class="btn-row">
+        <button class="btn-ghost" onclick="resetForm()">Generate for another account</button>
+        <button class="btn-danger" id="successUnpublishBtn" onclick="handleUnpublishFromSuccess()">Unpublish</button>
+      </div>
     </div>
 
     <!-- UNPUBLISH SUCCESS VIEW -->
@@ -506,6 +587,28 @@
     </div>
   </div>
 
+  <!-- HELP MODAL -->
+  <div id="helpOverlay" class="modal-overlay hidden" onclick="if (event.target === this) closeHelp()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button class="modal-close" onclick="closeHelp()" aria-label="Close help">&times;</button>
+      <h2 id="helpTitle">How Top Skeets works</h2>
+
+      <h3>Create your feed</h3>
+      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, and hit Generate.</p>
+
+      <h3>Share it</h3>
+      <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load in the background — a progress bar shows how it's going.</p>
+
+      <h3>Updates are automatic</h3>
+      <p>New posts show up on their own: within about 15 minutes for My Skeets and about an hour for Top Skeets. Like-count rankings refresh about once a day.</p>
+
+      <h3>Rename anytime</h3>
+      <p>Re-submit the form with the same account and a new feed name. Your feed link never changes, so nobody loses it.</p>
+
+      <h3>Unpublish</h3>
+      <p>Enter your credentials, choose the feed type, and click Unpublish — it's also available right after creating a feed. This removes the feed from Bluesky and deletes it from our system.</p>
+    </div>
+  </div>
 
   <script>
     var selectedFeedType = 'top-skeets';
@@ -600,6 +703,29 @@
       if (btn && btn.textContent === 'Confirm unpublish?') btn.textContent = 'Unpublish';
     }
 
+    async function performUnpublishRequest(handle, appPassword) {
+      var res = await fetch('/api/unregister', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType }),
+      });
+      var data = await safeJson(res);
+      return { ok: res.ok, status: res.status, data: data };
+    }
+
+    function unpublishErrorMessage(result) {
+      if (result.status === 401) return 'Invalid handle or app password. Please check and try again.';
+      return (result.data && result.data.message) || 'Something went wrong. Please try again.';
+    }
+
+    function showUnpublishedView() {
+      var feedLabel = selectedFeedType === 'chrono-skeets' ? 'My Skeets' : 'Top Skeets';
+      document.getElementById('unpublishMsg').textContent = 'Your ' + feedLabel + ' feed has been removed from Bluesky and deleted from our system.';
+      document.getElementById('formView').classList.add('hidden');
+      document.getElementById('successView').classList.add('hidden');
+      document.getElementById('unpublishView').classList.remove('hidden');
+    }
+
     async function handleUnpublish() {
       if (inFlight) return;
 
@@ -630,26 +756,12 @@
       unpublishBtn.textContent = 'Unpublishing\u2026';
 
       try {
-        var res = await fetch('/api/unregister', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: selectedFeedType }),
-        });
-        var data = await safeJson(res);
-
-        if (!res.ok) {
-          if (res.status === 401) {
-            showError('Invalid handle or app password. Please check and try again.');
-          } else {
-            showError((data && data.message) || 'Something went wrong. Please try again.');
-          }
+        var result = await performUnpublishRequest(handle, appPassword);
+        if (!result.ok) {
+          showError(unpublishErrorMessage(result));
           return;
         }
-
-        var feedLabel = selectedFeedType === 'chrono-skeets' ? 'My Skeets' : 'Top Skeets';
-        document.getElementById('unpublishMsg').textContent = 'Your ' + feedLabel + ' feed has been removed from Bluesky and deleted from our system.';
-        document.getElementById('formView').classList.add('hidden');
-        document.getElementById('unpublishView').classList.remove('hidden');
+        showUnpublishedView();
       } catch (err) {
         showError('Network error. Please check your connection and try again.');
       } finally {
@@ -658,6 +770,81 @@
         submitBtn.disabled = false;
         unpublishBtn.textContent = 'Unpublish';
       }
+    }
+
+    // Unpublish from the success screen \u2014 credentials are still in the hidden
+    // form fields until resetForm clears them.
+    var successUnpublishArmed = false;
+    var successUnpublishTimer = null;
+
+    function disarmSuccessUnpublish() {
+      successUnpublishArmed = false;
+      if (successUnpublishTimer) {
+        clearTimeout(successUnpublishTimer);
+        successUnpublishTimer = null;
+      }
+      var btn = document.getElementById('successUnpublishBtn');
+      if (btn && btn.textContent === 'Confirm unpublish?') btn.textContent = 'Unpublish';
+    }
+
+    async function handleUnpublishFromSuccess() {
+      if (inFlight) return;
+
+      var handle = document.getElementById('handle').value.trim();
+      var appPassword = document.getElementById('appPassword').value.trim();
+      var errorBox = document.getElementById('successErrorBox');
+      errorBox.style.display = 'none';
+
+      if (!handle || !appPassword) {
+        errorBox.textContent = 'Your credentials are no longer available \u2014 go back and enter them to unpublish.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      var btn = document.getElementById('successUnpublishBtn');
+
+      if (!successUnpublishArmed) {
+        successUnpublishArmed = true;
+        btn.textContent = 'Confirm unpublish?';
+        successUnpublishTimer = setTimeout(disarmSuccessUnpublish, 5000);
+        return;
+      }
+      disarmSuccessUnpublish();
+
+      inFlight = true;
+      btn.disabled = true;
+      btn.textContent = 'Unpublishing\u2026';
+
+      try {
+        var result = await performUnpublishRequest(handle, appPassword);
+        if (!result.ok) {
+          errorBox.textContent = unpublishErrorMessage(result);
+          errorBox.style.display = 'block';
+          return;
+        }
+        stopFeedPolling();
+        showUnpublishedView();
+      } catch (err) {
+        errorBox.textContent = 'Network error. Please check your connection and try again.';
+        errorBox.style.display = 'block';
+      } finally {
+        inFlight = false;
+        btn.disabled = false;
+        btn.textContent = 'Unpublish';
+      }
+    }
+
+    // Help modal
+    function openHelp() {
+      document.getElementById('helpOverlay').classList.remove('hidden');
+    }
+
+    function closeHelp() {
+      document.getElementById('helpOverlay').classList.add('hidden');
+    }
+
+    function helpIsOpen() {
+      return !document.getElementById('helpOverlay').classList.contains('hidden');
     }
 
     function showError(msg) {
@@ -793,6 +980,8 @@
     function resetForm() {
       stopFeedPolling();
       disarmUnpublish();
+      disarmSuccessUnpublish();
+      document.getElementById('successErrorBox').style.display = 'none';
       document.getElementById('successView').classList.add('hidden');
       document.getElementById('unpublishView').classList.add('hidden');
       document.getElementById('formView').classList.remove('hidden');
@@ -804,7 +993,11 @@
     }
 
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && !document.getElementById('formView').classList.contains('hidden')) {
+      if (e.key === 'Escape' && helpIsOpen()) {
+        closeHelp();
+        return;
+      }
+      if (e.key === 'Enter' && !helpIsOpen() && !document.getElementById('formView').classList.contains('hidden')) {
         handleSubmit();
       }
     });
