@@ -155,7 +155,7 @@ function priority(meta: FeedMeta): number {
 // Duplicates wasted API quota and made the shared progress counter bounce.
 const inFlightRefreshes = new Set<string>();
 
-async function refreshFeed(feed: UserFeed): Promise<void> {
+async function refreshFeed(feed: UserFeed, forceFull = false): Promise<void> {
   const inFlightKey = `${feed.did}::${feed.feed_type}`;
   if (inFlightRefreshes.has(inFlightKey)) {
     console.log(`[scheduler] refresh already in flight for ${feed.handle} (${feed.feed_type}) — skipping duplicate`);
@@ -163,13 +163,13 @@ async function refreshFeed(feed: UserFeed): Promise<void> {
   }
   inFlightRefreshes.add(inFlightKey);
   try {
-    await doRefreshFeed(feed);
+    await doRefreshFeed(feed, forceFull);
   } finally {
     inFlightRefreshes.delete(inFlightKey);
   }
 }
 
-async function doRefreshFeed(feed: UserFeed): Promise<void> {
+async function doRefreshFeed(feed: UserFeed, forceFull = false): Promise<void> {
   const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
   const includeReplies = feed.include_replies ?? false;
   const existingPosts = feed.posts ?? [];
@@ -180,6 +180,7 @@ async function doRefreshFeed(feed: UserFeed): Promise<void> {
   //   - top-skeets and 24h have elapsed since last full refresh (to update like counts)
   const lastFullMs = feed.last_full_refresh_at ? new Date(feed.last_full_refresh_at).getTime() : 0;
   const needsFullRefresh =
+    forceFull ||
     existingPosts.length === 0 ||
     Date.now() - lastFullMs > FULL_REFRESH_INTERVAL_MS + fullRefreshJitterMs(feed.did, feed.feed_type);
 
@@ -246,12 +247,16 @@ async function doRefreshFeed(feed: UserFeed): Promise<void> {
   });
 }
 
-/** Force an immediate refresh for a specific feed. Throws on failure. */
+/**
+ * Force an immediate FULL refresh for a specific feed (the manual resync
+ * hammer behind /api/refresh — incremental would be pointless when the
+ * caller already believes something is out of sync). Throws on failure.
+ */
 export async function refreshFeedNow(did: string, feedType: FeedType): Promise<void> {
   const feed = getFeedByDid(did, feedType);
   if (!feed) throw new Error('Feed not found');
   if (!feed.feed_uri || !feed.feed_url) throw new Error('Feed is not fully registered');
-  await refreshFeed(feed);
+  await refreshFeed(feed, true);
 }
 
 /**

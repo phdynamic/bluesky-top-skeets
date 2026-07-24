@@ -69,18 +69,21 @@ export async function fetchAllOriginalPosts(
     const { feed, cursor: nextCursor } = res.data;
 
     for (const item of feed) {
-      // Stop early if this post is older than the cutoff
-      if (cutoffDate && new Date(item.post.indexedAt) < cutoffDate) {
-        reachedCutoff = true;
-        break;
-      }
-
-      // Skip reposts
+      // Skip reposts BEFORE the cutoff check: a repost's post.indexedAt is
+      // the ORIGINAL post's timestamp, not the repost time — an old repost
+      // sitting above newer originals would otherwise end the incremental
+      // scan early and hide those posts until the next full refresh.
       if (
         item.reason &&
         (item.reason as { $type?: string }).$type === 'app.bsky.feed.defs#reasonRepost'
       ) {
         continue;
+      }
+
+      // Stop early if this (own) post is older than the cutoff
+      if (cutoffDate && new Date(item.post.indexedAt) < cutoffDate) {
+        reachedCutoff = true;
+        break;
       }
 
       // Progress counts posts + replies only — reposts are excluded so the

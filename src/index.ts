@@ -198,15 +198,21 @@ app.post('/api/refresh', rateLimitMiddleware, async (req, res) => {
 
   const did = agent.session!.did;
 
-  try {
-    await refreshFeedNow(did, feedType as FeedType);
-    const meta = getFeedMetaByHandle(handle, feedType as FeedType);
-    res.json({ handle, feedType, generatedAt: meta?.generated_at, postCount: meta?.post_count });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[refresh error]', message);
-    res.status(500).json({ error: 'InternalError', message });
-  }
+  // Full resync runs in the background — a large feed takes minutes and a
+  // synchronous response would hit the platform HTTP timeout.
+  console.log(`[refresh] full resync requested for ${handle} (${feedType})`);
+  refreshFeedNow(did, feedType as FeedType).then(() => {
+    console.log(`[refresh] full resync done for ${handle} (${feedType})`);
+  }).catch((err: unknown) => {
+    console.error(`[refresh] full resync failed for ${handle} (${feedType}):`, err instanceof Error ? err.message : String(err));
+  });
+
+  res.json({
+    status: 'started',
+    handle,
+    feedType,
+    message: 'Full refresh running in the background — watch GET /api/feed/:handle for postCount/generatedAt updates',
+  });
 });
 
 // POST /api/unregister — delete feed generator record and remove from store
