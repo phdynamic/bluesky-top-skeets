@@ -38,6 +38,7 @@ let initialTimer: NodeJS.Timeout | null = null;
 let intervalTimer: NodeJS.Timeout | null = null;
 let lastCycleCompletedAt: string | null = null;
 let lastCycleDurationMs: number | null = null;
+let cycleStartedAt: number | null = null;
 
 export function getIsRefreshing(): boolean { return isRefreshing; }
 
@@ -45,8 +46,14 @@ export function getSchedulerStatus(): {
   isRefreshing: boolean;
   lastCycleCompletedAt: string | null;
   lastCycleDurationMs: number | null;
+  currentCycleStartedAt: string | null;
 } {
-  return { isRefreshing, lastCycleCompletedAt, lastCycleDurationMs };
+  return {
+    isRefreshing,
+    lastCycleCompletedAt,
+    lastCycleDurationMs,
+    currentCycleStartedAt: cycleStartedAt ? new Date(cycleStartedAt).toISOString() : null,
+  };
 }
 
 export function startScheduler(): void {
@@ -66,11 +73,17 @@ export function stopScheduler(): void {
 
 async function runRefresh(): Promise<void> {
   if (isRefreshing) {
-    console.log('[scheduler] previous refresh still running — skipping this tick');
+    const elapsedMin = cycleStartedAt ? Math.round((Date.now() - cycleStartedAt) / 60_000) : 0;
+    if (elapsedMin >= 45) {
+      console.warn(`[scheduler] cycle still running after ${elapsedMin} min — possible rate limiting; check for [fetch] warnings`);
+    } else {
+      console.log(`[scheduler] previous refresh still running (${elapsedMin} min) — skipping this tick`);
+    }
     return;
   }
   isRefreshing = true;
   const cycleStart = Date.now();
+  cycleStartedAt = cycleStart;
   let totalFeeds = 0;
   let dueChrono = 0;
   let dueTop = 0;
@@ -131,6 +144,7 @@ async function runRefresh(): Promise<void> {
   } finally {
     activeQueue = null;
     isRefreshing = false;
+    cycleStartedAt = null;
     lastCycleCompletedAt = new Date().toISOString();
     lastCycleDurationMs = Date.now() - cycleStart;
 

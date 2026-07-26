@@ -297,6 +297,7 @@ app.get('/health', (_req, res) => {
     uptimeSeconds: Math.round(process.uptime()),
     feedCount: getAllFeedMetas().length,
     isRefreshing: sched.isRefreshing,
+    currentCycleStartedAt: sched.currentCycleStartedAt,
     lastCycleCompletedAt: sched.lastCycleCompletedAt,
     lastCycleDurationMs: sched.lastCycleDurationMs,
   });
