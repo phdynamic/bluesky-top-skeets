@@ -4,6 +4,10 @@ import { fetchAllOriginalPosts } from './bluesky';
 import { config } from './config';
 
 const CONCURRENCY = 6;
+// At most this many scheduled full refetches per cycle — bounds cycle length
+// and keeps the aggregate request rate under Bluesky's per-IP limit. Deferred
+// feeds stay due and drip out on subsequent ticks. New registrations exempt.
+const MAX_FULL_REFRESHES_PER_CYCLE = 2;
 const RETRY_DELAY_MS = 5_000;
 const CHRONO_REFRESH_INTERVAL_MS = 15 * 60 * 1000;       // 15 minutes
 const TOP_REFRESH_INTERVAL_MS    = 60 * 60 * 1000;       // 1 hour (incremental checks are ~1 page)
@@ -87,6 +91,7 @@ async function runRefresh(): Promise<void> {
   let totalFeeds = 0;
   let dueChrono = 0;
   let dueTop = 0;
+  let deferredFulls = 0;
   try {
     const now = Date.now();
     // Metadata only — no post arrays are parsed for feeds that aren't due
@@ -102,20 +107,31 @@ async function runRefresh(): Promise<void> {
     });
 
     totalFeeds = allMetas.length;
-    dueChrono = dueMetas.filter(m => m.feed_type.startsWith('chrono')).length;
-    dueTop = dueMetas.length - dueChrono;
 
-    if (dueMetas.length > 0) {
-      // Priority: new registrations first, then chrono-skeets, then top-skeets
-      dueMetas.sort((a, b) => priority(a) - priority(b));
+    // Priority: new registrations first, then chrono-skeets, then top-skeets
+    dueMetas.sort((a, b) => priority(a) - priority(b));
 
-      console.log(`[scheduler] refreshing ${dueMetas.length}/${allMetas.length} feed(s) (concurrency=${CONCURRENCY})…`);
+    // Cap scheduled full refetches per cycle (oldest first); the rest stay
+    // due — their last_checked_at isn't advanced — and drip out next ticks.
+    const fullCandidates = dueMetas
+      .filter(m => m.post_count > 0 && wouldBeFullRefresh(m, now))
+      .sort((a, b) => (a.last_full_refresh_at ?? '').localeCompare(b.last_full_refresh_at ?? ''));
+    const allowedFulls = new Set(fullCandidates.slice(0, MAX_FULL_REFRESHES_PER_CYCLE));
+    deferredFulls = Math.max(0, fullCandidates.length - allowedFulls.size);
+    const queueMetas = dueMetas.filter(m =>
+      m.post_count === 0 || !wouldBeFullRefresh(m, now) || allowedFulls.has(m));
+
+    dueChrono = queueMetas.filter(m => m.feed_type.startsWith('chrono')).length;
+    dueTop = queueMetas.length - dueChrono;
+
+    if (queueMetas.length > 0) {
+      console.log(`[scheduler] refreshing ${queueMetas.length}/${allMetas.length} feed(s) (concurrency=${CONCURRENCY})…`);
 
       // Worker pool: CONCURRENCY workers each pull the next feed as soon as they
       // finish their current one, so a slow feed never blocks a fast one.
-      const queue = [...dueMetas];
+      const queue = [...queueMetas];
       activeQueue = queue;
-      const workers = Array.from({ length: Math.min(CONCURRENCY, dueMetas.length) }, async () => {
+      const workers = Array.from({ length: Math.min(CONCURRENCY, queueMetas.length) }, async () => {
         while (!stopped && queue.length > 0) {
           const meta = queue.shift();
           if (!meta) continue;
@@ -150,11 +166,12 @@ async function runRefresh(): Promise<void> {
 
     // One self-explanatory line per cycle, so quiet logs never look like a stall
     const dueTotal = dueChrono + dueTop;
+    const deferredNote = deferredFulls > 0 ? `, ${deferredFulls} full refresh(es) deferred` : '';
     if (dueTotal === 0) {
-      console.log(`[scheduler] cycle done: nothing due (${totalFeeds} feeds)`);
+      console.log(`[scheduler] cycle done: nothing due (${totalFeeds} feeds)${deferredNote}`);
     } else {
       const durationS = Math.round(lastCycleDurationMs / 1000);
-      console.log(`[scheduler] cycle done in ${durationS}s: processed ${dueTotal}/${totalFeeds} (${dueChrono} chrono, ${dueTop} top), ${totalFeeds - dueTotal} not yet due`);
+      console.log(`[scheduler] cycle done in ${durationS}s: processed ${dueTotal}/${totalFeeds} (${dueChrono} chrono, ${dueTop} top), ${totalFeeds - dueTotal} not yet due${deferredNote}`);
     }
   }
 }
@@ -162,6 +179,12 @@ async function runRefresh(): Promise<void> {
 function priority(meta: FeedMeta): number {
   if (meta.post_count === 0) return 0;
   return meta.feed_type.startsWith('chrono') ? 1 : 2;
+}
+
+/** Must mirror doRefreshFeed's full-refresh predicate (same constants/jitter). */
+function wouldBeFullRefresh(m: FeedMeta, now: number): boolean {
+  const lastFullMs = m.last_full_refresh_at ? new Date(m.last_full_refresh_at).getTime() : 0;
+  return now - lastFullMs > FULL_REFRESH_INTERVAL_MS + fullRefreshJitterMs(m.did, m.feed_type);
 }
 
 // Guards against two concurrent refreshes of the same feed (e.g. the

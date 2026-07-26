@@ -55,7 +55,20 @@ export async function fetchAllOriginalPosts(
       } catch (err) {
         if (attempt >= PAGE_RETRIES) throw err;
         const status = (err as { status?: number }).status;
-        const backoffMs = status === 429 ? RATE_LIMIT_BACKOFF_MS : attempt * 2_000;
+        let backoffMs = attempt * 2_000;
+        if (status === 429) {
+          // Honor the server's reset headers when present; clamp to 15s–120s
+          backoffMs = RATE_LIMIT_BACKOFF_MS;
+          const headers = (err as { headers?: Record<string, string> }).headers;
+          const retryAfterSec = headers ? parseInt(headers['retry-after'] ?? '', 10) : NaN;
+          const resetEpochSec = headers ? parseInt(headers['ratelimit-reset'] ?? '', 10) : NaN;
+          if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+            backoffMs = retryAfterSec * 1000;
+          } else if (Number.isFinite(resetEpochSec) && resetEpochSec > 0) {
+            backoffMs = resetEpochSec * 1000 - Date.now();
+          }
+          backoffMs = Math.min(Math.max(backoffMs, RATE_LIMIT_BACKOFF_MS), 120_000);
+        }
         console.warn(
           `[fetch] page failed for ${userHandle} (attempt ${attempt}/${PAGE_RETRIES}), retrying in ${backoffMs / 1000}s:`,
           err instanceof Error ? err.message : String(err),
