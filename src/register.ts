@@ -1,6 +1,9 @@
 import { BskyAgent } from '@atproto/api';
 import { config } from './config';
 import { upsertFeed, deleteFeed, getFeedByDid, FeedType } from './db';
+import { resolvePdsService } from './identity';
+
+const APPVIEW_SERVICE = 'https://public.api.bsky.app';
 
 const FEED_DISPLAY_NAMES: Record<FeedType, string> = {
   'top-skeets': 'Top Skeets',
@@ -38,16 +41,20 @@ export async function registerUserFeed(
 ): Promise<RegisterResult> {
   // Replies variants are separate feeds — the type itself encodes the setting
   const includeReplies = feedType.endsWith('-replies');
-  const agent = new BskyAgent({ service: 'https://bsky.social' });
 
-  // 1. Login — throws on bad credentials
+  // 1. Login against the PDS that actually hosts the account (works for
+  // third-party PDSes; falls back to bsky.social) — throws on bad credentials
+  const service = await resolvePdsService(handle);
+  const agent = new BskyAgent({ service });
   await agent.login({ identifier: handle, password: appPassword });
 
   const did = agent.session!.did;
   const userHandle = agent.session!.handle;
 
-  // 2. Fetch profile for display name + avatar
-  const profileRes = await agent.api.app.bsky.actor.getProfile({ actor: did });
+  // 2. Fetch profile for display name + avatar from the public AppView so we
+  // don't depend on each PDS's proxy configuration
+  const publicAgent = new BskyAgent({ service: APPVIEW_SERVICE });
+  const profileRes = await publicAgent.api.app.bsky.actor.getProfile({ actor: did });
   const displayName = profileRes.data.displayName ?? null;
   const avatarUrl = profileRes.data.avatar ?? null;
   const expectedPosts = profileRes.data.postsCount ?? null;
@@ -134,14 +141,15 @@ export async function unregisterUserFeed(
   appPassword: string,
   feedType: FeedType,
 ): Promise<{ handle: string; displayName: string | null }> {
-  const agent = new BskyAgent({ service: 'https://bsky.social' });
-
-  // 1. Login — throws on bad credentials
+  // 1. Login against the account's own PDS — throws on bad credentials
+  const service = await resolvePdsService(handle);
+  const agent = new BskyAgent({ service });
   await agent.login({ identifier: handle, password: appPassword });
 
   const did = agent.session!.did;
   const userHandle = agent.session!.handle;
-  const profileRes = await agent.api.app.bsky.actor.getProfile({ actor: did });
+  const publicAgent = new BskyAgent({ service: APPVIEW_SERVICE });
+  const profileRes = await publicAgent.api.app.bsky.actor.getProfile({ actor: did });
   const displayName = profileRes.data.displayName ?? null;
 
   // 2. Delete the feed generator record from the user's AT Proto repo

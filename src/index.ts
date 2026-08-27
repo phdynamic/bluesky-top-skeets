@@ -185,9 +185,12 @@ app.post('/api/refresh', rateLimitMiddleware, async (req, res) => {
     return;
   }
 
-  // Authenticate to verify identity and resolve DID
+  // Authenticate to verify identity and resolve DID — against the PDS that
+  // actually hosts the account (third-party PDSes supported)
   const { BskyAgent } = await import('@atproto/api');
-  const agent = new BskyAgent({ service: 'https://bsky.social' });
+  const { resolvePdsService } = await import('./identity');
+  const service = await resolvePdsService(handle);
+  const agent = new BskyAgent({ service });
   try {
     await agent.login({ identifier: handle, password: appPassword });
   } catch (err: unknown) {

@@ -24,7 +24,7 @@ https://bsky.app/profile/{THEIR_DID}/feed/chrono-skeets
 
 ## How It Works Technically
 
-1. **User authenticates** using a Bluesky App Password (never stored).
+1. **User authenticates** using an App Password (never stored). The account's PDS is resolved from its handle (via DID document), so accounts hosted on any AT Protocol server work — not just bsky.social.
 2. **A feed generator record is written to the user's own AT Protocol repo** via `com.atproto.repo.putRecord` on `app.bsky.feed.generator/{feed-type}`. The record's `did` field points to *our* service — so Bluesky knows to call our server for skeleton responses — but the record lives in *the user's* repo, so the feed URI contains their DID.
 3. **Posts are fetched in the background** by paginating `app.bsky.feed.getAuthorFeed` (with or without replies, per the user's choice), filtered of reposts, sorted (by likes for `top-skeets`, chronologically for `chrono-skeets`), and stored as one JSON file per feed in the data directory.
 4. **When anyone opens the feed**, Bluesky's AppView calls our `/xrpc/app.bsky.feed.getFeedSkeleton` endpoint. We extract the user's DID from the AT URI, look up their pre-sorted posts, and return the skeleton.
