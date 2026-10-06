@@ -251,7 +251,7 @@ function nodeHTML(i){
   return `<div class="node${isOpen?'':' closed'}" id="n${i}" data-i="${i}">
   ${kids?`<button class="line" data-a="tog" aria-label="Collapse or expand this thread"></button>`:''}
   <div class="card${n.lock?' locked':''}${slim?' slim':''}" data-a="card">
-    <div class="head"><span class="av"${n.lock?'':` data-h="${esc(n.h)}"`} style="background-color:${col}">${esc(n.h[0].toUpperCase())}</span>
+    <div class="head"><span class="av" data-h="${esc(n.h)}" style="background-color:${col}">${esc(n.h[0].toUpperCase())}</span>
       <span class="caret"></span><span class="handle">@${hl(short(n.h))}</span>
       <span class="meta">Day ${dayOf(n)} &middot; ${n.d}</span>
       ${n.cnt?`<span class="badge" title="${n.cnt} replies below">+${n.cnt}</span>`:''}</div>
@@ -381,8 +381,8 @@ document.addEventListener('keydown',e=>{
 });
 // avatars: real profile pictures, looked up lazily (only cards that scroll
 // into view), batched 25 per request from the public AppView, and cached so
-// repeat visits cost nothing. Locked authors are never looked up. The initial
-// letter stays underneath as the fallback.
+// repeat visits cost nothing. The initial letter stays underneath as the
+// fallback.
 const AV_KEY='if-avatars', AV_TTL=7*864e5, AV_MISS_TTL=864e5, AV_MAX=1500;
 const avatarMap=new Map(); // lowercased handle -> [avatarUrl|'' , savedAt]
 try{const raw=JSON.parse(localStorage.getItem(AV_KEY)||'{}');const now=Date.now();
