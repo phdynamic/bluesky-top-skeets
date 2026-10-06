@@ -11,6 +11,12 @@ Both can optionally include replies (an "Include replies" checkbox at registrati
 
 ---
 
+## Quote Tracer
+
+`/tracer` turns any public Bluesky post into a browsable tree of its quote posts. It runs entirely in the visitor's browser against Bluesky's public API (no login, nothing stored on the server). A trace loads up to 2,000 quotes, with a "Load more" button to keep going (up to 20,000). Only quotes visible to logged-out viewers can be traced. Share a trace with `/tracer?post=<bsky.app post link>`.
+
+---
+
 ## What Top Skeets Does
 
 Each person who visits the app gets a unique, personalised feed published to the AT Protocol network under **their own Bluesky DID**. The feed shows the feed *owner's* posts and is the same for every viewer — it is not personalised to whoever is looking.
