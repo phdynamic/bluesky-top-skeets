@@ -24,6 +24,37 @@ function fullRefreshJitterMs(did: string, feedType: FeedType): number {
   return h % (6 * 60 * 60 * 1000);
 }
 
+// Feeds whose refresh keeps failing back off exponentially (5 min, 10, 20 …
+// capped at 3h) instead of re-failing every tick — and, crucially, instead of
+// staying "most overdue" and hogging the per-cycle full-refresh budget while
+// healthy feeds starve behind them. In-memory: a restart gives them a fresh try.
+const FAILURE_BACKOFF_BASE_MS = 5 * 60_000;
+const FAILURE_BACKOFF_MAX_MS = 3 * 60 * 60_000;
+const failureState = new Map<string, { count: number; retryAt: number }>();
+
+function recordFailure(feed: { did: string; feed_type: FeedType }): void {
+  const key = `${feed.did}::${feed.feed_type}`;
+  const count = (failureState.get(key)?.count ?? 0) + 1;
+  const delay = Math.min(FAILURE_BACKOFF_BASE_MS * 2 ** (count - 1), FAILURE_BACKOFF_MAX_MS);
+  failureState.set(key, { count, retryAt: Date.now() + delay });
+}
+
+function clearFailure(feed: { did: string; feed_type: FeedType }): void {
+  failureState.delete(`${feed.did}::${feed.feed_type}`);
+}
+
+function inBackoff(m: { did: string; feed_type: FeedType }, now: number): boolean {
+  const st = failureState.get(`${m.did}::${m.feed_type}`);
+  return !!st && st.retryAt > now;
+}
+
+/** One-line error summary — full error objects dump hundreds of log lines. */
+function briefError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const validation = (err as { validationError?: { message?: string } }).validationError?.message;
+  return validation ? `${err.message} (${validation})` : err.message;
+}
+
 // Live progress of full refetches (raw feed items scanned), keyed did::feedType.
 // Ephemeral — only exists while a fetch is running; served by /api/feed/:handle.
 const fetchProgress = new Map<string, number>();
@@ -92,19 +123,27 @@ async function runRefresh(): Promise<void> {
   let dueChrono = 0;
   let dueTop = 0;
   let deferredFulls = 0;
+  let dueAll = 0;
+  let backoffSkipped = 0;
   try {
     const now = Date.now();
     // Metadata only — no post arrays are parsed for feeds that aren't due
     const allMetas = getAllFeedMetas().filter(m => m.feed_uri && m.feed_url);
 
     // Filter to feeds that are due for a refresh based on their type
-    const dueMetas = allMetas.filter(m => {
+    const dueAllMetas = allMetas.filter(m => {
       if (m.post_count === 0) return true; // new registration — always refresh
       const lastChecked = m.last_checked_at ? new Date(m.last_checked_at).getTime() : 0;
       return m.feed_type.startsWith('chrono')
         ? now - lastChecked >= CHRONO_REFRESH_INTERVAL_MS
         : now - lastChecked >= TOP_REFRESH_INTERVAL_MS;
     });
+
+    // Feeds in failure backoff sit out BEFORE the full-refresh cap, so a feed
+    // that can never complete can't occupy a budget slot every cycle.
+    const dueMetas = dueAllMetas.filter(m => !inBackoff(m, now));
+    dueAll = dueAllMetas.length;
+    backoffSkipped = dueAllMetas.length - dueMetas.length;
 
     totalFeeds = allMetas.length;
 
@@ -167,11 +206,13 @@ async function runRefresh(): Promise<void> {
     // One self-explanatory line per cycle, so quiet logs never look like a stall
     const dueTotal = dueChrono + dueTop;
     const deferredNote = deferredFulls > 0 ? `, ${deferredFulls} full refresh(es) deferred` : '';
+    const backoffNote = backoffSkipped > 0 ? `, ${backoffSkipped} in failure backoff` : '';
     if (dueTotal === 0) {
-      console.log(`[scheduler] cycle done: nothing due (${totalFeeds} feeds)${deferredNote}`);
+      const what = dueAll === 0 ? 'nothing due' : 'nothing eligible';
+      console.log(`[scheduler] cycle done: ${what} (${totalFeeds} feeds)${deferredNote}${backoffNote}`);
     } else {
       const durationS = Math.round(lastCycleDurationMs / 1000);
-      console.log(`[scheduler] cycle done in ${durationS}s: processed ${dueTotal}/${totalFeeds} (${dueChrono} chrono, ${dueTop} top), ${totalFeeds - dueTotal} not yet due${deferredNote}`);
+      console.log(`[scheduler] cycle done in ${durationS}s: processed ${dueTotal}/${totalFeeds} (${dueChrono} chrono, ${dueTop} top), ${totalFeeds - dueAll} not yet due${deferredNote}${backoffNote}`);
     }
   }
 }
@@ -335,23 +376,29 @@ function isGoneError(err: unknown): boolean {
 async function refreshFeedWithRetry(feed: UserFeed): Promise<void> {
   try {
     await refreshFeed(feed);
+    clearFailure(feed);
   } catch (err) {
     if (isGoneError(err)) {
       console.log(`[scheduler] pruning ${feed.handle} (${feed.feed_type}) — account gone`);
+      clearFailure(feed);
       deleteFeed(feed.did, feed.feed_type);
       return;
     }
-    console.warn(`[scheduler] first attempt failed for ${feed.handle} (${feed.feed_type}), retrying in ${RETRY_DELAY_MS / 1000}s…`, err);
+    console.warn(`[scheduler] first attempt failed for ${feed.handle} (${feed.feed_type}), retrying in ${RETRY_DELAY_MS / 1000}s: ${briefError(err)}`);
     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     try {
       await refreshFeed(feed);
+      clearFailure(feed);
     } catch (retryErr) {
       if (isGoneError(retryErr)) {
         console.log(`[scheduler] pruning ${feed.handle} (${feed.feed_type}) — account gone`);
+        clearFailure(feed);
         deleteFeed(feed.did, feed.feed_type);
         return;
       }
-      console.error(`[scheduler] retry failed for ${feed.handle} (${feed.feed_type}):`, retryErr);
+      recordFailure(feed);
+      const st = failureState.get(`${feed.did}::${feed.feed_type}`)!;
+      console.error(`[scheduler] retry failed for ${feed.handle} (${feed.feed_type}): ${briefError(retryErr)} — backing off ${Math.round((st.retryAt - Date.now()) / 60_000)} min (failure #${st.count})`);
     }
   }
 }

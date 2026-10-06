@@ -1,5 +1,56 @@
-import { BskyAgent, AppBskyFeedGetAuthorFeed } from '@atproto/api';
+import type { BskyAgent } from '@atproto/api';
 import { PostRecord, FeedType } from './db';
+
+// The public AppView indexes the whole federated network, so author feeds for
+// accounts on any PDS are fetched from here.
+const APPVIEW_URL = 'https://public.api.bsky.app';
+
+/** The only fields of getAuthorFeed we read. */
+interface FeedItem {
+  post: {
+    uri: string;
+    indexedAt: string;
+    likeCount?: number;
+    record?: Record<string, unknown> | null;
+  };
+  reason?: { $type?: string };
+}
+
+/**
+ * Plain-fetch getAuthorFeed. Deliberately NOT the @atproto/api client: it
+ * validates every response against the lexicon, so a single post with e.g.
+ * over-long image alt text rejects the entire 100-post page — a deterministic
+ * failure no retry can fix. We only need a handful of fields, so lenient
+ * parsing is strictly more robust. Errors carry `status` and `headers` so the
+ * retry loop's 429 handling still works, and the server's message (e.g.
+ * "Profile not found") so the scheduler can still detect gone accounts.
+ */
+async function fetchAuthorFeedPage(
+  params: { actor: string; limit: number; filter: string; cursor?: string },
+  signal: AbortSignal,
+): Promise<{ feed: FeedItem[]; cursor?: string }> {
+  const qs = new URLSearchParams({
+    actor: params.actor,
+    limit: String(params.limit),
+    filter: params.filter,
+  });
+  if (params.cursor) qs.set('cursor', params.cursor);
+
+  const res = await fetch(`${APPVIEW_URL}/xrpc/app.bsky.feed.getAuthorFeed?${qs.toString()}`, { signal });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const body = await res.json() as { message?: string };
+      if (body && typeof body.message === 'string') message = body.message;
+    } catch { /* non-JSON error body */ }
+    const err = new Error(message) as Error & { status?: number; headers?: Record<string, string> };
+    err.status = res.status;
+    err.headers = Object.fromEntries(res.headers.entries());
+    throw err;
+  }
+  const body = await res.json() as { feed?: FeedItem[]; cursor?: string };
+  return { feed: Array.isArray(body.feed) ? body.feed : [], cursor: body.cursor };
+}
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const PAGE_DELAY_MS = 250;
@@ -13,7 +64,7 @@ const RATE_LIMIT_BACKOFF_MS = 15_000;
  * sortOrder: 'top' sorts by like count descending; 'chrono' keeps newest-first order.
  */
 export async function fetchAllOriginalPosts(
-  agent: BskyAgent,
+  _agent: BskyAgent,
   did: string,
   userHandle: string,
   feedType: FeedType,
@@ -37,19 +88,19 @@ export async function fetchAllOriginalPosts(
 
     // Retry individual pages so one flaky request doesn't discard a
     // multi-hundred-page fetch of a large account.
-    let res: AppBskyFeedGetAuthorFeed.Response;
+    let page: { feed: FeedItem[]; cursor?: string };
     for (let attempt = 1; ; attempt++) {
       const abort = new AbortController();
       const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
       try {
-        res = await agent.api.app.bsky.feed.getAuthorFeed(
+        page = await fetchAuthorFeedPage(
           {
             actor: did,
             limit: 100,
             filter: includeReplies ? 'posts_with_replies' : 'posts_no_replies',
             ...(cursor ? { cursor } : {}),
           },
-          { signal: abort.signal },
+          abort.signal,
         );
         break;
       } catch (err) {
@@ -79,17 +130,14 @@ export async function fetchAllOriginalPosts(
       }
     }
 
-    const { feed, cursor: nextCursor } = res.data;
+    const { feed, cursor: nextCursor } = page;
 
     for (const item of feed) {
       // Skip reposts BEFORE the cutoff check: a repost's post.indexedAt is
       // the ORIGINAL post's timestamp, not the repost time — an old repost
       // sitting above newer originals would otherwise end the incremental
       // scan early and hide those posts until the next full refresh.
-      if (
-        item.reason &&
-        (item.reason as { $type?: string }).$type === 'app.bsky.feed.defs#reasonRepost'
-      ) {
+      if (item.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost') {
         continue;
       }
 
@@ -105,7 +153,7 @@ export async function fetchAllOriginalPosts(
       scanned++;
 
       // Skip replies unless includeReplies is set
-      const record = item.post.record as Record<string, unknown> | null;
+      const record = item.post.record ?? null;
       if (!includeReplies && record && record.reply) {
         continue;
       }
