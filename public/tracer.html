@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>Quote Tracer</title>
-<meta name="description" content="Paste a Bluesky post link and watch every quote of it unfold as a browsable tree." />
+<title>Quote Post Game Tracer</title>
+<meta name="description" content="Paste the post that started a quote post game and watch every quote of it unfold as a browsable tree." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -190,13 +190,13 @@ dialog::backdrop{background:rgba(10,15,25,.55)}
   </div>
 
   <header class="hero">
-    <h1>Quote Tracer</h1>
-    <p class="sub">Paste a link to any Bluesky post and watch every quote of it unfold as a browsable tree.</p>
+    <h1>Quote Post Game Tracer</h1>
+    <p class="sub">Paste a link to the post that started a quote post game and watch every quote of it unfold as a browsable tree.</p>
     <form class="tform" id="form">
       <input id="postInput" type="text" placeholder="https://bsky.app/profile/…/post/…" aria-label="Bluesky post link" autocomplete="off" spellcheck="false" />
       <button class="btn primary" id="go" type="submit">Trace it</button>
     </form>
-    <p class="hint">Public posts only. Want an example? Try <a href="/tracer?post=https%3A%2F%2Fbsky.app%2Fprofile%2Fprofessorkiosk.wtf%2Fpost%2F3ma4vpkdvwk26">the Imagine Flagons saga</a>.</p>
+    <p class="hint">Public posts only. Want an example? Try <a href="/tracer?post=https%3A%2F%2Fbsky.app%2Fprofile%2Fprofessorkiosk.wtf%2Fpost%2F3mx6fzdyx3k2s">this quote post game</a>.</p>
     <div class="errbox" id="error" hidden></div>
   </header>
 
