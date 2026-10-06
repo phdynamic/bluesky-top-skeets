@@ -313,6 +313,11 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
     if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
   },
 }));
+// The feed generator UI lives at /feeds; the root is the landing page.
+app.get('/feeds', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, '..', 'public', 'feeds.html'));
+});
 app.get('*', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

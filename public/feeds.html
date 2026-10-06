@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Top Skeets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    // Apply the theme before first paint to avoid a light flash
+    (function() {
+      var saved = null;
+      try { saved = localStorage.getItem('theme'); } catch (e) {}
+      var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-grad-a: #eaf4fe;
+      --bg-grad-b: #f6f7f9;
+      --bg-grad-c: #eef1f6;
+      --card-bg: #fff;
+      --card-border: rgba(16,24,40,0.05);
+      --text: #1a1a1a;
+      --text-secondary: #667085;
+      --text-tertiary: #8a919c;
+      --text-faint: #98a1ab;
+      --label: #444;
+      --input-bg: #fff;
+      --input-border: #dfe3e8;
+      --surface-alt: #f0f2f5;
+      --surface-raised: #fff;
+      --divider: #f0f0f0;
+      --info-bg: #f0f8ff;
+      --info-border: #bfdbfe;
+      --info-text: #1e40af;
+      --error-bg: #fff5f5;
+      --error-border: #fecaca;
+      --error-text: #b91c1c;
+      --track: #dbeafe;
+      --accent: #1d9bf0;
+      --ghost-border: #e0e0e0;
+      --ghost-hover: #f0f8ff;
+      --url-input-bg: #fafafa;
+      --danger-text: #dc2626;
+      --danger-border: #fca5a5;
+      --danger-hover: #fff5f5;
+      --check-bg: #f0fdf4;
+    }
+
+    html[data-theme="dark"] {
+      --bg-grad-a: #0d1520;
+      --bg-grad-b: #10161f;
+      --bg-grad-c: #0b0f16;
+      --card-bg: #161d29;
+      --card-border: rgba(255,255,255,0.07);
+      --text: #e7ecf3;
+      --text-secondary: #9aa6b5;
+      --text-tertiary: #7d8899;
+      --text-faint: #6b7686;
+      --label: #c3ccd8;
+      --input-bg: #0f1520;
+      --input-border: #2a3441;
+      --surface-alt: #0f1520;
+      --surface-raised: #222b3a;
+      --divider: #242e3c;
+      --info-bg: #12253a;
+      --info-border: #1e3a5f;
+      --info-text: #93c5fd;
+      --error-bg: #2a1416;
+      --error-border: #5f2120;
+      --error-text: #fca5a5;
+      --track: #1e3a5f;
+      --accent: #1d9bf0;
+      --ghost-border: #2a3441;
+      --ghost-hover: #12253a;
+      --url-input-bg: #0f1520;
+      --danger-text: #f87171;
+      --danger-border: #7f1d1d;
+      --danger-hover: #2a1416;
+      --check-bg: #122918;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(160deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 45%, var(--bg-grad-c) 100%);
+      background-attachment: fixed;
+      color: var(--text);
+      transition: color 0.2s;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      box-shadow: 0 1px 2px rgba(16,24,40,0.06), 0 12px 32px rgba(16,24,40,0.10);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 460px;
+      transition: background-color 0.2s;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: #1d9bf0;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: #fff;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 26px;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--label);
+      margin-bottom: 6px;
+    }
+
+    .form-section { margin-bottom: 22px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 10px;
+    }
+
+    .label-hint {
+      font-weight: 400;
+      font-size: 11px;
+      color: var(--text-faint);
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--input-bg);
+      transition: border-color 0.15s, background-color 0.2s;
+      outline: none;
+      margin-bottom: 14px;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #1d9bf0;
+      box-shadow: 0 0 0 3px rgba(29,155,240,0.12);
+    }
+
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--input-bg);
+      transition: border-color 0.15s, background-color 0.2s;
+      outline: none;
+      margin-bottom: 14px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    textarea:focus {
+      border-color: #1d9bf0;
+      box-shadow: 0 0 0 3px rgba(29,155,240,0.12);
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: -8px;
+      margin-bottom: 0;
+      line-height: 1.5;
+    }
+
+    .help-text a {
+      color: #1d9bf0;
+      text-decoration: none;
+    }
+
+    .help-text a:hover { text-decoration: underline; }
+
+    /* Buttons row */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 1;
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(180deg, #2aa4f4, #1d9bf0);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(29,155,240,0.35);
+      transition: filter 0.15s, opacity 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-primary:hover:not(:disabled) { filter: brightness(0.96); box-shadow: 0 3px 12px rgba(29,155,240,0.45); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-danger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: transparent;
+      color: var(--danger-text);
+      border: 1px solid var(--danger-border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+    .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 16px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--ghost-border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-ghost:hover { background: var(--ghost-hover); }
+
+    .btn-block { width: 100%; }
+
+    .unpublish-row {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 12.5px;
+      color: var(--text-faint);
+    }
+
+    .link-danger {
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--error-text);
+      cursor: pointer;
+    }
+
+    .link-danger:hover:not(:disabled) { text-decoration: underline; }
+    .link-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    button:focus-visible {
+      outline: 2px solid #1d9bf0;
+      outline-offset: 2px;
+    }
+
+    @keyframes viewIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    #formView, #successView, #unpublishView { animation: viewIn 0.25s ease; }
+
+    /* Feed type toggle */
+    .feed-type-toggle {
+      display: flex;
+      background: var(--surface-alt);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 14px;
+      gap: 4px;
+    }
+
+    .feed-type-toggle button {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 9px 10px;
+      border: none;
+      border-radius: 9px;
+      font-family: inherit;
+      cursor: pointer;
+      background: transparent;
+      transition: background 0.15s, box-shadow 0.15s;
+      line-height: 1.3;
+    }
+
+    .feed-type-toggle .toggle-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .feed-type-toggle .toggle-sub {
+      font-size: 11px;
+      color: var(--text-faint);
+    }
+
+    .feed-type-toggle button.active {
+      background: var(--surface-raised);
+      box-shadow: 0 1px 3px rgba(16,24,40,0.12);
+    }
+
+    .feed-type-toggle button.active .toggle-name { color: var(--text); }
+    .feed-type-toggle button.active .toggle-sub { color: #1d9bf0; }
+
+    .icon-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .icon-row input[type="file"] {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--text-secondary);
+    }
+
+    .icon-preview {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 0 0 2px var(--divider);
+      flex-shrink: 0;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: #1d9bf0;
+      flex-shrink: 0;
+    }
+
+    .checkbox-row label {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--label);
+      cursor: pointer;
+    }
+
+    .error-box {
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--error-text);
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .spinner {
+      width: 15px;
+      height: 15px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Success view */
+    .success-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      margin: 0 auto 10px;
+      box-shadow: 0 0 0 3px var(--card-bg), 0 0 0 4px var(--divider);
+    }
+
+    .success-name {
+      font-size: 17px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 2px;
+    }
+
+    .success-handle {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .success-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--label);
+      margin-bottom: 8px;
+    }
+
+    .feed-url-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    input.feed-url-input {
+      flex: 1;
+      height: 38px;
+      margin: 0;
+      padding: 0 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-secondary);
+      background: var(--url-input-bg);
+      outline: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .btn-copy {
+      height: 38px;
+      padding: 0 16px;
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .btn-copy:hover { background: #1a8cd8; }
+    .btn-copy.copied { background: #16a34a; }
+
+    .info-box {
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--info-text);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: var(--track);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #1d9bf0;
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.6s ease;
+    }
+
+    .close-note {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.75;
+    }
+
+    /* Unpublish success */
+    .unpublish-confirm {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .unpublish-confirm .check-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--check-bg);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    .unpublish-confirm .check-icon svg {
+      width: 22px;
+      height: 22px;
+      stroke: #16a34a;
+      fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .unpublish-confirm h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .unpublish-confirm p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--divider);
+      margin: 20px 0;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Site footer / attribution */
+    .site-footer {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--text-tertiary);
+    }
+
+    .site-footer a {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .site-footer a:hover { color: var(--accent); }
+
+    .footer-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 0 0 2px var(--card-bg);
+    }
+
+    /* Help link + modal */
+    .home-link {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      text-decoration: none;
+      margin-left: 6px;
+    }
+
+    .home-link:hover { color: var(--accent); }
+
+    .help-link {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: #1d9bf0;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .help-link:hover { text-decoration: underline; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,24,40,0.4);
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal {
+      position: relative;
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+
+    .modal h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .modal h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 14px 0 4px;
+    }
+
+    .modal p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .modal a { color: #1d9bf0; text-decoration: none; }
+    .modal a:hover { text-decoration: underline; }
+
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: none;
+      border: none;
+      font-size: 20px;
+      line-height: 1;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .modal-close:hover { color: var(--text); }
+
+    .theme-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      padding: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.204-.659-.299-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/>
+        </svg>
+      </div>
+      <span class="logo-text">Top Skeets</span>
+      <a class="home-link" href="/">← Professor Kiosk</a>
+      <button class="help-link" onclick="openHelp()">Help</button>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode">🌙</button>
+    </div>
+
+    <!-- FORM VIEW -->
+    <div id="formView">
+      <h1>Generate your feed</h1>
+      <p class="subtitle">Turn your Bluesky posts into a shareable feed &mdash; top-liked or newest first.</p>
+
+      <div id="errorBox" class="error-box"></div>
+
+      <div class="form-section">
+        <p class="section-label">Your account</p>
+
+        <label for="handle">Bluesky handle</label>
+        <input type="text" id="handle" placeholder="you.bsky.social" autocomplete="username" spellcheck="false" />
+
+        <label for="appPassword">App password</label>
+        <input type="password" id="appPassword" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" />
+        <p class="help-text">
+          Create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a>. Your password is never stored.
+        </p>
+      </div>
+
+      <div class="form-section">
+        <p class="section-label">Your feed</p>
+
+        <div class="feed-type-toggle">
+          <button id="toggleTop" class="active" onclick="selectFeedType('top-skeets')">
+            <span class="toggle-name">Top Skeets</span>
+            <span class="toggle-sub">Ranked by likes</span>
+          </button>
+          <button id="toggleChrono" onclick="selectFeedType('chrono-skeets')">
+            <span class="toggle-name">My Skeets</span>
+            <span class="toggle-sub">Newest first</span>
+          </button>
+        </div>
+
+        <label for="feedName">Feed name <span class="label-hint">(optional, max 24 characters)</span></label>
+        <input type="text" id="feedName" placeholder="Top Skeets" maxlength="24" spellcheck="false" />
+
+        <label for="feedDescription">Feed description <span class="label-hint">(optional, max 300 characters)</span></label>
+        <textarea id="feedDescription" rows="2" maxlength="300" placeholder="My posts, ranked by likes."></textarea>
+
+        <label for="feedIcon">Feed icon <span class="label-hint">(optional — square works best)</span></label>
+        <div class="icon-row">
+          <img id="iconPreview" class="icon-preview hidden" alt="" />
+          <input type="file" id="feedIcon" accept="image/png,image/jpeg" onchange="handleIconSelect()" />
+          <button type="button" class="link-danger hidden" id="iconClearBtn" onclick="clearFeedIcon()">Remove</button>
+        </div>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="includeReplies" onchange="updateFeedPlaceholders()" />
+          <label for="includeReplies">Include replies <span class="label-hint">(a separate feed — you can have both)</span></label>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">
+        <span class="spinner" id="spinner"></span>
+        <span id="submitLabel">Generate feed</span>
+      </button>
+
+      <p class="unpublish-row">Need to remove a feed? <button class="link-danger" id="unpublishBtn" onclick="handleUnpublish()">Unpublish</button></p>
+    </div>
+
+    <!-- SUCCESS VIEW -->
+    <div id="successView" class="hidden">
+      <img id="avatarImg" class="success-avatar" src="" alt="" />
+      <div class="success-name" id="displayName"></div>
+      <div class="success-handle" id="successHandle"></div>
+
+      <div class="success-label">Your feed link</div>
+      <div class="feed-url-row">
+        <input class="feed-url-input" id="feedUrlInput" type="text" readonly />
+        <button class="btn-copy" id="copyBtn" onclick="copyUrl()">Copy</button>
+      </div>
+
+      <div class="info-box" id="infoBox">
+        Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts.
+        <br /><br />
+        <span id="fetchStatus">Your posts are fetched in the background — the feed may take up to 30 minutes to fully populate for the first time.</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div id="successErrorBox" class="error-box"></div>
+
+      <button class="btn-ghost btn-block" onclick="resetForm()">Generate for another account</button>
+
+      <p class="unpublish-row">Want to remove this feed? <button class="link-danger" id="successUnpublishBtn" onclick="handleUnpublishFromSuccess()">Unpublish</button></p>
+    </div>
+
+    <!-- UNPUBLISH SUCCESS VIEW -->
+    <div id="unpublishView" class="hidden">
+      <div class="unpublish-confirm">
+        <div class="check-icon">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2>Feed unpublished</h2>
+        <p id="unpublishMsg">Your feed has been removed from Bluesky and deleted from our system.</p>
+        <button class="btn-ghost" onclick="resetForm()">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="site-footer">
+    <a href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener">
+      <img id="footerAvatar" class="footer-avatar" src="" alt="" hidden />
+      Made by @professorkiosk.wtf
+    </a>
+    <span aria-hidden="true">·</span>
+    <a href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">Support this project ☕</a>
+  </div>
+
+  <!-- HELP MODAL -->
+  <div id="helpOverlay" class="modal-overlay hidden" onclick="if (event.target === this) closeHelp()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button class="modal-close" onclick="closeHelp()" aria-label="Close help">&times;</button>
+      <h2 id="helpTitle">How Top Skeets works</h2>
+
+      <h3>Create your feed</h3>
+      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Accounts on any AT Protocol server work, not just bsky.social. Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, description, and icon (any image — it's cropped square automatically), and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
+
+      <h3>Share it</h3>
+      <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load on our server, not in your browser — a progress bar shows how it's going, but you can close the page anytime and the feed will finish populating on its own.</p>
+
+      <h3>Updates are automatic</h3>
+      <p>New posts show up on their own: within about 15 minutes for My Skeets and about an hour for Top Skeets. Like-count rankings refresh about once a day.</p>
+
+      <h3>Rename anytime</h3>
+      <p>Re-submit the form with the same account and a new feed name or description. Your feed link never changes, so nobody loses it. The same works for the icon: upload a new image to replace it, or leave it empty to keep the current one.</p>
+
+      <h3>Unpublish</h3>
+      <p>Enter your credentials, select the feed type (and the replies checkbox, if it's a replies feed), and click Unpublish — it's also available right after creating a feed. This removes that feed from Bluesky and deletes it from our system.</p>
+    </div>
+  </div>
+
+  <script>
+    var selectedFeedType = 'top-skeets';
+    var inFlight = false;
+
+    var FEED_LABELS = {
+      'top-skeets': 'Top Skeets',
+      'chrono-skeets': 'My Skeets',
+      'top-skeets-replies': 'Top Skeets + Replies',
+      'chrono-skeets-replies': 'My Skeets + Replies'
+    };
+
+    var FEED_DESCRIPTIONS = {
+      'top-skeets': 'My posts, ranked by likes.',
+      'chrono-skeets': 'My posts, newest first.',
+      'top-skeets-replies': 'My posts and replies, ranked by likes.',
+      'chrono-skeets-replies': 'My posts and replies, newest first.'
+    };
+
+    // The replies checkbox selects a separate feed — up to four per account
+    function currentFeedKey() {
+      var replies = document.getElementById('includeReplies').checked;
+      return selectedFeedType + (replies ? '-replies' : '');
+    }
+
+    function updateFeedPlaceholders() {
+      var key = currentFeedKey();
+      document.getElementById('feedName').placeholder = FEED_LABELS[key];
+      document.getElementById('feedDescription').placeholder = FEED_DESCRIPTIONS[key];
+    }
+
+    // Feed icon: center-crop square and downscale on a canvas so any image
+    // fits Bluesky's 1MB avatar cap, then hold the JPEG base64 for submit.
+    var feedIconData = null;
+
+    function handleIconSelect() {
+      var input = document.getElementById('feedIcon');
+      var file = input.files && input.files[0];
+      if (!file) { clearFeedIcon(); return; }
+
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function() {
+        URL.revokeObjectURL(url);
+        var srcSize = Math.min(img.width, img.height);
+        var outSize = Math.min(srcSize, 800);
+        var canvas = document.createElement('canvas');
+        canvas.width = outSize;
+        canvas.height = outSize;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, (img.width - srcSize) / 2, (img.height - srcSize) / 2, srcSize, srcSize, 0, 0, outSize, outSize);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        feedIconData = dataUrl.split(',')[1];
+        var preview = document.getElementById('iconPreview');
+        preview.src = dataUrl;
+        preview.classList.remove('hidden');
+        document.getElementById('iconClearBtn').classList.remove('hidden');
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(url);
+        clearFeedIcon();
+        showError('That image could not be read — try a PNG or JPEG.');
+      };
+      img.src = url;
+    }
+
+    function clearFeedIcon() {
+      feedIconData = null;
+      document.getElementById('feedIcon').value = '';
+      var preview = document.getElementById('iconPreview');
+      preview.src = '';
+      preview.classList.add('hidden');
+      document.getElementById('iconClearBtn').classList.add('hidden');
+    }
+
+    // Parse a JSON body defensively — a 502 HTML error page from the host
+    // shouldn't masquerade as a network error.
+    async function safeJson(res) {
+      try { return await res.json(); } catch (e) { return null; }
+    }
+
+    function selectFeedType(type) {
+      selectedFeedType = type;
+      document.getElementById('toggleTop').classList.toggle('active', type === 'top-skeets');
+      document.getElementById('toggleChrono').classList.toggle('active', type === 'chrono-skeets');
+      updateFeedPlaceholders();
+    }
+
+    function setLoading(loading) {
+      var submitBtn = document.getElementById('submitBtn');
+      var unpublishBtn = document.getElementById('unpublishBtn');
+      var spinner = document.getElementById('spinner');
+      submitBtn.disabled = loading;
+      unpublishBtn.disabled = loading;
+      spinner.style.display = loading ? 'block' : 'none';
+      if (!loading) document.getElementById('submitLabel').textContent = 'Generate feed';
+    }
+
+    async function handleSubmit() {
+      if (inFlight) return;
+      disarmUnpublish();
+
+      var handle = document.getElementById('handle').value.trim();
+      var appPassword = document.getElementById('appPassword').value.trim();
+
+      document.getElementById('errorBox').style.display = 'none';
+
+      if (!handle || !appPassword) {
+        showError('Please enter your handle and app password.');
+        return;
+      }
+
+      inFlight = true;
+      setLoading(true);
+      document.getElementById('submitLabel').textContent = 'Generating\u2026';
+
+      var feedKey = currentFeedKey();
+
+      try {
+        var feedName = document.getElementById('feedName').value.trim();
+        var res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey, feedName: feedName || undefined, feedDescription: document.getElementById('feedDescription').value.trim() || undefined, feedIcon: feedIconData || undefined }),
+        });
+        var data = await safeJson(res);
+
+        if (!res.ok || !data) {
+          setLoading(false);
+          if (res.status === 401) {
+            showError('Invalid handle or app password. Please check and try again.');
+          } else {
+            showError((data && data.message) || 'Something went wrong. Please try again.');
+          }
+          return;
+        }
+
+        setLoading(false);
+        showSuccess(data, feedKey);
+      } catch (err) {
+        setLoading(false);
+        showError('Network error. Please check your connection and try again.');
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    // Unpublish is destructive \u2014 the first click arms the button, the second
+    // (within 5s) actually unpublishes. Mirrors the Copy \u2192 "Copied!" pattern.
+    var unpublishArmed = false;
+    var unpublishArmTimer = null;
+
+    function disarmUnpublish() {
+      unpublishArmed = false;
+      if (unpublishArmTimer) {
+        clearTimeout(unpublishArmTimer);
+        unpublishArmTimer = null;
+      }
+      var btn = document.getElementById('unpublishBtn');
+      if (btn && btn.textContent === 'Confirm unpublish?') btn.textContent = 'Unpublish';
+    }
+
+    async function performUnpublishRequest(handle, appPassword, feedKey) {
+      var res = await fetch('/api/unregister', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle: handle, appPassword: appPassword, feedType: feedKey }),
+      });
+      var data = await safeJson(res);
+      return { ok: res.ok, status: res.status, data: data };
+    }
+
+    function unpublishErrorMessage(result) {
+      if (result.status === 401) return 'Invalid handle or app password. Please check and try again.';
+      return (result.data && result.data.message) || 'Something went wrong. Please try again.';
+    }
+
+    function showUnpublishedView(feedKey) {
+      var feedLabel = FEED_LABELS[feedKey] || 'Top Skeets';
+      document.getElementById('unpublishMsg').textContent = 'Your ' + feedLabel + ' feed has been removed from Bluesky and deleted from our system.';
+      document.getElementById('formView').classList.add('hidden');
+      document.getElementById('successView').classList.add('hidden');
+      document.getElementById('unpublishView').classList.remove('hidden');
+    }
+
+    async function handleUnpublish() {
+      if (inFlight) return;
+
+      var handle = document.getElementById('handle').value.trim();
+      var appPassword = document.getElementById('appPassword').value.trim();
+
+      document.getElementById('errorBox').style.display = 'none';
+
+      if (!handle || !appPassword) {
+        showError('Please enter your handle and app password to unpublish.');
+        return;
+      }
+
+      var unpublishBtn = document.getElementById('unpublishBtn');
+
+      if (!unpublishArmed) {
+        unpublishArmed = true;
+        unpublishBtn.textContent = 'Confirm unpublish?';
+        unpublishArmTimer = setTimeout(disarmUnpublish, 5000);
+        return;
+      }
+      disarmUnpublish();
+
+      var submitBtn = document.getElementById('submitBtn');
+      inFlight = true;
+      unpublishBtn.disabled = true;
+      submitBtn.disabled = true;
+      unpublishBtn.textContent = 'Unpublishing\u2026';
+
+      var feedKey = currentFeedKey();
+
+      try {
+        var result = await performUnpublishRequest(handle, appPassword, feedKey);
+        if (!result.ok) {
+          showError(unpublishErrorMessage(result));
+          return;
+        }
+        showUnpublishedView(feedKey);
+      } catch (err) {
+        showError('Network error. Please check your connection and try again.');
+      } finally {
+        inFlight = false;
+        unpublishBtn.disabled = false;
+        submitBtn.disabled = false;
+        unpublishBtn.textContent = 'Unpublish';
+      }
+    }
+
+    // Unpublish from the success screen \u2014 credentials are still in the hidden
+    // form fields until resetForm clears them.
+    var successUnpublishArmed = false;
+    var successUnpublishTimer = null;
+
+    function disarmSuccessUnpublish() {
+      successUnpublishArmed = false;
+      if (successUnpublishTimer) {
+        clearTimeout(successUnpublishTimer);
+        successUnpublishTimer = null;
+      }
+      var btn = document.getElementById('successUnpublishBtn');
+      if (btn && btn.textContent === 'Confirm unpublish?') btn.textContent = 'Unpublish';
+    }
+
+    async function handleUnpublishFromSuccess() {
+      if (inFlight) return;
+
+      var handle = document.getElementById('handle').value.trim();
+      var appPassword = document.getElementById('appPassword').value.trim();
+      var errorBox = document.getElementById('successErrorBox');
+      errorBox.style.display = 'none';
+
+      if (!handle || !appPassword) {
+        errorBox.textContent = 'Your credentials are no longer available \u2014 go back and enter them to unpublish.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      var btn = document.getElementById('successUnpublishBtn');
+
+      if (!successUnpublishArmed) {
+        successUnpublishArmed = true;
+        btn.textContent = 'Confirm unpublish?';
+        successUnpublishTimer = setTimeout(disarmSuccessUnpublish, 5000);
+        return;
+      }
+      disarmSuccessUnpublish();
+
+      inFlight = true;
+      btn.disabled = true;
+      btn.textContent = 'Unpublishing\u2026';
+
+      var feedKey = currentFeedKey();
+
+      try {
+        var result = await performUnpublishRequest(handle, appPassword, feedKey);
+        if (!result.ok) {
+          errorBox.textContent = unpublishErrorMessage(result);
+          errorBox.style.display = 'block';
+          return;
+        }
+        stopFeedPolling();
+        showUnpublishedView(feedKey);
+      } catch (err) {
+        errorBox.textContent = 'Network error. Please check your connection and try again.';
+        errorBox.style.display = 'block';
+      } finally {
+        inFlight = false;
+        btn.disabled = false;
+        btn.textContent = 'Unpublish';
+      }
+    }
+
+    // Help modal
+    function openHelp() {
+      document.getElementById('helpOverlay').classList.remove('hidden');
+    }
+
+    function closeHelp() {
+      document.getElementById('helpOverlay').classList.add('hidden');
+    }
+
+    function helpIsOpen() {
+      return !document.getElementById('helpOverlay').classList.contains('hidden');
+    }
+
+    // Dark mode — system preference by default, manual choice persists
+    function applyThemeIcon() {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+    }
+
+    function toggleTheme() {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (dark) {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (e) {}
+      applyThemeIcon();
+    }
+
+    applyThemeIcon();
+
+    // Footer avatar — fetched live so it always matches the current Bluesky
+    // profile picture. Stays hidden if the lookup fails.
+    fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=professorkiosk.wtf')
+      .then(function(res) { return res.ok ? res.json() : null; })
+      .then(function(profile) {
+        if (profile && profile.avatar) {
+          var img = document.getElementById('footerAvatar');
+          img.src = profile.avatar;
+          img.hidden = false;
+        }
+      })
+      .catch(function() { /* footer text stands alone */ });
+
+    function showError(msg) {
+      var errorBox = document.getElementById('errorBox');
+      errorBox.textContent = msg;
+      errorBox.style.display = 'block';
+    }
+
+    // Poll the feed status while the background fetch runs, so the success
+    // screen can show a live post count instead of a static wait message.
+    var pollTimer = null;
+    var pollCount = 0;
+
+    function stopFeedPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    var sawProgress = false;
+
+    function startFeedPolling(handle, feedType, expectedPosts) {
+      stopFeedPolling();
+      pollCount = 0;
+      sawProgress = false;
+      pollTimer = setInterval(function() {
+        pollCount++;
+        if (pollCount > 700) { // stop polling after ~35 minutes
+          var el = document.getElementById('fetchStatus');
+          if (el) {
+            el.textContent = 'Still fetching in the background — your feed will finish populating on its own. Check it on Bluesky in a little while.';
+          }
+          stopFeedPolling();
+          return;
+        }
+        fetch('/api/feed/' + encodeURIComponent(handle) + '?feedType=' + feedType)
+          .then(function(res) { return res.ok ? res.json() : null; })
+          .then(function(info) {
+            if (!info) return;
+            var status = document.getElementById('fetchStatus');
+            var fill = document.getElementById('progressFill');
+
+            if (info.lastFullRefreshAt) {
+              // Initial fetch complete
+              if (fill) fill.style.width = '100%';
+              if (status) {
+                status.textContent = info.postCount > 0
+                  ? '\u2713 Fetch complete \u2014 ' + info.postCount.toLocaleString() + ' posts in your feed.'
+                  : '\u2713 Fetch complete \u2014 no posts found.';
+              }
+              var note = document.getElementById('closeNote');
+              if (note) note.classList.add('hidden');
+              stopFeedPolling();
+            } else if (typeof info.fetchProgress === 'number') {
+              // Fetch in progress \u2014 fetchProgress counts raw posts scanned,
+              // expectedPosts is the profile total (approximate), so cap at 97%
+              sawProgress = true;
+              if (expectedPosts > 0 && fill) {
+                var pct = Math.min(97, Math.round(info.fetchProgress / expectedPosts * 100));
+                fill.style.width = pct + '%';
+              }
+              if (status) {
+                // Clamp so the count can never overshoot the approximate total
+                var shownCount = expectedPosts > 0 ? Math.min(info.fetchProgress, expectedPosts) : info.fetchProgress;
+                status.textContent = expectedPosts > 0
+                  ? 'Fetching your posts\u2026 ' + shownCount.toLocaleString() + ' of ~' + expectedPosts.toLocaleString() + ' scanned.'
+                  : 'Fetching your posts\u2026 ' + shownCount.toLocaleString() + ' scanned so far.';
+              }
+            } else {
+              // Fetch not currently running \u2014 either still queued, or it
+              // failed partway and will restart shortly
+              if (status) {
+                status.textContent = sawProgress
+                  ? 'Fetch restarting\u2026'
+                  : 'Waiting for a fetch slot \u2014 this can take a couple of minutes\u2026';
+              }
+            }
+          })
+          .catch(function() { /* transient \u2014 keep polling */ });
+      }, 3000);
+    }
+
+    function showSuccess(data, feedType) {
+      document.getElementById('formView').classList.add('hidden');
+
+      var postDesc = feedType.startsWith('chrono') ? 'newest first' : 'ranked by likes';
+      if (feedType.indexOf('-replies') !== -1) postDesc += ', including replies';
+      var statusHtml;
+      if (data.postCount > 0) {
+        // Re-register / rename \u2014 the feed is already populated
+        statusHtml = '<span id="fetchStatus">' + data.postCount.toLocaleString() + ' posts in your feed.</span>';
+      } else {
+        statusHtml =
+          '<span id="fetchStatus">Fetching your posts\u2026</span>' +
+          '<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>' +
+          '<span class="close-note" id="closeNote">You can safely close this page \u2014 fetching continues on the server.</span>';
+      }
+      document.getElementById('infoBox').innerHTML =
+        'Paste this link into your Bluesky bio or share it with others. Anyone who opens it will see your posts, ' + postDesc + '.' +
+        '<br /><br />' + statusHtml;
+
+      if (!(data.postCount > 0)) {
+        startFeedPolling(data.handle, feedType, data.expectedPosts || 0);
+      }
+
+      var avatar = document.getElementById('avatarImg');
+      if (data.avatarUrl) {
+        avatar.src = data.avatarUrl;
+        avatar.style.display = 'block';
+      } else {
+        avatar.style.display = 'none';
+      }
+
+      document.getElementById('displayName').textContent = data.displayName || data.handle;
+      document.getElementById('successHandle').textContent = '@' + data.handle;
+      document.getElementById('feedUrlInput').value = data.feedUrl;
+
+      document.getElementById('successView').classList.remove('hidden');
+    }
+
+    function copyUrl() {
+      var input = document.getElementById('feedUrlInput');
+      var btn = document.getElementById('copyBtn');
+
+      navigator.clipboard.writeText(input.value).then(function() {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(function() {
+        input.select();
+        document.execCommand('copy');
+      });
+    }
+
+    function resetForm() {
+      stopFeedPolling();
+      disarmUnpublish();
+      disarmSuccessUnpublish();
+      document.getElementById('successErrorBox').style.display = 'none';
+      document.getElementById('successView').classList.add('hidden');
+      document.getElementById('unpublishView').classList.add('hidden');
+      document.getElementById('formView').classList.remove('hidden');
+      document.getElementById('handle').value = '';
+      document.getElementById('appPassword').value = '';
+      document.getElementById('feedName').value = '';
+      document.getElementById('feedDescription').value = '';
+      document.getElementById('includeReplies').checked = false;
+      updateFeedPlaceholders();
+      clearFeedIcon();
+      document.getElementById('errorBox').style.display = 'none';
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && helpIsOpen()) {
+        closeHelp();
+        return;
+      }
+      if (e.key === 'Enter' && !helpIsOpen() && !document.getElementById('formView').classList.contains('hidden')) {
+        handleSubmit();
+      }
+    });
+  </script>
+</body>
+</html>

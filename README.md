@@ -1,5 +1,7 @@
 # Top Skeets
 
+> The site root (`/`) is a Professor Kiosk landing page; the feed generator UI lives at `/feeds`. The API, `/health`, and feed endpoints are unchanged.
+
 A Bluesky Feed Generator that gives every user their own permanent feed — published under their own AT Protocol account. Two feed types are available:
 
 - **Top Skeets** (`top-skeets`) — the owner's posts ranked by like count
