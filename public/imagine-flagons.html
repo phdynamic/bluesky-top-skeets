@@ -64,6 +64,8 @@ h1{font-family:var(--disp);font-weight:400;font-size:clamp(34px,8vw,64px);margin
 @keyframes flash{0%,40%{box-shadow:0 0 0 6px var(--gold);background:var(--hit)}100%{box-shadow:var(--shadow)}}
 .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--ui)}
 .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px;flex:none;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.av{background-size:cover;background-position:center}
+.av.has-img{color:transparent;text-shadow:none}
 .handle{font-weight:700;font-size:15px;word-break:break-all}
 .meta{font-size:13px;color:var(--mute)}
 .badge{font-size:12px;font-weight:700;background:var(--gold);color:#2b2416;border-radius:999px;padding:1px 8px}
@@ -249,7 +251,7 @@ function nodeHTML(i){
   return `<div class="node${isOpen?'':' closed'}" id="n${i}" data-i="${i}">
   ${kids?`<button class="line" data-a="tog" aria-label="Collapse or expand this thread"></button>`:''}
   <div class="card${n.lock?' locked':''}${slim?' slim':''}" data-a="card">
-    <div class="head"><span class="av" style="background:${col}">${esc(n.h[0].toUpperCase())}</span>
+    <div class="head"><span class="av"${n.lock?'':` data-h="${esc(n.h)}"`} style="background-color:${col}">${esc(n.h[0].toUpperCase())}</span>
       <span class="caret"></span><span class="handle">@${hl(short(n.h))}</span>
       <span class="meta">Day ${dayOf(n)} &middot; ${n.d}</span>
       ${n.cnt?`<span class="badge" title="${n.cnt} replies below">+${n.cnt}</span>`:''}</div>
@@ -272,6 +274,7 @@ function render(){
   const html=sortedKids(roots).map(nodeHTML).join('');
   $('#tree').innerHTML = html || '<div class="empty">No band by that name. Yet.</div>';
   $('#count').textContent = hits ? `${hits.size} match${hits.size===1?'':'es'}` : `${N.length.toLocaleString()} posts in ${roots.length} branches. Click a card in compact view, or a thread line, to fold it.`;
+  hydrateAvatars();
 }
 // events
 $('#tree').addEventListener('click',e=>{
@@ -376,6 +379,60 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/'){e.preventDefault();$('#q').focus()}
   else if(e.key==='e') expandAll(); else if(e.key==='c') collapseAll(); else if(e.key==='r') randomBand();
 });
+// avatars: real profile pictures, looked up lazily (only cards that scroll
+// into view), batched 25 per request from the public AppView, and cached so
+// repeat visits cost nothing. Locked authors are never looked up. The initial
+// letter stays underneath as the fallback.
+const AV_KEY='if-avatars', AV_TTL=7*864e5, AV_MISS_TTL=864e5, AV_MAX=1500;
+const avatarMap=new Map(); // lowercased handle -> [avatarUrl|'' , savedAt]
+try{const raw=JSON.parse(localStorage.getItem(AV_KEY)||'{}');const now=Date.now();
+  Object.entries(raw).forEach(([h,v])=>{if(Array.isArray(v)&&now-v[1]<(v[0]?AV_TTL:AV_MISS_TTL))avatarMap.set(h,v)})}catch(e){}
+function saveAvatars(){try{let e=[...avatarMap.entries()];if(e.length>AV_MAX){e.sort((a,b)=>b[1][1]-a[1][1]);e=e.slice(0,AV_MAX)}
+  localStorage.setItem(AV_KEY,JSON.stringify(Object.fromEntries(e)))}catch(x){}}
+const avThumb=u=>u.replace('/img/avatar/','/img/avatar_thumbnail/');
+function setAv(el,url){ if(el.classList.contains('has-img')) return;
+  const src=avThumb(url), im=new Image();
+  im.onload=()=>{el.style.backgroundImage='url("'+src+'")';el.classList.add('has-img')}; // on error the initial stays
+  im.src=src }
+function applyAvatar(h){const v=avatarMap.get(h); if(!v||!v[0]) return;
+  document.querySelectorAll('.av[data-h]').forEach(el=>{ if(el.dataset.h.toLowerCase()===h) setAv(el,v[0]) })}
+async function fetchProfiles(list){
+  const ac=new AbortController(), t=setTimeout(()=>ac.abort(),10000);
+  try{
+    const r=await fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.getProfiles?'+list.map(h=>'actors='+encodeURIComponent(h)).join('&'),{signal:ac.signal});
+    if(!r.ok){const e=new Error('HTTP '+r.status);e.status=r.status;throw e}
+    return (await r.json()).profiles||[];
+  } finally { clearTimeout(t) } }
+const avPending=new Set(); let avTimer=null;
+async function flushAvatars(){
+  const all=[...avPending]; avPending.clear();
+  for(let i=0;i<all.length;i+=25){
+    const batch=all.slice(i,i+25); let profiles=null;
+    try{ profiles=await fetchProfiles(batch) }
+    catch(e){
+      // One malformed handle makes the API reject the whole batch: retry singly.
+      if(e.status===400 && batch.length>1){ profiles=[];
+        for(const h of batch){ try{ profiles.push(...await fetchProfiles([h])) }catch(x){} } }
+    }
+    if(!profiles) continue; // network failure: don't cache misses, retry on a later render
+    const got=new Map(profiles.map(p=>[String(p.handle||'').toLowerCase(),p.avatar||'']));
+    const now=Date.now();
+    batch.forEach(h=>{avatarMap.set(h,[got.get(h)||'',now]); applyAvatar(h)});
+  }
+  saveAvatars();
+}
+const avObserver='IntersectionObserver' in window ? new IntersectionObserver(entries=>{
+  entries.forEach(en=>{ if(!en.isIntersecting) return; avObserver.unobserve(en.target);
+    const h=en.target.dataset.h.toLowerCase();
+    if(avatarMap.has(h)){ applyAvatar(h) } else { avPending.add(h); clearTimeout(avTimer); avTimer=setTimeout(flushAvatars,150) } })
+},{rootMargin:'300px'}) : null;
+function hydrateAvatars(){
+  document.querySelectorAll('.av[data-h]').forEach(el=>{
+    const h=el.dataset.h.toLowerCase(), v=avatarMap.get(h);
+    if(v){ if(v[0]) setAv(el,v[0]) }
+    else if(avObserver){ avObserver.observe(el) }
+    else { avPending.add(h); clearTimeout(avTimer); avTimer=setTimeout(flushAvatars,150) }
+  })}
 render();
 // deep link
 function hashGo(){const k=location.hash.slice(1);if(!k)return;const n=N.find(x=>x.k===k);if(n)setTimeout(()=>goTo(n.i),50)}
