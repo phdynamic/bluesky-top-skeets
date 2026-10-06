@@ -80,6 +80,17 @@ mark{background:var(--hit);color:inherit;border-radius:3px;padding:0 2px}
 .card.locked .txt{color:var(--mute);font-style:italic}
 .card.slim{padding:4px 10px;margin:5px 0}
 .card.slim .txt,.card.slim .acts,.card.slim .av{display:none}
+.media:empty{height:1px;margin:0} /* not display:none: hidden elements never report as visible */
+.media{margin-top:8px}
+.imgs{display:grid;gap:4px;border-radius:12px;overflow:hidden;max-width:520px}
+.imgs.n2,.imgs.n3,.imgs.n4{grid-template-columns:1fr 1fr}
+.imgs.n3 a:first-child{grid-row:span 2}
+.imgs img{width:100%;height:100%;max-height:340px;object-fit:cover;display:block;background:var(--bg2)}
+.imgs.n1 img{max-height:460px}
+.vid{position:relative;display:block;max-width:520px;border-radius:12px;overflow:hidden;text-decoration:none}
+.vid img{width:100%;max-height:340px;object-fit:cover;display:block;background:var(--bg2)}
+.vid::after{content:"\25B6  Watch on Bluesky";position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.65);color:#fff;font:700 13px var(--ui);padding:4px 12px;border-radius:999px}
+.card.slim .media,body.compact .media{display:none}
 /* compact */
 body.compact .card{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:3px 10px;margin:3px 0;border-radius:9px;border-width:1.5px;box-shadow:none;cursor:pointer}
 body.compact .av{width:20px;height:20px;font-size:11px}
@@ -256,6 +267,7 @@ function nodeHTML(i){
       <span class="meta">Day ${dayOf(n)} &middot; ${n.d}</span>
       ${n.cnt?`<span class="badge" title="${n.cnt} replies below">+${n.cnt}</span>`:''}</div>
     ${txt}
+    ${n.lock?'':`<div class="media" data-m="${i}"></div>`}
     <div class="acts">
       <a class="open keep" href="${url(n)}" target="_blank" rel="noopener" title="Open on Bluesky">&#x2197; <span class="lbl">Open on Bluesky</span></a>
       ${kids?`<button data-a="tog">Fold</button>`:''}
@@ -275,6 +287,7 @@ function render(){
   $('#tree').innerHTML = html || '<div class="empty">No band by that name. Yet.</div>';
   $('#count').textContent = hits ? `${hits.size} match${hits.size===1?'':'es'}` : `${N.length.toLocaleString()} posts in ${roots.length} branches. Click a card in compact view, or a thread line, to fold it.`;
   hydrateAvatars();
+  hydrateMedia();
 }
 // events
 $('#tree').addEventListener('click',e=>{
@@ -415,11 +428,12 @@ async function flushAvatars(){
         for(const h of batch){ try{ profiles.push(...await fetchProfiles([h])) }catch(x){} } }
     }
     if(!profiles) continue; // network failure: don't cache misses, retry on a later render
-    const got=new Map(profiles.map(p=>[String(p.handle||'').toLowerCase(),p.avatar||'']));
+    const got=new Map(profiles.map(p=>[String(p.handle||'').toLowerCase(),{avatar:p.avatar||'',did:p.did||''}]));
     const now=Date.now();
-    batch.forEach(h=>{avatarMap.set(h,[got.get(h)||'',now]); applyAvatar(h)});
+    batch.forEach(h=>{const g=got.get(h)||{}; avatarMap.set(h,[g.avatar||'',now,g.did||'']); applyAvatar(h)});
   }
   saveAvatars();
+  resolveMediaWaiting();
 }
 const avObserver='IntersectionObserver' in window ? new IntersectionObserver(entries=>{
   entries.forEach(en=>{ if(!en.isIntersecting) return; avObserver.unobserve(en.target);
@@ -433,6 +447,77 @@ function hydrateAvatars(){
     else if(avObserver){ avObserver.observe(el) }
     else { avPending.add(h); clearTimeout(avTimer); avTimer=setTimeout(flushAvatars,150) }
   })}
+// media: pictures, GIFs and video thumbnails from each post, looked up lazily
+// (only cards in view, expanded view only), batched 25 per getPosts request
+// from the public AppView. Locked authors' posts are never looked up. Needs
+// the author's DID, which comes from the profile lookup above.
+const mediaEmbeds=new Map(); // node index -> embed view | null (looked up, none)
+const mediaPending=new Set(), mediaWaiting=new Set(); let mediaTimer=null;
+const safeUrl=u=>typeof u==='string'&&/^https:\/\//.test(u)?u:'';
+const isGif=u=>/^https:\/\/media\.tenor\.com\//.test(u)||/^https:\/\/[^/]*giphy\.com\//.test(u)||/\.gif(\?|$)/i.test(u);
+function mediaHTML(e,link){
+  if(e&&e.$type&&e.$type.indexOf('app.bsky.embed.recordWithMedia')===0) e=e.media;
+  if(!e||!e.$type) return '';
+  const t=e.$type;
+  if(t.indexOf('app.bsky.embed.images')===0&&Array.isArray(e.images)){
+    const im=e.images.filter(x=>safeUrl(x.thumb)).slice(0,4); if(!im.length) return '';
+    return `<div class="imgs n${im.length}">`+im.map(x=>`<a href="${esc(safeUrl(x.fullsize)||safeUrl(x.thumb))}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(x.thumb)}" alt="${esc(x.alt||'')}"></a>`).join('')+'</div>';
+  }
+  if(t.indexOf('app.bsky.embed.video')===0&&safeUrl(e.thumbnail))
+    return `<a class="vid" href="${esc(link)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(e.thumbnail)}" alt="${esc(e.alt||'Video')}"></a>`;
+  if(t.indexOf('app.bsky.embed.external')===0&&e.external&&isGif(safeUrl(e.external.uri)))
+    return `<div class="imgs n1"><img loading="lazy" src="${esc(e.external.uri)}" alt="${esc(e.external.title||'GIF')}"></div>`;
+  return '';
+}
+function paintMedia(el){ if(!el) return; const i=+el.dataset.m; if(!mediaEmbeds.has(i)) return;
+  el.innerHTML=mediaHTML(mediaEmbeds.get(i),url(N[i])) }
+async function fetchPosts(uris){
+  const ac=new AbortController(), t=setTimeout(()=>ac.abort(),10000);
+  try{
+    const r=await fetch('https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?'+uris.map(u=>'uris='+encodeURIComponent(u)).join('&'),{signal:ac.signal});
+    if(!r.ok){const e=new Error('HTTP '+r.status);e.status=r.status;throw e}
+    return (await r.json()).posts||[];
+  } finally { clearTimeout(t) } }
+const didOf=i=>{const v=avatarMap.get(N[i].h.toLowerCase());return v&&v[2]||''};
+async function flushMedia(){
+  const ids=[...mediaPending].filter(i=>didOf(i)); mediaPending.clear();
+  for(let k=0;k<ids.length;k+=25){
+    const batch=ids.slice(k,k+25), uris=batch.map(i=>`at://${didOf(i)}/app.bsky.feed.post/${N[i].k}`);
+    let posts=null;
+    try{ posts=await fetchPosts(uris) }
+    catch(e){
+      if(e.status===400&&batch.length>1){ posts=[];
+        for(const u of uris){ try{ posts.push(...await fetchPosts([u])) }catch(x){} } }
+    }
+    if(!posts) continue; // network failure: leave unresolved, retry on a later render
+    const byUri=new Map(posts.map(p=>[p.uri,p.embed||null]));
+    batch.forEach((i,j)=>{ mediaEmbeds.set(i,byUri.get(uris[j])||null);
+      paintMedia(document.querySelector('.media[data-m="'+i+'"]')) });
+  }
+}
+function queueMedia(i){
+  const h=N[i].h.toLowerCase(), v=avatarMap.get(h);
+  if(v&&v[2]){ mediaPending.add(i); clearTimeout(mediaTimer); mediaTimer=setTimeout(flushMedia,150) }
+  else if(v&&v[2]===''){ mediaEmbeds.set(i,null) } // profile confirmed unreachable
+  else { mediaWaiting.add(i); avPending.add(h); clearTimeout(avTimer); avTimer=setTimeout(flushAvatars,150) }
+}
+function resolveMediaWaiting(){
+  mediaWaiting.forEach(i=>{ const v=avatarMap.get(N[i].h.toLowerCase());
+    if(v&&v[2]){ mediaWaiting.delete(i); mediaPending.add(i) }
+    else if(v&&v[2]===''){ mediaWaiting.delete(i); mediaEmbeds.set(i,null) } });
+  if(mediaPending.size) flushMedia();
+}
+const mediaObserver='IntersectionObserver' in window ? new IntersectionObserver(entries=>{
+  entries.forEach(en=>{ if(!en.isIntersecting) return; mediaObserver.unobserve(en.target);
+    const i=+en.target.dataset.m;
+    if(mediaEmbeds.has(i)) paintMedia(en.target); else queueMedia(i) })
+},{rootMargin:'300px'}) : null;
+function hydrateMedia(){
+  if(state.view!=='exp') return;
+  document.querySelectorAll('.media[data-m]').forEach(el=>{
+    if(mediaEmbeds.has(+el.dataset.m)) paintMedia(el);
+    else if(mediaObserver) mediaObserver.observe(el);
+    else queueMedia(+el.dataset.m) })}
 render();
 // deep link
 function hashGo(){const k=location.hash.slice(1);if(!k)return;const n=N.find(x=>x.k===k);if(n)setTimeout(()=>goTo(n.i),50)}
