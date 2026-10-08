@@ -650,6 +650,7 @@ function print(input) {
   if (!p) { showErr(MESSAGES.badlink); say(MESSAGES.badlink); $('url').focus(); return; }
   busy = true; setBusy(true); say('Printing…');
   fetchPost(p).then(function (res) {
+    resetInk();                       // a new post starts with a clean receipt
     state.model = buildModel(res);
     $('slot').hidden = true; $('rwrap').hidden = false;
     renderReceipt();
@@ -714,7 +715,7 @@ $('another').addEventListener('click', function () {
   $('receipt').innerHTML = ''; $('rwrap').hidden = true; $('slot').hidden = false;
   $('labelnote').hidden = true; $('o-text').disabled = $('o-handle').disabled = false;
   setActions(false); showErr(''); say('');
-  state.note = ''; state.circled = {}; $('note').value = ''; $('notecount').textContent = '0 / 80'; syncChips();
+  resetInk();
   $('url').value = ''; $('url').focus();
   if (location.hash) history.replaceState(null, '', location.pathname);
 });
@@ -722,6 +723,11 @@ $('another').addEventListener('click', function () {
 // ---- Write on it: note and red circles ----
 function syncChips() {
   Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) { c.setAttribute('aria-pressed', state.circled[c.dataset.k] ? 'true' : 'false'); });
+}
+function resetInk() {
+  state.note = ''; state.circled = {};
+  $('note').value = ''; $('notecount').textContent = '0 / 80';
+  syncChips();
 }
 function toggleCircle(k) { state.circled[k] = !state.circled[k]; syncChips(); if (state.model) renderReceipt(); }
 Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) {
