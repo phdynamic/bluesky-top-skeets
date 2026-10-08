@@ -1,6 +1,6 @@
 # Top Skeets
 
-> The site root (`/`) is a Professor Kiosk landing page; the feed generator UI lives at `/feeds`. The API, `/health`, and feed endpoints are unchanged.
+> The site root (`/`) is a Professor Kiosk landing page; the feed generator UI lives at `/feeds`. The API, `/health`, and feed endpoints are unchanged. All pages share the "kiosk" design system in `public/kiosk.css` (tokens, buttons, header, footer, night mode via the `theme` localStorage key).
 
 A Bluesky Feed Generator that gives every user their own permanent feed — published under their own AT Protocol account. Two feed types are available:
 
