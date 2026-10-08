@@ -322,6 +322,10 @@ app.get('/tracer', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'tracer.html'));
 });
+app.get('/receipt', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, '..', 'public', 'receipt.html'));
+});
 app.get('/imagine-flagons', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'imagine-flagons.html'));

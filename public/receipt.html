@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Skeet Receipt</title>
+<meta name="description" content="Paste a link to any public Bluesky post and get a receipt of its stats. Save it, share it, frame it." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<script>
+  // Apply the theme before first paint to avoid a light flash
+  (function() {
+    var saved = null;
+    try { saved = localStorage.getItem('theme'); } catch (e) {}
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+</script>
+<link rel="stylesheet" href="/kiosk.css" />
+<style>
+:root { --hero: var(--sky); --paper: #fffdf6; --rink: #1d1b4f; }
+h1, h2, h3, p, ul, ol { margin: 0; }
+button, input { font: inherit; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* hero with the input card */
+.k-hero .k-wrap { flex-wrap: wrap; align-items: flex-start; }
+.k-hero .copy { flex: 1 1 420px; min-width: 0; }
+.sticker { flex: 0 0 auto; display: none; }
+@media (min-width: 640px) { .sticker { display: block; margin-right: 8px; } }
+.find { flex: 1 1 100%; background: #fffcf3; color: var(--rink); border: 3px solid var(--rink); border-radius: 20px; box-shadow: 6px 6px 0 var(--rink); padding: 18px; }
+.find label { display: block; font-weight: 800; font-size: 17px; line-height: 1.2; margin-bottom: 8px; }
+.find .row { display: flex; gap: 12px; flex-wrap: wrap; }
+.find input { flex: 1 1 260px; min-width: 0; min-height: 52px; border: 3px solid var(--rink); border-radius: 14px; padding: 0 14px; background: #fff; color: var(--rink); font: 400 14px/1 var(--mono); }
+.find input::placeholder { color: #565c86; opacity: 1; }
+.find .k-btn { min-height: 52px; font-size: 16px; background: var(--rink); color: #fff6e0; border-color: var(--rink); box-shadow: 3px 3px 0 var(--rink); }
+.find .k-btn .arr { color: var(--yellow); }
+.find .note { margin: 12px 0 0; font-size: 14px; }
+.find .note a { font-weight: 700; text-underline-offset: 3px; }
+.find :focus-visible { outline-color: var(--rink); }
+.find .err { margin: 12px 0 0; padding: 10px 14px; border: 2px solid #b91c1c; border-radius: 12px; background: #fff1f0; color: #8f1111; font-weight: 700; font-size: 14px; }
+
+/* layout */
+main.k-main { padding: 32px 0 0; }
+.layout { display: grid; gap: 32px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 860px) { .layout { grid-template-columns: minmax(0, 400px) minmax(0, 1fr); align-items: start; } }
+.panel { background: var(--surface); border: 3px solid var(--line); border-radius: 20px; box-shadow: 5px 5px 0 var(--shadow-c); padding: 20px; }
+.panel h2 { font-size: 22px; font-weight: 800; margin-bottom: 12px; }
+.tilt-a { transform: rotate(.4deg); } .tilt-b { transform: rotate(-.4deg); }
+@media (prefers-reduced-motion: reduce) { .tilt-a, .tilt-b { transform: none; } }
+.side { display: grid; gap: 24px; }
+
+.opt { display: flex; align-items: center; gap: 12px; min-height: 44px; font-weight: 700; cursor: pointer; }
+.opt input { width: 24px; height: 24px; accent-color: var(--navy); flex: none; }
+html[data-theme="dark"] .opt input { accent-color: var(--yellow); }
+.opt small { display: block; font-weight: 400; font-size: 14px; color: var(--ink2); }
+.actions { display: grid; gap: 12px; margin-top: 16px; }
+.actions .k-btn { width: 100%; justify-content: space-between; min-height: 44px; font-size: 15px; }
+.actions .k-btn .arr { color: var(--yellow); }
+html[data-theme="dark"] .actions .k-btn.primary .arr { color: var(--navy); }
+.status { min-height: 24px; font: 500 13px/1.4 var(--mono); margin-top: 10px; }
+.hint { font-size: 14px; margin-top: 14px; color: var(--ink2); }
+.labelnote { margin-top: 12px; padding: 10px 14px; border: 2px dashed var(--line); border-radius: 12px; font-size: 14px; font-weight: 700; background: var(--tint-yellow); }
+
+.steps { list-style: none; padding: 0; display: grid; gap: 14px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; }
+.steps .n { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--navy); display: grid; place-items: center; font-weight: 800; font-size: 14px; color: var(--navy); }
+.steps li:nth-child(1) .n { background: var(--coral); }
+.steps li:nth-child(2) .n { background: var(--teal); }
+.steps li:nth-child(3) .n { background: var(--purple); }
+.privacy { background: var(--tint-teal); border: 3px dashed var(--line); border-radius: 20px; padding: 16px 18px; }
+.privacy h2 { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+.privacy ul { padding-left: 20px; }
+.privacy li { margin: 4px 0; }
+.privacy p { margin-top: 10px; font-size: 14px; }
+
+/* empty slot */
+.stage { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 10px; }
+.slot { width: min(340px, 100%); border: 3px dashed var(--line); border-radius: 18px; padding: 56px 24px; text-align: center; background: var(--surface2); }
+.slot b { display: block; font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.slot span { font: 400 13px var(--mono); color: var(--ink2); }
+.slot .bar { height: 12px; border-radius: 6px; background: var(--navy); margin: 0 auto 22px; width: 70%; }
+html[data-theme="dark"] .slot .bar { background: var(--line); }
+
+/* receipt (always light paper, whatever the page theme) */
+.receipt-wrap { width: min(340px, 100%); filter: drop-shadow(6px 7px 0 var(--shadow-c)); transform: rotate(-.6deg); }
+@media (prefers-reduced-motion: reduce) { .receipt-wrap { transform: none; } }
+.receipt { width: 100%; font: 400 13px/19px var(--mono); color: var(--rink); }
+.receipt.printing { animation: feed 1.4s steps(26, end) both; }
+@keyframes feed { from { clip-path: inset(0 0 100% 0); transform: translateY(-16px); } to { clip-path: inset(0 0 -20px 0); transform: none; } }
+.edge { height: 12px; background-repeat: repeat-x; background-size: 20px 12px; }
+.edge.top { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 12 L10 2 L20 12' fill='%23FFFDF6' stroke='%231B2150' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.edge.bottom { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 0 L10 10 L20 0' fill='%23FFFDF6' stroke='%231B2150' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.rbody { background: var(--paper); border-left: 3px solid var(--rink); border-right: 3px solid var(--rink); padding: 4px 20px 6px; margin: -1px 0; }
+.rhead { text-align: center; }
+.rhead .name { font: 800 22px/24px var(--font); letter-spacing: -.01em; outline: none; }
+.rhead .sub { font-size: 11px; line-height: 16px; letter-spacing: .12em; margin-top: 2px; }
+.rule { border: 0; border-top: 2px dashed var(--rink); margin: 12px 0; }
+.meta { display: flex; justify-content: space-between; gap: 12px; }
+.tl { white-space: pre; overflow: hidden; }
+.tl.who { font-weight: 500; }
+.txtblock { margin-top: 6px; }
+.line { display: flex; align-items: baseline; gap: 6px; }
+.dots { flex: 1; min-width: 12px; border-bottom: 2px dotted var(--rink); transform: translateY(-3px); }
+.line b { font-weight: 500; }
+.line.total { font-size: 15px; font-weight: 500; line-height: 22px; }
+.barcode { display: block; width: 100%; height: 46px; margin: 14px 0 8px; }
+.thanks { text-align: center; font-size: 11px; line-height: 16px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+.thanks .credit { text-transform: none; letter-spacing: .04em; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="k-top">
+  <a class="k-btn" href="/">&larr; Professor Kiosk</a>
+  <div class="right">
+    <a class="k-btn" href="#how">? Help</a>
+    <button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
+  </div>
+</div>
+
+<header class="k-hero">
+  <div class="k-wrap">
+    <div class="copy">
+      <span class="k-tag navy">Level 1 &middot; Tool 04</span>
+      <h1>Skeet Receipt</h1>
+      <p>Paste a link to any public Bluesky post and get a receipt of its stats. Save it, share it, frame it.</p>
+    </div>
+    <svg class="sticker" width="180" height="150" viewBox="0 0 180 150" aria-hidden="true" focusable="false">
+      <path d="M52 8 H128 V76 H52 Z" fill="#FFFDF6" stroke="#1B2150" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M64 24 H116 M64 37 H102 M64 50 H112" stroke="#1B2150" stroke-width="3" stroke-linecap="round"/>
+      <rect x="26" y="70" width="140" height="62" rx="16" fill="#1B2150"/>
+      <rect x="20" y="62" width="140" height="62" rx="16" fill="#FF9EC7" stroke="#1B2150" stroke-width="3"/>
+      <rect x="38" y="70" width="104" height="10" rx="5" fill="#1B2150"/>
+      <rect x="36" y="98" width="48" height="9" rx="4.5" fill="#FFFDF6" stroke="#1B2150" stroke-width="3"/>
+      <circle cx="130" cy="103" r="8" fill="#FFD23F" stroke="#1B2150" stroke-width="3"/>
+      <rect x="34" y="124" width="24" height="10" rx="4" fill="#1B2150"/>
+      <rect x="122" y="124" width="24" height="10" rx="4" fill="#1B2150"/>
+    </svg>
+    <form class="find" id="find" novalidate>
+      <label for="url">Post link</label>
+      <div class="row">
+        <input id="url" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://bsky.app/profile/…/post/…" aria-describedby="find-note find-err" />
+        <button class="k-btn" id="go" type="submit">Print receipt <span class="arr" aria-hidden="true">&rarr;</span></button>
+      </div>
+      <p class="err" id="find-err" hidden></p>
+      <p class="note" id="find-note"><b>Public posts only.</b> Works with links from any Bluesky client or community server. Want an example? <a href="/receipt#post=https%3A%2F%2Fbsky.app%2Fprofile%2Fprofessorkiosk.wtf%2Fpost%2F3mx6fzdyx3k2s">Try this post</a></p>
+    </form>
+  </div>
+</header>
+
+<main class="k-main">
+  <div class="k-wrap">
+    <div class="layout">
+      <section class="stage" aria-label="Your receipt">
+        <div class="slot" id="slot">
+          <div class="bar" aria-hidden="true"></div>
+          <b>Your receipt prints here</b>
+          <span>Paste a post link above.</span>
+        </div>
+        <div class="receipt-wrap" id="rwrap" hidden>
+          <article class="receipt" id="receipt" aria-label="Receipt for a Bluesky post"></article>
+        </div>
+      </section>
+
+      <div class="side">
+        <section class="panel tilt-a" aria-labelledby="opts">
+          <h2 id="opts">Make it yours</h2>
+          <label class="opt"><input type="checkbox" id="o-text" checked /><span>Include post text<small>Turn off to share just the numbers.</small></span></label>
+          <label class="opt"><input type="checkbox" id="o-handle" checked /><span>Include handle<small>Turn off to keep the author off the receipt.</small></span></label>
+          <p class="labelnote" id="labelnote" hidden>Text hidden because this post has a content label.</p>
+          <div class="actions">
+            <button class="k-btn primary" id="save" type="button" disabled>Share or save image <span class="arr" aria-hidden="true">&rarr;</span></button>
+            <button class="k-btn" id="copyimg" type="button" disabled>Copy image</button>
+            <button class="k-btn" id="copyalt" type="button" disabled>Copy alt text</button>
+            <button class="k-btn" id="another" type="button" disabled>Print another</button>
+          </div>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+          <p class="hint">Numbers are as of the time printed. They keep changing on Bluesky.</p>
+        </section>
+
+        <section class="privacy" aria-labelledby="priv">
+          <h2 id="priv">What this asks for</h2>
+          <ul>
+            <li><b>Sign-in:</b> none. No password, no permissions.</li>
+            <li><b>Reads:</b> public posts only, the same as someone who isn't logged in.</li>
+            <li><b>Stored:</b> nothing. Your browser fetches the post and draws the receipt here.</li>
+          </ul>
+          <p>Posts hidden from logged-out viewers, deleted posts, and labeled posts are handled with care. Labeled posts print stats only.</p>
+        </section>
+
+        <section class="panel tilt-b" id="how" aria-labelledby="how-h">
+          <h2 id="how-h">How Skeet Receipt works</h2>
+          <ol class="steps">
+            <li><span class="n" aria-hidden="true">1</span><span><b>Paste a link.</b> Copy it from the share menu on any Bluesky post.</span></li>
+            <li><span class="n" aria-hidden="true">2</span><span><b>Print it.</b> Pick whether the post text and handle show up.</span></li>
+            <li><span class="n" aria-hidden="true">3</span><span><b>Share it.</b> Save the image, or copy the alt text for your own post.</span></li>
+          </ol>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="k-foot">
+  <div class="k-wrap">
+    <strong>Thank you for using Professor Kiosk.<br />Please take your receipt.</strong>
+    <div class="links">
+      <a class="by" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener"><img class="footer-avatar" data-pk-avatar src="" alt="" hidden />Made by @professorkiosk.wtf</a>
+      <a class="kofi" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">&#9749; Support these projects on Ko-fi</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+'use strict';
+
+// ---- Config ----
+var APPVIEW = 'https://public.api.bsky.app';
+// Label values from @atproto/api's built-in label definitions: adult, graphic and moderation labels.
+var HIDE_LABELS = ['porn', 'sexual', 'nudity', 'graphic-media', 'gore', '!hide', '!warn', '!no-unauthenticated'];
+var COLS = 34;          // receipt text width in monospace columns
+var TEXT_LINES = 6;     // post text is trimmed after this many lines
+var CREDIT = 'professorkiosk.wtf/receipt';
+var RED = '#1d1b4f';
+var PAPER = '#fffdf6';
+
+function $(id) { return document.getElementById(id); }
+
+// ---- Night mode (shared 'theme' key) ----
+function applyThemeLabel() {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  $('themeToggle').textContent = dark ? '☀️ Day mode' : '🌙 Night mode';
+}
+$('themeToggle').addEventListener('click', function () {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (dark) document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', 'dark');
+  try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (e) {}
+  applyThemeLabel();
+});
+applyThemeLabel();
+
+// ---- Parsing ----
+function parsePostLink(input) {
+  var s = String(input || '').trim();
+  var m = s.match(/^at:\/\/([^/\s]+)\/app\.bsky\.feed\.post\/([A-Za-z0-9]+)\/?$/);
+  if (m) return { id: m[1], rkey: m[2] };
+  try {
+    var u = new URL(s);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    m = u.pathname.match(/^\/profile\/([^/]+)\/post\/([A-Za-z0-9]+)\/?$/);
+    if (m) return { id: decodeURIComponent(m[1]), rkey: m[2] };
+  } catch (e) {}
+  return null;
+}
+
+// ---- Fetching (two unauthenticated reads) ----
+function BskyError(kind) { this.kind = kind; }
+function getJson(url) {
+  return fetch(url).then(function (res) {
+    if (res.ok) return res.json();
+    if (res.status === 429 || res.status >= 500) throw new BskyError('net');
+    throw new BskyError('http' + res.status);
+  }, function () { throw new BskyError('net'); });
+}
+function fetchPost(p) {
+  var didP = /^did:/.test(p.id) ? Promise.resolve(p.id)
+    : getJson(APPVIEW + '/xrpc/com.atproto.identity.resolveHandle?handle=' + encodeURIComponent(p.id))
+        .then(function (j) { if (!j || !j.did) throw new BskyError('noacct'); return j.did; },
+              function (e) { throw (e.kind === 'net' ? e : new BskyError('noacct')); });
+  return didP.then(function (did) {
+    var uri = 'at://' + did + '/app.bsky.feed.post/' + p.rkey;
+    return getJson(APPVIEW + '/xrpc/app.bsky.feed.getPosts?uris=' + encodeURIComponent(uri))
+      .then(function (j) {
+        var post = j && j.posts && j.posts[0];
+        if (!post) throw new BskyError('notfound');
+        return { post: post, uri: uri };
+      }, function (e) { throw (e.kind === 'net' ? e : new BskyError('notfound')); });
+  });
+}
+
+// ---- Model ----
+function fnv(str) {
+  var h = 0x811c9dc5;
+  for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h >>> 0;
+}
+function labelVals(post) {
+  var all = (post.labels || []).concat((post.author && post.author.labels) || []);
+  return all.map(function (l) { return l && l.val; }).filter(Boolean);
+}
+function buildModel(res) {
+  var post = res.post, rec = post.record || {};
+  var h = fnv(res.uri);
+  var vals = labelVals(post);
+  var counts = {
+    likes: post.likeCount || 0, reposts: post.repostCount || 0,
+    quotes: post.quoteCount || 0, replies: post.replyCount || 0
+  };
+  return {
+    uri: res.uri, hash: h, order: String(h % 10000).padStart(4, '0'),
+    handle: (post.author && post.author.handle) || '',
+    text: typeof rec.text === 'string' ? rec.text : '',
+    createdAt: rec.createdAt, printedAt: new Date(),
+    counts: counts,
+    total: counts.likes + counts.reposts + counts.quotes + counts.replies,
+    labeled: vals.some(function (v) { return HIDE_LABELS.indexOf(v) !== -1; })
+  };
+}
+
+// ---- Formatting ----
+var fmtDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+function fmtWhen(d) { var x = new Date(d); return isNaN(x) ? '-' : fmtDate.format(x); }
+function fmtN(n) { return Number(n).toLocaleString(); }
+
+// Wrap text to a fixed number of monospace columns; wide characters (CJK, emoji) count as two.
+var seg = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+function graphemes(s) {
+  if (seg) return Array.from(seg.segment(s), function (x) { return x.segment; });
+  return Array.from(s);
+}
+function gw(g) {
+  var cp = g.codePointAt(0);
+  return (cp >= 0x1100 && (cp <= 0x115f || (cp >= 0x2e80 && cp <= 0xa4cf) || (cp >= 0xac00 && cp <= 0xd7a3) ||
+    (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xfe30 && cp <= 0xfe6f) || (cp >= 0xff00 && cp <= 0xff60) ||
+    (cp >= 0x1f300 && cp <= 0x1faff) || (cp >= 0x20000 && cp <= 0x3fffd))) || g.length > 2 && /‍|️/.test(g) ? 2 : 1;
+}
+function wrap(text, cols, maxLines) {
+  var lines = [], cur = '', w = 0;
+  var paras = text.replace(/\r/g, '').split('\n');
+  for (var p = 0; p < paras.length; p++) {
+    var words = paras[p].split(/\s+/).filter(Boolean);
+    if (!words.length) { if (p > 0 && p < paras.length) lines.push(''); continue; }
+    for (var i = 0; i < words.length; i++) {
+      var gs = graphemes(words[i]), ww = gs.reduce(function (a, g) { return a + gw(g); }, 0);
+      if (cur && w + 1 + ww <= cols) { cur += ' ' + words[i]; w += 1 + ww; continue; }
+      if (cur) { lines.push(cur); cur = ''; w = 0; }
+      if (ww <= cols) { cur = words[i]; w = ww; continue; }
+      for (var k = 0; k < gs.length; k++) {   // hard-break a very long word
+        var gwid = gw(gs[k]);
+        if (w + gwid > cols) { lines.push(cur); cur = ''; w = 0; }
+        cur += gs[k]; w += gwid;
+      }
+    }
+    if (cur) { lines.push(cur); cur = ''; w = 0; }
+  }
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    var last = graphemes(lines[maxLines - 1]);
+    var lw = 0, out = '';
+    for (var j = 0; j < last.length; j++) { if (lw + gw(last[j]) > cols - 1) break; out += last[j]; lw += gw(last[j]); }
+    lines[maxLines - 1] = out.replace(/\s+$/, '') + '…';
+  }
+  return lines;
+}
+
+// What actually shows on the receipt for the current toggles
+var state = { model: null, showText: true, showHandle: true };
+function view() {
+  var m = state.model;
+  var hideText = m.labeled || !state.showText || !m.text.trim();
+  var hideHandle = m.labeled || !state.showHandle || !m.handle;
+  return {
+    handleLines: hideHandle ? [] : wrap('@' + m.handle, COLS, 2),
+    textLines: hideText ? [] : wrap(m.text, COLS, TEXT_LINES)
+  };
+}
+
+// ---- Receipt DOM ----
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function barcodeBars(hash) {
+  var seed = hash || 1, x = 0, bars = [];
+  function rnd() { seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  while (x < 280) {
+    var w = 1 + Math.floor(rnd() * 4), gap = 1 + Math.floor(rnd() * 3);
+    if (x + w > 280) break;
+    bars.push([x, w]); x += w + gap;
+  }
+  return bars;
+}
+function renderReceipt() {
+  var m = state.model, v = view(), c = m.counts;
+  var html = '<div class="edge top" aria-hidden="true"></div><div class="rbody">' +
+    '<div class="rhead"><h2 class="name" id="rname" tabindex="-1">PROFESSOR KIOSK</h2><div class="sub">SKEET RECEIPT · KIOSK 04</div></div>' +
+    '<hr class="rule">' +
+    '<div class="meta"><span>ORDER</span><span>#' + m.order + '</span></div>' +
+    '<div class="meta"><span>POSTED</span><span>' + esc(fmtWhen(m.createdAt)) + '</span></div>' +
+    '<div class="meta"><span>PRINTED</span><span>' + esc(fmtWhen(m.printedAt)) + '</span></div>';
+  if (v.handleLines.length || v.textLines.length) {
+    html += '<hr class="rule">';
+    html += v.handleLines.map(function (l) { return '<div class="tl who">' + esc(l) + '</div>'; }).join('');
+    if (v.textLines.length) html += '<div class="txtblock">' + v.textLines.map(function (l) { return '<div class="tl">' + (esc(l) || ' ') + '</div>'; }).join('') + '</div>';
+  }
+  html += '<hr class="rule">';
+  [['Likes', c.likes], ['Reposts', c.reposts], ['Quotes', c.quotes], ['Replies', c.replies]].forEach(function (r) {
+    html += '<div class="line"><span>' + r[0] + '</span><i class="dots"></i><b>' + fmtN(r[1]) + '</b></div>';
+  });
+  html += '<hr class="rule"><div class="line total"><span>TOTAL TOUCHES</span><i class="dots"></i><b>' + fmtN(m.total) + '</b></div>' +
+    '<div class="line"><span>PAID WITH</span><i class="dots"></i><b>VIBES</b></div><hr class="rule">' +
+    '<svg class="barcode" viewBox="0 0 280 46" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
+    barcodeBars(m.hash).map(function (b) { return '<rect x="' + b[0] + '" y="0" width="' + b[1] + '" height="46" fill="' + RED + '"/>'; }).join('') + '</svg>' +
+    '<p class="thanks">Thank you for posting.<br>Please take your receipt.<br><span class="credit">' + CREDIT + '</span></p>' +
+    '</div><div class="edge bottom" aria-hidden="true"></div>';
+  $('receipt').innerHTML = html;
+  $('labelnote').hidden = !m.labeled;
+  $('o-text').disabled = $('o-handle').disabled = m.labeled;
+}
+
+// ---- Alt text (mirrors the visible receipt) ----
+function altText() {
+  var m = state.model, v = view(), c = m.counts;
+  var out = ['PROFESSOR KIOSK', 'SKEET RECEIPT · KIOSK 04', 'ORDER #' + m.order,
+    'POSTED ' + fmtWhen(m.createdAt), 'PRINTED ' + fmtWhen(m.printedAt)];
+  if (v.handleLines.length) out.push(v.handleLines.join(' '));
+  if (v.textLines.length) out.push(v.textLines.join(' '));
+  out.push('Likes: ' + fmtN(c.likes), 'Reposts: ' + fmtN(c.reposts), 'Quotes: ' + fmtN(c.quotes), 'Replies: ' + fmtN(c.replies),
+    'TOTAL TOUCHES: ' + fmtN(m.total), 'PAID WITH: VIBES', 'Thank you for posting. Please take your receipt.', CREDIT);
+  return out.join('\n');
+}
+
+// ---- PNG export (drawn on a canvas; the receipt DOM is never rasterised) ----
+var SCALE = 3, CW = 360, W = 340, PADX = 8, PADY = 12;   // 360 CSS px canvas x3 = 1080 px; the receipt is 340 wide inside it
+function withFonts(fn) {
+  var faces = ['800 22px "DM Sans"', '400 13px "DM Mono"', '500 13px "DM Mono"', '500 15px "DM Mono"'];
+  var load = Promise.all(faces.map(function (f) { return document.fonts && document.fonts.load ? document.fonts.load(f) : null; }));
+  var timeout = new Promise(function (r) { setTimeout(r, 3000); });
+  return Promise.race([load, timeout]).then(fn, fn);
+}
+function drawReceipt() {
+  var m = state.model, v = view(), c = m.counts;
+  var MONO = '"DM Mono", ui-monospace, Menlo, Consolas, monospace', HEAD = '"DM Sans", system-ui, sans-serif';
+  var ops = [], y = 12 + 4;                 // top edge, body padding
+  function rule() { y += 12; ops.push({ t: 'rule', y: y }); y += 2 + 12; }
+  ops.push({ t: 'text', y: y, font: '800 22px ' + HEAD, text: 'PROFESSOR KIOSK', o: { align: 'center', h: 24 } }); y += 24;
+  y += 2; ops.push({ t: 'text', y: y, font: '400 11px ' + MONO, text: 'SKEET RECEIPT · KIOSK 04', o: { align: 'center', h: 16, spacing: '1.3px' } }); y += 16;
+  rule();
+  [['ORDER', '#' + m.order], ['POSTED', fmtWhen(m.createdAt)], ['PRINTED', fmtWhen(m.printedAt)]].forEach(function (r) {
+    ops.push({ t: 'pair', y: y, a: r[0], b: r[1], font: '400 13px ' + MONO }); y += 19;
+  });
+  if (v.handleLines.length || v.textLines.length) {
+    rule();
+    v.handleLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: '500 13px ' + MONO, text: l, o: { h: 19 } }); y += 19; });
+    if (v.textLines.length) { y += 6; v.textLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: '400 13px ' + MONO, text: l, o: { h: 19 } }); y += 19; }); }
+  }
+  rule();
+  [['Likes', c.likes], ['Reposts', c.reposts], ['Quotes', c.quotes], ['Replies', c.replies]].forEach(function (r) {
+    ops.push({ t: 'dots', y: y, a: r[0], b: fmtN(r[1]), font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
+  });
+  rule();
+  ops.push({ t: 'dots', y: y, a: 'TOTAL TOUCHES', b: fmtN(m.total), font: '500 15px ' + MONO, bfont: '500 15px ' + MONO, h: 22 }); y += 22;
+  ops.push({ t: 'dots', y: y, a: 'PAID WITH', b: 'VIBES', font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
+  rule();
+  y += 14; ops.push({ t: 'barcode', y: y }); y += 46 + 8;
+  ['THANK YOU FOR POSTING.', 'PLEASE TAKE YOUR RECEIPT.'].forEach(function (l) {
+    ops.push({ t: 'text', y: y, font: '400 11px ' + MONO, text: l, o: { align: 'center', h: 16, spacing: '0.66px' } }); y += 16;
+  });
+  y += 4; ops.push({ t: 'text', y: y, font: '400 11px ' + MONO, text: CREDIT, o: { align: 'center', h: 16 } }); y += 16;
+  y += 6 + 12;                              // body bottom padding, bottom edge
+  var H = y;
+
+  var cv = document.createElement('canvas');
+  cv.width = CW * SCALE; cv.height = (H + PADY * 2) * SCALE;
+  var g = cv.getContext('2d');
+  g.scale(SCALE, SCALE);
+  g.fillStyle = '#fff6e0'; g.fillRect(0, 0, CW, H + PADY * 2);
+  g.translate(PADX, PADY);
+
+  function outline() {
+    g.beginPath(); g.moveTo(0, 12);
+    for (var x = 0; x < W; x += 20) { g.lineTo(x + 10, 2); g.lineTo(x + 20, 12); }
+    g.lineTo(W, H - 12);
+    for (var x2 = W; x2 > 0; x2 -= 20) { g.lineTo(x2 - 10, H - 2); g.lineTo(x2 - 20, H - 12); }
+    g.closePath();
+  }
+  g.save(); g.translate(6, 7); outline(); g.fillStyle = RED; g.fill(); g.restore();
+  outline(); g.fillStyle = PAPER; g.fill();
+  g.lineJoin = 'round'; g.lineWidth = 3; g.strokeStyle = RED; g.stroke();
+
+  var L = 20 + 3, R = W - 20 - 3;           // text box inside the side borders
+  g.fillStyle = RED; g.textBaseline = 'alphabetic';
+  ops.forEach(function (op) {
+    if (op.t === 'rule') {
+      g.save(); g.setLineDash([4, 3]); g.lineWidth = 2; g.strokeStyle = RED;
+      g.beginPath(); g.moveTo(L, op.y + 1); g.lineTo(R, op.y + 1); g.stroke(); g.restore();
+    } else if (op.t === 'text') {
+      g.font = op.font; g.letterSpacing = op.o.spacing || '0px';
+      var base = op.y + (op.o.h || 19) * 0.72;
+      if (op.o.align === 'center') { g.textAlign = 'center'; g.fillText(op.text, W / 2, base); }
+      else { g.textAlign = 'left'; g.fillText(op.text, L, base); }
+      g.letterSpacing = '0px'; g.textAlign = 'left';
+    } else if (op.t === 'pair') {
+      g.font = op.font; g.textAlign = 'left'; g.fillText(op.a, L, op.y + 14);
+      g.textAlign = 'right'; g.fillText(op.b, R, op.y + 14); g.textAlign = 'left';
+    } else if (op.t === 'dots') {
+      var base2 = op.y + op.h * 0.72;
+      g.font = op.font; g.textAlign = 'left'; g.fillText(op.a, L, base2);
+      var aw = g.measureText(op.a).width;
+      g.font = op.bfont; g.textAlign = 'right'; g.fillText(op.b, R, base2);
+      var bw = g.measureText(op.b).width;
+      g.save(); g.setLineDash([2, 3]); g.lineWidth = 2; g.lineCap = 'round'; g.strokeStyle = RED;
+      g.beginPath(); g.moveTo(L + aw + 6, base2 - 3); g.lineTo(R - bw - 6, base2 - 3); g.stroke(); g.restore();
+      g.textAlign = 'left';
+    } else if (op.t === 'barcode') {
+      var sx = (R - L) / 280;
+      barcodeBars(m.hash).forEach(function (b) { g.fillRect(L + b[0] * sx, op.y, b[1] * sx, 46); });
+    }
+  });
+  return cv;
+}
+function canvasBlob() {
+  return withFonts(function () {
+    var cv = drawReceipt();
+    return new Promise(function (resolve, reject) {
+      cv.toBlob(function (b) { b ? resolve(b) : reject(new Error('no blob')); }, 'image/png');
+    });
+  });
+}
+
+// ---- UI ----
+var statusEl = $('status');
+function say(msg) { statusEl.textContent = msg; }
+var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var MESSAGES = {
+  empty: 'Paste a post link first.',
+  badlink: "That doesn't look like a post link. It should end in /post/ and a string of letters and numbers.",
+  notfound: "We couldn't find a public post at that link.",
+  noacct: "We couldn't find that account.",
+  net: "Bluesky didn't answer. Try again in a minute."
+};
+function showErr(msg) { var e = $('find-err'); e.textContent = msg; e.hidden = !msg; }
+function setBusy(b) {
+  $('go').disabled = b;
+  $('go').firstChild.nodeValue = b ? 'Printing… ' : 'Print receipt ';
+}
+function setActions(on) {
+  ['save', 'copyimg', 'copyalt', 'another'].forEach(function (id) { $(id).disabled = !on; });
+}
+
+var busy = false;
+function print(input) {
+  if (busy) return;
+  showErr('');
+  var raw = String(input || '').trim();
+  if (!raw) { showErr(MESSAGES.empty); say(MESSAGES.empty); $('url').focus(); return; }
+  var p = parsePostLink(raw);
+  if (!p) { showErr(MESSAGES.badlink); say(MESSAGES.badlink); $('url').focus(); return; }
+  busy = true; setBusy(true); say('Printing…');
+  fetchPost(p).then(function (res) {
+    state.model = buildModel(res);
+    $('slot').hidden = true; $('rwrap').hidden = false;
+    renderReceipt();
+    setActions(true);
+    var rc = $('receipt');
+    rc.classList.remove('printing');
+    if (!reduceMotion) { void rc.offsetWidth; rc.classList.add('printing'); }
+    $('rwrap').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+    say('Receipt printed.' + (reduceMotion ? ' (Animation is off because your device asks for reduced motion.)' : ''));
+    $('rname').focus({ preventScroll: true });
+  }, function (e) {
+    var msg = MESSAGES[e && e.kind] || MESSAGES.notfound;
+    if (e && /^http/.test(e.kind || '')) msg = MESSAGES.notfound;
+    showErr(msg); say(msg);
+  }).then(function () { busy = false; setBusy(false); });
+}
+
+$('find').addEventListener('submit', function (e) { e.preventDefault(); print($('url').value); });
+['o-text', 'o-handle'].forEach(function (id) {
+  $(id).addEventListener('change', function () {
+    state.showText = $('o-text').checked; state.showHandle = $('o-handle').checked;
+    if (state.model) renderReceipt();
+  });
+});
+
+function fileName() { return 'skeet-receipt-' + state.model.order + '.png'; }
+function download(blob) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = fileName();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+}
+$('save').addEventListener('click', function () {
+  if (!state.model) return;
+  say('Drawing the image…');
+  canvasBlob().then(function (blob) {
+    var file = typeof File === 'function' ? new File([blob], fileName(), { type: 'image/png' }) : null;
+    if (file && navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      return navigator.share({ files: [file], text: 'Skeet receipt ' + CREDIT }).then(function () { say('Shared.'); },
+        function (err) { if (err && err.name === 'AbortError') say(''); else { download(blob); say('Image saved.'); } });
+    }
+    download(blob); say('Image saved.');
+  }, function () { say("Couldn't draw the image. Try Copy alt text instead."); });
+});
+if (!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)) $('copyimg').hidden = true;
+$('copyimg').addEventListener('click', function () {
+  if (!state.model) return;
+  say('Drawing the image…');
+  canvasBlob().then(function (blob) {
+    return navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+  }).then(function () { say('Image copied.'); }, function () { say("Couldn't copy the image. Try Share or save instead."); });
+});
+$('copyalt').addEventListener('click', function () {
+  if (!state.model) return;
+  var t = altText();
+  var done = function () { say('Alt text copied.'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { say("Couldn't copy. Select the receipt text instead."); });
+  else say("Couldn't copy. Select the receipt text instead.");
+});
+$('another').addEventListener('click', function () {
+  state.model = null;
+  $('receipt').innerHTML = ''; $('rwrap').hidden = true; $('slot').hidden = false;
+  $('labelnote').hidden = true; $('o-text').disabled = $('o-handle').disabled = false;
+  setActions(false); showErr(''); say('');
+  $('url').value = ''; $('url').focus();
+  if (location.hash) history.replaceState(null, '', location.pathname);
+});
+
+// ---- Deep link: /receipt#post=<encoded post URL> (fragment, so it never reaches server logs) ----
+function fromHash() {
+  var m = location.hash.match(/^#post=(.+)$/);
+  if (!m) return;
+  var link;
+  try { link = decodeURIComponent(m[1]); } catch (e) { link = m[1]; }
+  $('url').value = link;
+  print(link);
+}
+window.addEventListener('hashchange', fromHash);
+fromHash();
+
+window.__receipt = { parsePostLink: parsePostLink, wrap: wrap, fnv: fnv };
+})();
+</script>
+<script src="/kiosk.js" defer></script>
+</body>
+</html>

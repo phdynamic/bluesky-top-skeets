@@ -15,6 +15,10 @@ Both can optionally include replies (an "Include replies" checkbox at registrati
 
 `/tracer` turns any public Bluesky post into a browsable tree of its quote posts. It runs entirely in the visitor's browser against Bluesky's public API (no login, nothing stored on the server). A trace loads up to 2,000 quotes, with a "Load more" button to keep going (up to 20,000). Only quotes visible to logged-out viewers can be traced. Share a trace with `/tracer?post=<bsky.app post link>`.
 
+## Skeet Receipt
+
+`/receipt` turns any public Bluesky post link into a receipt of its stats (likes, reposts, quotes, replies), which can be shared or saved as a 1080 px PNG, copied as an image, or copied as alt text. It runs entirely in the visitor's browser with two unauthenticated reads against the public AppView (`resolveHandle`, then `getPosts`); there is no sign-in and nothing is stored. Posts with adult, graphic or moderation labels print stats only. Deep link: `/receipt#post=<encoded post URL>` (a fragment, so pasted links never reach server logs).
+
 ---
 
 ## What Top Skeets Does
