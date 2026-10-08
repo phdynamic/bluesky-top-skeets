@@ -71,8 +71,9 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 ## Operations
 
 - **Rate limits and the visitor's address.** Mutation endpoints are limited per visitor. The visitor's address is read from the right-hand side of `X-Forwarded-For` (the part our own proxy adds), controlled by `TRUSTED_PROXY_HOPS` (default 1). On the first request the server logs a `[net]` line showing how many entries the header had. If every visitor appears to share one limit, adjust the value.
-- **Shared AppView budget.** Everything this server asks of the public AppView draws from one allowance (`APPVIEW_MAX_RPS`, default unlimited), and a `429` from the AppView pauses all callers.
-- **Probe.** `npm run build && npm run probe -- <post link> [--burst N] [--uri at://...]` prints the AppView's rate-limit headers, how deep a quote chain it can follow, the `getPosts` batch cap, and (with `--burst`) what a `429` looks like. It is read-only and stores nothing.
+- **Shared AppView budget.** Everything this server asks of the public AppView draws from one allowance. The AppView sends no rate-limit headers (the probe confirmed it), so the limit can't be read; the budget learns it. `APPVIEW_MAX_RPS` is the ceiling in requests per second (0, the default, means no pacing and no adapting). Optionally `APPVIEW_START_RPS` sets where it starts. On every `429` it halves its rate and pauses all callers for the retry delay, then climbs back about 10% every 30 quiet seconds, never above the ceiling.
+- **Probe.** `npm run build && npm run probe -- <post link> [--ramp [--ramp-seconds N]] [--burst N] [--uri at://...]` is read-only and stores nothing. It reports the `getPosts` batch cap (25, confirmed), how deep the biggest quote branch goes, quotes counted but not returned, labels seen, and whether the AppView sends rate-limit headers. `--ramp` steps through 2, 4, 8 and 16 requests per second to find where `429`s begin; `--burst N` fires up to N back-to-back requests; `--uri` checks whether specific posts are visible to a public read.
+- **Takedown contact.** `TAKEDOWN_CONTACT` (default `phdynamic@icloud.com`) is where removal and takedown requests are sent; it is shown on the policy page for saved games once those are built.
 - **Tests.** `npm test` builds and runs the unit tests in `test/` (link parsing, client address, request budget, probe).
 
 ---

@@ -5,7 +5,7 @@ const { execFile } = require('node:child_process');
 const path = require('node:path');
 
 // A tiny fake AppView so the probe can be exercised without Bluesky.
-function fakeAppView({ ratelimitAfter = Infinity } = {}) {
+function fakeAppView({ ratelimitAfter = Infinity, noHeaders = false } = {}) {
   let calls = 0;
   const DID = 'did:plc:probe';
   const post = (i, q) => ({ uri: `at://${DID}/app.bsky.feed.post/p${i}`, author: { handle: 'p.example', labels: [] }, labels: i === 3 ? [{ val: 'sexual' }] : [], quoteCount: q, likeCount: 5 });
@@ -13,7 +13,7 @@ function fakeAppView({ ratelimitAfter = Infinity } = {}) {
     const srv = http.createServer((req, res) => {
       calls++;
       const u = new URL(req.url, 'http://x');
-      const send = (code, body, headers = {}) => { res.writeHead(code, { 'content-type': 'application/json', 'ratelimit-limit': '3000', 'ratelimit-remaining': String(3000 - calls), ...headers }); res.end(JSON.stringify(body)); };
+      const send = (code, body, headers = {}) => { res.writeHead(code, { 'content-type': 'application/json', ...(noHeaders ? {} : { 'ratelimit-limit': '3000', 'ratelimit-remaining': String(3000 - calls) }), ...headers }); res.end(JSON.stringify(body)); };
       if (calls > ratelimitAfter) return send(429, { error: 'RateLimitExceeded' }, { 'retry-after': '60' });
       const m = u.pathname.split('/').pop();
       if (m === 'com.atproto.identity.resolveHandle') return send(200, { did: DID });
@@ -55,5 +55,41 @@ test('probe without a link explains itself and fails politely', async () => {
   try {
     const r = await run(port, []);
     assert.match(r.stdout, /Give a post link/);
+  } finally { srv.close(); }
+});
+
+test('probe follows the deepest chain, counts labels, and does not repeat batch sizes', async () => {
+  const { srv, port } = await fakeAppView();
+  try {
+    const r = await run(port, ['https://bsky.app/profile/p.example/post/p0']);
+    assert.match(r.stdout, /Chain depth reached: 4 level/);
+    assert.match(r.stdout, /Labels on the quotes seen: \{.*sexual/);
+    assert.strictEqual((r.stdout.match(/getPosts with 26 URIs/g) || []).length, 1);
+    assert.match(r.stdout, /getPosts with 25 URIs: HTTP 200/);
+  } finally { srv.close(); }
+});
+
+test('probe says plainly when the AppView sends no rate-limit headers', async () => {
+  const { srv, port } = await fakeAppView({ noHeaders: true });
+  try {
+    const r = await run(port, ['https://bsky.app/profile/p.example/post/p0']);
+    assert.match(r.stdout, /returned NO rate-limit headers/);
+  } finally { srv.close(); }
+});
+
+test('--ramp stops at the first 429 and reports the step', async () => {
+  const { srv, port } = await fakeAppView({ ratelimitAfter: 25 });
+  try {
+    const r = await run(port, ['https://bsky.app/profile/p.example/post/p0', '--ramp', '--ramp-seconds', '1']);
+    assert.match(r.stdout, /Ramp test: 2, 4, 8, 16 requests per second/);
+    assert.match(r.stdout, /First 429 during the \d+ rps step after \d+ requests in total/);
+  } finally { srv.close(); }
+});
+
+test('--ramp reports plainly when no 429 is reached', async () => {
+  const { srv, port } = await fakeAppView();
+  try {
+    const r = await run(port, ['https://bsky.app/profile/p.example/post/p0', '--ramp', '--ramp-seconds', '1']);
+    assert.match(r.stdout, /No 429 up to 16 rps/);
   } finally { srv.close(); }
 });

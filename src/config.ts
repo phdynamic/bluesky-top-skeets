@@ -20,5 +20,7 @@ export const config = {
   trustedProxyHops: Math.max(0, parseInt(process.env.TRUSTED_PROXY_HOPS ?? '1', 10) || 0),
   // Saved quote-post games are built but switched off until this is "true".
   gamesEnabled: process.env.GAMES_ENABLED === 'true',
+  // Where takedown and removal requests go (shown on the policy page for saved games).
+  takedownContact: process.env.TAKEDOWN_CONTACT ?? 'phdynamic@icloud.com',
   userAgent: 'ProfessorKiosk/1.0 (+https://professorkiosk.wtf; feed generator and quote tools)',
 };

@@ -1,7 +1,7 @@
 /**
  * Read-only probe of the public AppView, run once on the real server:
  *
- *   npm run build && npm run probe -- <post link> [--burst N] [--uri at://...]...
+ *   npm run build && npm run probe -- <post link> [--ramp [--ramp-seconds N]] [--burst N] [--uri at://...]...
  *
  * It measures what the Game Preserver spec says must be measured rather than assumed: rate-limit
  * headers, what a 429 looks like (only with --burst), the getPosts batch cap, how deep a quote
@@ -13,6 +13,7 @@ import { parsePostLink } from './links';
 
 const APPVIEW = (process.env.APPVIEW_URL ?? 'https://public.api.bsky.app').replace(/\/+$/, '');
 const UA = 'ProfessorKiosk-Probe/1.0 (+https://professorkiosk.wtf)';
+const RAMP_STEPS = [2, 4, 8, 16];
 const RL_HEADERS = ['ratelimit-limit', 'ratelimit-remaining', 'ratelimit-reset', 'ratelimit-policy', 'retry-after'];
 
 interface Reply { status: number; headers: Record<string, string>; body: any; ms: number }
@@ -40,9 +41,12 @@ const labels = (p: any): string => {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const link = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--uri' && args[i - 1] !== '--burst');
+  const link = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--uri' && args[i - 1] !== '--burst' && args[i - 1] !== '--ramp-seconds');
   const burstIdx = args.indexOf('--burst');
   const burst = burstIdx >= 0 ? Math.min(500, Math.max(0, parseInt(args[burstIdx + 1] ?? '0', 10) || 0)) : 0;
+  const ramp = args.includes('--ramp');
+  const rsIdx = args.indexOf('--ramp-seconds');
+  const rampSeconds = rsIdx >= 0 ? Math.min(60, Math.max(1, parseInt(args[rsIdx + 1] ?? '15', 10) || 15)) : 15;
   const extraUris = args.flatMap((a, i) => (args[i - 1] === '--uri' ? [a] : []));
 
   say(`AppView: ${APPVIEW}`);
@@ -64,33 +68,39 @@ async function main(): Promise<void> {
   if (!post) { say('Root not returned (deleted, hidden, or opted out of logged-out viewing).'); process.exitCode = 1; return; }
   say(`  author=${post.author?.handle} quoteCount=${post.quoteCount} likeCount=${post.likeCount} labels=${labels(post)}`);
 
-  // Walk one chain of quotes as deep as it goes (max 8) and collect URIs for the batch test.
+  // Follow the biggest branch (the child with the most quotes) as deep as it goes, up to 25 levels,
+  // collecting URIs for the batch-size test and counting labels on every quote seen.
   const pool: string[] = [rootUri];
-  let cur = rootUri, depth = 0;
+  const labelCounts: Record<string, number> = {};
+  let cur = rootUri, depth = 0, notReturned = 0;
   const chain: string[] = [];
-  while (depth < 8) {
+  let expected = post.quoteCount ?? 0;
+  while (depth < 25) {
     const q = await call('app.bsky.feed.getQuotes', { uri: cur, limit: '100' });
     const posts: any[] = q.body?.posts ?? [];
-    say(`getQuotes depth ${depth}: HTTP ${q.status} in ${q.ms} ms, returned=${posts.length}, cursor=${q.body?.cursor ? 'yes' : 'no'}`);
+    say(`getQuotes level ${depth + 1}: HTTP ${q.status} in ${q.ms} ms, returned=${posts.length} of quoteCount=${expected}, cursor=${q.body?.cursor ? 'yes' : 'no'}`);
     if (q.status !== 200 || !posts.length) break;
-    posts.forEach(p => pool.push(p.uri));
+    if (!q.body?.cursor) notReturned += Math.max(0, expected - posts.length);
+    for (const p of posts) {
+      pool.push(p.uri);
+      for (const l of [...(p.labels ?? []), ...(p.author?.labels ?? [])]) if (l?.val) labelCounts[l.val] = (labelCounts[l.val] ?? 0) + 1;
+    }
     chain.push(`${posts.length}@${depth + 1}`);
-    const next = posts.find(p => (p.quoteCount ?? 0) > 0);
+    const next = posts.filter(p => (p.quoteCount ?? 0) > 0).sort((a, b) => (b.quoteCount ?? 0) - (a.quoteCount ?? 0))[0];
     if (!next) break;
-    cur = next.uri; depth++;
+    cur = next.uri; expected = next.quoteCount ?? 0; depth++;
   }
   say(`Chain depth reached: ${depth + 1} level(s) of quotes (${chain.join(', ') || 'none'})`);
-  say(`Labels seen on quotes: ${pool.length > 1 ? 'see getQuotes bodies; none printed here to keep the report short' : 'n/a'}`);
+  say(`Quotes counted but not returned on single-page levels: ${notReturned} (deleted, hidden, detached, or opted out of logged-out viewing)`);
+  say(`Labels on the quotes seen: ${Object.keys(labelCounts).length ? JSON.stringify(labelCounts) : 'none'}`);
 
-  // getPosts batch cap
+  // getPosts batch cap: 25 should work and 26 should not; also try 50 when enough URIs exist.
   const uniq = Array.from(new Set(pool));
-  if (uniq.length >= 26) {
-    for (const n of [25, 26, Math.min(50, uniq.length)]) {
-      const r = await call('app.bsky.feed.getPosts', { uris: uniq.slice(0, n) });
-      say(`getPosts with ${n} URIs: HTTP ${r.status}, returned=${r.body?.posts?.length ?? 'n/a'}${r.body?.message ? ' message=' + r.body.message : ''}`);
-    }
-  } else {
-    say(`getPosts batch cap: only ${uniq.length} URIs available; use a post with more than 26 quotes to test.`);
+  const sizes = [25, 26, 50].filter(n => n <= uniq.length);
+  if (!sizes.includes(26)) say(`getPosts batch cap: only ${uniq.length} URIs found, so 26 could not be tried; use a post with more quotes.`);
+  for (const n of sizes) {
+    const r = await call('app.bsky.feed.getPosts', { uris: uniq.slice(0, n) });
+    say(`getPosts with ${n} URIs: HTTP ${r.status}, returned=${r.body?.posts?.length ?? 'n/a'}${r.body?.message ? ' message=' + r.body.message : ''}`);
   }
 
   for (const uri of extraUris) {
@@ -110,9 +120,41 @@ async function main(): Promise<void> {
     else say(`  No 429 in ${sent} calls.`);
   }
 
+  if (ramp) {
+    const secs = rampSeconds;
+    say(`Ramp test: ${RAMP_STEPS.join(', ')} requests per second, ${secs} s each, stopping at the first 429...`);
+    let total = 0, hitAt: { rps: number; reply: Reply } | null = null;
+    for (const rps of RAMP_STEPS) {
+      const gap = 1000 / rps, end = Date.now() + secs * 1000;
+      const inflight: Promise<void>[] = [];
+      let stepSent = 0, codes: Record<number, number> = {};
+      while (Date.now() < end && !hitAt) {
+        const started = Date.now();
+        stepSent++; total++;
+        inflight.push(call('app.bsky.feed.getPosts', { uris: rootUri }).then(r => {
+          codes[r.status] = (codes[r.status] ?? 0) + 1;
+          if (r.status === 429 && !hitAt) hitAt = { rps, reply: r };
+        }, () => { codes[0] = (codes[0] ?? 0) + 1; }));
+        const wait = gap - (Date.now() - started);
+        if (wait > 0) await new Promise(res => setTimeout(res, wait));
+      }
+      await Promise.all(inflight);
+      say(`  ${rps} rps: sent ${stepSent}, responses ${JSON.stringify(codes)}`);
+      if (hitAt) break;
+    }
+    if (hitAt) {
+      const h = hitAt as { rps: number; reply: Reply };
+      say(`  First 429 during the ${h.rps} rps step after ${total} requests in total. headers=${JSON.stringify(h.reply.headers)} body=${JSON.stringify(h.reply.body)}`);
+    } else {
+      say(`  No 429 up to ${RAMP_STEPS[RAMP_STEPS.length - 1]} rps (${total} requests). The limit, if there is one, is higher than this test reaches (it may count over a longer window).`);
+    }
+  }
+
   say('');
-  say(`Rate-limit headers seen (${seenRateLimit.length} responses): ${seenRateLimit.length ? JSON.stringify(seenRateLimit[seenRateLimit.length - 1]) : 'none returned'}`);
-  say('Paste this report back so the limits can be set in config (APPVIEW_MAX_RPS).');
+  say(seenRateLimit.length
+    ? `Rate-limit headers seen (${seenRateLimit.length} responses): ${JSON.stringify(seenRateLimit[seenRateLimit.length - 1])}`
+    : 'The AppView returned NO rate-limit headers on any response, so its limit cannot be read from them. Use --ramp to find where 429s begin.');
+  say('Paste this report back so the request budget can be tuned (APPVIEW_MAX_RPS is the ceiling).');
 }
 
 main().catch(err => { console.error('Probe failed:', err instanceof Error ? err.message : err); process.exitCode = 1; });
