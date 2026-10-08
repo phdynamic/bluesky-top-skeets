@@ -127,7 +127,7 @@
         <span class="here">📍 You are here: main directory</span>
         <div class="avatar-wrap">
           <div class="fallback" id="heroFallback" aria-hidden="true">PK</div>
-          <img id="heroAvatar" src="" alt="Professor Kiosk's profile picture" hidden />
+          <img id="heroAvatar" data-pk-avatar src="" alt="Professor Kiosk's profile picture" hidden />
         </div>
         <h1 class="name">Professor <mark>Kiosk</mark></h1>
         <a class="handle" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener">@professorkiosk.wtf</a>
@@ -231,15 +231,15 @@
     </section>
   </main>
 
-  <footer class="k-foot">
-    <div class="k-wrap">
-      <strong>Thank you for using Professor Kiosk.<br />Please take your receipt.</strong>
-      <div class="links">
-        <a class="y" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener">@professorkiosk.wtf on Bluesky</a>
-        <a class="p" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">Support these projects</a>
-      </div>
+<footer class="k-foot">
+  <div class="k-wrap">
+    <strong>Thank you for using Professor Kiosk.<br />Please take your receipt.</strong>
+    <div class="links">
+      <a class="by" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener"><img class="footer-avatar" data-pk-avatar src="" alt="" hidden />Made by @professorkiosk.wtf</a>
+      <a class="kofi" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">&#9749; Support these projects on Ko-fi</a>
     </div>
-  </footer>
+  </div>
+</footer>
 
   <script>
     // Night mode, sharing the 'theme' key with every other page
@@ -255,19 +255,7 @@
       applyThemeLabel();
     });
     applyThemeLabel();
-
-    // Avatar is fetched live so it always matches the current Bluesky profile
-    // picture; the "PK" placeholder stays if the lookup fails.
-    fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=professorkiosk.wtf')
-      .then(function(res) { return res.ok ? res.json() : null; })
-      .then(function(profile) {
-        if (!profile || !profile.avatar) return;
-        var hero = document.getElementById('heroAvatar');
-        hero.src = profile.avatar;
-        hero.hidden = false;
-        document.getElementById('heroFallback').hidden = true;
-      })
-      .catch(function() { /* fallback stays */ });
   </script>
+<script src="/kiosk.js" defer></script>
 </body>
 </html>

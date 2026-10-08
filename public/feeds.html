@@ -139,7 +139,6 @@
     .how .n { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--navy); display: grid; place-items: center; font: 500 11px var(--mono); color: var(--navy); }
     .n1 { background: var(--coral); } .n2 { background: var(--teal); } .n3 { background: var(--purple); } .n4 { background: var(--yellow); }
 
-    .footer-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 6px; border: 2px solid var(--yellow); }
 
     /* Help modal */
     .modal-overlay { position: fixed; inset: 0; background: rgba(20,18,60,.6); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
@@ -309,15 +308,15 @@
   </div>
   </main>
 
-  <footer class="k-foot">
-    <div class="k-wrap">
-      <strong>Thank you for using Professor Kiosk.</strong>
-      <div class="links">
-        <a class="y" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener"><img id="footerAvatar" class="footer-avatar" src="" alt="" hidden />Made by @professorkiosk.wtf</a>
-        <a class="p" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">Support these projects</a>
-      </div>
+<footer class="k-foot">
+  <div class="k-wrap">
+    <strong>Thank you for using Professor Kiosk.<br />Please take your receipt.</strong>
+    <div class="links">
+      <a class="by" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener"><img class="footer-avatar" data-pk-avatar src="" alt="" hidden />Made by @professorkiosk.wtf</a>
+      <a class="kofi" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">&#9749; Support these projects on Ko-fi</a>
     </div>
-  </footer>
+  </div>
+</footer>
 
   <!-- HELP MODAL -->
   <div id="helpOverlay" class="modal-overlay hidden" onclick="if (event.target === this) closeHelp()">
@@ -670,19 +669,6 @@
 
     applyThemeIcon();
 
-    // Footer avatar — fetched live so it always matches the current Bluesky
-    // profile picture. Stays hidden if the lookup fails.
-    fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=professorkiosk.wtf')
-      .then(function(res) { return res.ok ? res.json() : null; })
-      .then(function(profile) {
-        if (profile && profile.avatar) {
-          var img = document.getElementById('footerAvatar');
-          img.src = profile.avatar;
-          img.hidden = false;
-        }
-      })
-      .catch(function() { /* footer text stands alone */ });
-
     function showError(msg) {
       var errorBox = document.getElementById('errorBox');
       errorBox.textContent = msg;
@@ -879,5 +865,6 @@
     new MutationObserver(updatePreview).observe(document.getElementById('iconPreview'), { attributes: true, attributeFilter: ['class', 'src'] });
     updatePreview();
   </script>
+<script src="/kiosk.js" defer></script>
 </body>
 </html>
