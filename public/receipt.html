@@ -112,7 +112,9 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 .meta { display: flex; justify-content: space-between; gap: 12px; }
 .tl { white-space: pre; overflow: hidden; }
 .tl.who { font-weight: 500; }
-.txtblock { margin-top: 6px; }
+.txtblock { margin-top: 6px; position: relative; width: fit-content; max-width: 100%; }
+.txtblock.ring { margin: 16px 0 10px; }
+.txtblock .circ { left: -18px; right: -18px; top: -14px; bottom: -14px; width: calc(100% + 36px); height: calc(100% + 28px); }
 .line { display: flex; align-items: baseline; gap: 6px; }
 .dots { flex: 1; min-width: 12px; border-bottom: 2px dotted var(--rink); transform: translateY(-3px); }
 .line b { font-weight: 500; }
@@ -196,6 +198,7 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
             <div class="count" id="notecount" aria-hidden="true">0 / 80</div>
             <span class="fl" id="circ-l" style="display:block;font-weight:700;font-size:14px;margin:10px 0 6px">Circle in red ink</span>
             <div class="chips" role="group" aria-labelledby="circ-l">
+              <button class="chip" type="button" data-k="text" aria-pressed="false">Post text</button>
               <button class="chip" type="button" data-k="likes" aria-pressed="false">Likes</button>
               <button class="chip" type="button" data-k="reposts" aria-pressed="false">Reposts</button>
               <button class="chip" type="button" data-k="quotes" aria-pressed="false">Quotes</button>
@@ -396,7 +399,7 @@ function wrap(text, cols, maxLines) {
 // What actually shows on the receipt for the current toggles
 var PAYMENTS = ['VIBES', 'CORN DOGS', 'BUTTER', 'SONG LYRICS', 'SPITE', 'EXPOSURE', 'CLOUT', 'NO MERIT', 'SPARE CHANGE'];
 var state = { model: null, showText: true, showHandle: true, note: '', circled: {}, paid: PAYMENTS[0] };
-var CIRCLE_NAMES = { likes: 'Likes', reposts: 'Reposts', quotes: 'Quotes', replies: 'Replies', total: 'Total touches' };
+var CIRCLE_NAMES = { text: 'Post text', likes: 'Likes', reposts: 'Reposts', quotes: 'Quotes', replies: 'Replies', total: 'Total touches' };
 var NOTE_FONT = '700 26px Caveat, cursive', NOTE_LH = 30, NOTE_W = 288, NOTE_LINES = 3, INK = '#1d3fa8', RED_INK = '#d62828';
 // Header: the author's display name (or @handle), shrunk to fit one line; neutral when the author is hidden.
 function fitHeader(text) {
@@ -451,19 +454,23 @@ function noteLines() {
   return lines;
 }
 // One hand-drawn loop, in unit coordinates: slightly wobbly, overshoots its own start like a real pen stroke.
-function scribble(seedBase, key) {
+function scribble(seedBase, key, box) {   // box: a squarer loop that can enclose a block of text
   var seed = (seedBase ^ fnv(key)) >>> 0 || 7;
   function rnd() { seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
   var a0 = -2.4 + rnd() * 0.9, turns = 1.13 + rnd() * 0.07, n = 56, pts = [], ph = rnd() * 6, amp = 0.045 + rnd() * 0.03;
   for (var i = 0; i <= n; i++) {
     var t = i / n, a = a0 + t * turns * Math.PI * 2;
-    var r = 1 + amp * Math.sin(ph + t * 11) + 0.1 * (t - 0.5);
-    pts.push([Math.cos(a) * r, Math.sin(a) * r * 0.97]);
+    var r = 1 + amp * Math.sin(ph + t * 11) * (box ? 0.6 : 1) + (box ? 0.035 : 0.1) * (t - 0.5);   // the start/end overshoot stays small on a box so it never cuts through the text
+    if (box) {      // superellipse (exponent 8): rounded-rectangle-ish, so the corners of the text stay inside
+      var c = Math.cos(a), sn = Math.sin(a);
+      pts.push([(c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 0.25) * r, (sn < 0 ? -1 : 1) * Math.pow(Math.abs(sn), 0.25) * r * 0.97]);
+    } else pts.push([Math.cos(a) * r, Math.sin(a) * r * 0.97]);
   }
   return pts;
 }
-function circlePath(key) {   // SVG path in a 100 x 40 box
-  return scribble(state.model.hash, key).map(function (p, i) { return (i ? 'L' : 'M') + (50 + p[0] * 46).toFixed(1) + ' ' + (20 + p[1] * 17).toFixed(1); }).join('');
+function circlePath(key, box) {   // SVG path in a 100 x 40 box
+  var kx = box ? 48 : 46, ky = box ? 18.5 : 17;
+  return scribble(state.model.hash, key, box).map(function (p, i) { return (i ? 'L' : 'M') + (50 + p[0] * kx).toFixed(1) + ' ' + (20 + p[1] * ky).toFixed(1); }).join('');
 }
 function numHtml(key, text) {
   var on = state.circled[key];
@@ -507,7 +514,8 @@ function renderReceipt() {
   if (v.handleLines.length || v.textLines.length) {
     html += '<hr class="rule">';
     html += v.handleLines.map(function (l) { return '<div class="tl who">' + esc(l) + '</div>'; }).join('');
-    if (v.textLines.length) html += '<div class="txtblock">' + v.textLines.map(function (l) { return '<div class="tl">' + (esc(l) || ' ') + '</div>'; }).join('') + '</div>';
+    if (v.textLines.length) html += '<div class="txtblock' + (state.circled.text ? ' ring' : '') + '">' + v.textLines.map(function (l) { return '<div class="tl">' + (esc(l) || ' ') + '</div>'; }).join('') +
+      (state.circled.text ? '<svg class="circ" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="' + circlePath('text', true) + '"/></svg>' : '') + '</div>';
   }
   html += '<hr class="rule">';
   [['Likes', c.likes], ['Reposts', c.reposts], ['Quotes', c.quotes], ['Replies', c.replies]].forEach(function (r) {
@@ -534,7 +542,7 @@ function altText() {
   if (v.textLines.length) out.push(v.textLines.join(' '));
   out.push('Likes: ' + fmtN(c.likes), 'Reposts: ' + fmtN(c.reposts), 'Quotes: ' + fmtN(c.quotes), 'Replies: ' + fmtN(c.replies),
     'TOTAL TOUCHES: ' + fmtN(m.total), 'PAID WITH: ' + state.paid);
-  var nl = noteLines(), circ = Object.keys(CIRCLE_NAMES).filter(function (k) { return state.circled[k]; }).map(function (k) { return CIRCLE_NAMES[k]; });
+  var nl = noteLines(), circ = Object.keys(CIRCLE_NAMES).filter(function (k) { return state.circled[k] && (k !== 'text' || v.textLines.length); }).map(function (k) { return CIRCLE_NAMES[k]; });
   if (nl.length) out.push('Handwritten note: ' + nl.join(' '));
   if (circ.length) out.push('Circled in red ink: ' + circ.join(', '));
   out.push('Thank you for posting. Please take your receipt.', CREDIT);
@@ -564,7 +572,11 @@ function drawReceipt() {
   if (v.handleLines.length || v.textLines.length) {
     rule();
     v.handleLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: '500 13px ' + MONO, text: l, o: { h: 19 } }); y += 19; });
-    if (v.textLines.length) { y += 6; v.textLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: '400 13px ' + MONO, text: l, o: { h: 19 } }); y += 19; }); }
+    if (v.textLines.length) {
+      y += state.circled.text ? 16 : 6; var ty = y;
+      v.textLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: '400 13px ' + MONO, text: l, o: { h: 19 } }); y += 19; });
+      if (state.circled.text) { ops.push({ t: 'tcircle', y: ty, lines: v.textLines, font: '400 13px ' + MONO }); y += 10; }
+    }
   }
   rule();
   [['Likes', c.likes], ['Reposts', c.reposts], ['Quotes', c.quotes], ['Replies', c.replies]].forEach(function (r) {
@@ -632,6 +644,13 @@ function drawReceipt() {
         scribble(m.hash, op.key).forEach(function (p, i) { var px = cx + p[0] * bx, py = cy + p[1] * by; if (i) g.lineTo(px, py); else g.moveTo(px, py); });
         g.stroke(); g.restore();
       }
+    } else if (op.t === 'tcircle') {
+      g.font = op.font; g.textAlign = 'left';
+      var tw = Math.max.apply(null, op.lines.map(function (l) { return g.measureText(l).width; })), th = op.lines.length * 19;
+      var tcx = L + tw / 2, tcy = op.y + th / 2, tbx = (tw / 2 + 18) * 0.96, tby = (th / 2 + 14) * 0.925;
+      g.save(); g.strokeStyle = RED_INK; g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+      scribble(m.hash, 'text', true).forEach(function (p, i) { var px = tcx + p[0] * tbx, py = tcy + p[1] * tby; if (i) g.lineTo(px, py); else g.moveTo(px, py); });
+      g.stroke(); g.restore();
     } else if (op.t === 'note') {
       var bh = op.lines.length * NOTE_LH;
       g.save(); g.translate(W / 2, op.y + bh / 2); g.rotate(-2.5 * Math.PI / 180);
