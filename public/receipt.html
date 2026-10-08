@@ -122,7 +122,7 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 .num[data-k] { cursor: pointer; }
 .circ { position: absolute; left: -10px; right: -10px; top: -7px; bottom: -7px; width: calc(100% + 20px); height: calc(100% + 14px); overflow: visible; pointer-events: none; }
 .circ path { fill: none; stroke: #d62828; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.hand { margin: 6px -4px 0; font: 700 22px/26px 'Caveat', cursive; color: #1d3fa8; transform: rotate(-2.5deg); transform-origin: 20% 50%; }
+.hand { margin: 8px 0 2px; font: 700 26px/30px 'Caveat', cursive; color: #1d3fa8; text-align: center; transform: rotate(-2.5deg); transform-origin: 50% 50%; }
 .hand div { white-space: pre; overflow: hidden; }
 .thanks { text-align: center; font-size: 11px; line-height: 16px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
 .thanks .credit { text-transform: none; letter-spacing: .04em; margin-top: 4px; }
@@ -397,7 +397,7 @@ function wrap(text, cols, maxLines) {
 var PAYMENTS = ['VIBES', 'CORN DOGS', 'BUTTER', 'SONG LYRICS', 'SPITE', 'EXPOSURE', 'CLOUT', 'NO MERIT', 'SPARE CHANGE'];
 var state = { model: null, showText: true, showHandle: true, note: '', circled: {}, paid: PAYMENTS[0] };
 var CIRCLE_NAMES = { likes: 'Likes', reposts: 'Reposts', quotes: 'Quotes', replies: 'Replies', total: 'Total touches' };
-var NOTE_FONT = '700 22px Caveat, cursive', NOTE_W = 262, NOTE_LINES = 3, INK = '#1d3fa8', RED_INK = '#d62828';
+var NOTE_FONT = '700 26px Caveat, cursive', NOTE_LH = 30, NOTE_W = 288, NOTE_LINES = 3, INK = '#1d3fa8', RED_INK = '#d62828';
 // Header: the author's display name (or @handle), shrunk to fit one line; neutral when the author is hidden.
 function fitHeader(text) {
   var gs = graphemes(text.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()), size = 22;
@@ -544,7 +544,7 @@ function altText() {
 // ---- PNG export (drawn on a canvas; the receipt DOM is never rasterised) ----
 var SCALE = 3, CW = 360, W = 340, PADX = 8, PADY = 12;   // 360 CSS px canvas x3 = 1080 px; the receipt is 340 wide inside it
 function withFonts(fn) {
-  var faces = ['700 22px Caveat', '800 22px "DM Sans"', '400 13px "DM Mono"', '500 13px "DM Mono"', '500 15px "DM Mono"'];
+  var faces = ['700 26px Caveat', '800 22px "DM Sans"', '400 13px "DM Mono"', '500 13px "DM Mono"', '500 15px "DM Mono"'];
   var load = Promise.all(faces.map(function (f) { return document.fonts && document.fonts.load ? document.fonts.load(f) : null; }));
   var timeout = new Promise(function (r) { setTimeout(r, 3000); });
   return Promise.race([load, timeout]).then(fn, fn);
@@ -574,7 +574,7 @@ function drawReceipt() {
   ops.push({ t: 'dots', y: y, a: 'TOTAL TOUCHES', b: fmtN(m.total), key: 'total', font: '500 15px ' + MONO, bfont: '500 15px ' + MONO, h: 22 }); y += 22;
   ops.push({ t: 'dots', y: y, a: 'PAID WITH', b: state.paid, font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
   var nl = noteLines();
-  if (nl.length) { y += 6; ops.push({ t: 'note', y: y, lines: nl }); y += nl.length * 26; }
+  if (nl.length) { y += 8; ops.push({ t: 'note', y: y, lines: nl }); y += nl.length * NOTE_LH + 2; }
   rule();
   y += 14; ops.push({ t: 'barcode', y: y }); y += 46 + 8;
   ['THANK YOU FOR POSTING.', 'PLEASE TAKE YOUR RECEIPT.'].forEach(function (l) {
@@ -633,9 +633,10 @@ function drawReceipt() {
         g.stroke(); g.restore();
       }
     } else if (op.t === 'note') {
-      g.save(); g.translate(L, op.y + 13); g.rotate(-2.5 * Math.PI / 180);
-      g.font = NOTE_FONT; g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'middle';
-      op.lines.forEach(function (ln, i) { g.fillText(ln, 0, i * 26); });
+      var bh = op.lines.length * NOTE_LH;
+      g.save(); g.translate(W / 2, op.y + bh / 2); g.rotate(-2.5 * Math.PI / 180);
+      g.font = NOTE_FONT; g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'middle';
+      op.lines.forEach(function (ln, i) { g.fillText(ln, 0, (i - (op.lines.length - 1) / 2) * NOTE_LH); });
       g.restore(); g.textBaseline = 'alphabetic';
     } else if (op.t === 'barcode') {
       var sx = (R - L) / 280;
