@@ -14,4 +14,11 @@ export const config = {
   // DATABASE_PATH is a legacy var from the SQLite era — only its directory is used
   dataDir: process.env.DATA_DIR ?? path.dirname(process.env.DATABASE_PATH ?? './data/feeds.db'),
   refreshIntervalMinutes: parseInt(process.env.REFRESH_INTERVAL_MINUTES ?? '5', 10),
+  // Public AppView used for every read; swap in a community AppView without touching code.
+  appviewUrl: (process.env.APPVIEW_URL ?? 'https://public.api.bsky.app').replace(/\/+$/, ''),
+  // How many reverse proxies sit in front of this server (used to read X-Forwarded-For safely).
+  trustedProxyHops: Math.max(0, parseInt(process.env.TRUSTED_PROXY_HOPS ?? '1', 10) || 0),
+  // Saved quote-post games are built but switched off until this is "true".
+  gamesEnabled: process.env.GAMES_ENABLED === 'true',
+  userAgent: 'ProfessorKiosk/1.0 (+https://professorkiosk.wtf; feed generator and quote tools)',
 };

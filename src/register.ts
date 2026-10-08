@@ -3,7 +3,7 @@ import { config } from './config';
 import { upsertFeed, deleteFeed, getFeedByDid, FeedType } from './db';
 import { resolvePdsService } from './identity';
 
-const APPVIEW_SERVICE = 'https://public.api.bsky.app';
+const APPVIEW_SERVICE = config.appviewUrl;
 
 const FEED_DISPLAY_NAMES: Record<FeedType, string> = {
   'top-skeets': 'Top Skeets',

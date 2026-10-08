@@ -1,9 +1,11 @@
 import type { BskyAgent } from '@atproto/api';
 import { PostRecord, FeedType } from './db';
+import { config } from './config';
+import { appviewBudget } from './budget';
 
 // The public AppView indexes the whole federated network, so author feeds for
 // accounts on any PDS are fetched from here.
-const APPVIEW_URL = 'https://public.api.bsky.app';
+const APPVIEW_URL = config.appviewUrl;
 
 /** The only fields of getAuthorFeed we read. */
 interface FeedItem {
@@ -36,7 +38,11 @@ async function fetchAuthorFeedPage(
   });
   if (params.cursor) qs.set('cursor', params.cursor);
 
-  const res = await fetch(`${APPVIEW_URL}/xrpc/app.bsky.feed.getAuthorFeed?${qs.toString()}`, { signal });
+  await appviewBudget.take('feeds');   // shared pacing across everything that talks to the AppView
+  const res = await fetch(`${APPVIEW_URL}/xrpc/app.bsky.feed.getAuthorFeed?${qs.toString()}`, {
+    signal,
+    headers: { 'User-Agent': config.userAgent },
+  });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {
@@ -119,6 +125,7 @@ export async function fetchAllOriginalPosts(
             backoffMs = resetEpochSec * 1000 - Date.now();
           }
           backoffMs = Math.min(Math.max(backoffMs, RATE_LIMIT_BACKOFF_MS), 120_000);
+          appviewBudget.penalize(backoffMs);   // everyone else sharing this address pauses too
         }
         console.warn(
           `[fetch] page failed for ${userHandle} (attempt ${attempt}/${PAGE_RETRIES}), retrying in ${backoffMs / 1000}s:`,

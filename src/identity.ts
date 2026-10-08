@@ -1,3 +1,4 @@
+import { config } from './config';
 /**
  * Resolve which PDS hosts an account so login goes to the right server —
  * accounts on third-party PDSes (northsky.social, myatproto.social, self-
@@ -10,7 +11,7 @@
  */
 
 // Env overrides exist for tests only; production uses the defaults.
-const APPVIEW_URL = process.env.APPVIEW_URL ?? 'https://public.api.bsky.app';
+const APPVIEW_URL = config.appviewUrl;
 const PLC_DIRECTORY_URL = process.env.PLC_DIRECTORY_URL ?? 'https://plc.directory';
 const FALLBACK_PDS = 'https://bsky.social';
 const RESOLVE_TIMEOUT_MS = 10_000;

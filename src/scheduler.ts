@@ -248,7 +248,7 @@ async function refreshFeed(feed: UserFeed, forceFull = false): Promise<void> {
 }
 
 async function doRefreshFeed(feed: UserFeed, forceFull = false): Promise<void> {
-  const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
+  const agent = new BskyAgent({ service: config.appviewUrl });
   const includeReplies = feed.include_replies ?? false;
   const existingPosts = feed.posts ?? [];
 

@@ -238,6 +238,7 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
 <div class="toast" id="toast" role="status"></div>
 <dialog id="dlg"><div class="dh"><h2 id="dt"></h2><button class="k-btn" id="dx" aria-label="Close">✕</button></div><div class="db" id="dbody"></div></dialog>
 
+<script src="/kiosk-links.js"></script>
 <script>
 (function(){
 'use strict';
@@ -270,15 +271,7 @@ const state={view:'exp',q:'',sort:'old',open:new Set()};
 let hits=null,desc=null;
 
 // ---------- input parsing ----------
-function parseInput(raw){
-  const s=String(raw||'').trim(); if(!s) return null;
-  let m=s.match(/^at:\/\/([^/\s]+)\/app\.bsky\.feed\.post\/([A-Za-z0-9._~:-]+)\/?$/);
-  if(!m) m=s.match(/^(?:https?:\/\/)?(?:www\.)?bsky\.app\/profile\/([^/\s?#]+)\/post\/([A-Za-z0-9._~:-]+)\/?(?:[?#].*)?$/);
-  if(!m) return null;
-  const id=decodeURIComponent(m[1]);
-  if(!(/^did:[a-z]+:[A-Za-z0-9._:%-]+$/.test(id)||/^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$/.test(id))) return null;
-  return {id,rkey:m[2]};
-}
+function parseInput(raw){ return KioskLinks.parsePostLink(raw) }  // shared with Skeet Receipt and the server (kiosk-links.js)
 
 // ---------- API (paced, retrying, honors rate limits) ----------
 function setNotice(t){const el=$('#pnotice');if(t){el.textContent=t;el.hidden=false}else el.hidden=true}

@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { config } from './config';
+import { clientIp, hashIp } from './clientip';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
@@ -31,8 +32,20 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
+let loggedForwardedShape = false;
+// One log line, once, so the owner can confirm TRUSTED_PROXY_HOPS matches the real proxy chain
+// (no addresses are logged, only how many entries the header has).
+function noteForwardedHeaderOnce(req: express.Request): void {
+  if (loggedForwardedShape) return;
+  loggedForwardedShape = true;
+  const raw = req.headers['x-forwarded-for'];
+  const n = raw ? String(raw).split(',').filter(p => p.trim()).length : 0;
+  console.log(`[net] x-forwarded-for has ${n} entr${n === 1 ? 'y' : 'ies'}; TRUSTED_PROXY_HOPS=${config.trustedProxyHops}. If every visitor ends up sharing one rate limit, raise or lower it.`);
+}
+
 function rateLimitMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
+  const ip = hashIp(clientIp(req, config.trustedProxyHops));
+  noteForwardedHeaderOnce(req);
   const now = Date.now();
   const entry = rateLimitMap.get(ip);
 

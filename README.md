@@ -68,6 +68,15 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 
 ---
 
+## Operations
+
+- **Rate limits and the visitor's address.** Mutation endpoints are limited per visitor. The visitor's address is read from the right-hand side of `X-Forwarded-For` (the part our own proxy adds), controlled by `TRUSTED_PROXY_HOPS` (default 1). On the first request the server logs a `[net]` line showing how many entries the header had. If every visitor appears to share one limit, adjust the value.
+- **Shared AppView budget.** Everything this server asks of the public AppView draws from one allowance (`APPVIEW_MAX_RPS`, default unlimited), and a `429` from the AppView pauses all callers.
+- **Probe.** `npm run build && npm run probe -- <post link> [--burst N] [--uri at://...]` prints the AppView's rate-limit headers, how deep a quote chain it can follow, the `getPosts` batch cap, and (with `--burst`) what a `429` looks like. It is read-only and stores nothing.
+- **Tests.** `npm test` builds and runs the unit tests in `test/` (link parsing, client address, request budget, probe).
+
+---
+
 ## Prerequisites
 
 - Node.js 20 (see `.nvmrc`)

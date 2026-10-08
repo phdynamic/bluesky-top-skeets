@@ -249,6 +249,7 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
   </div>
 </footer>
 
+<script src="/kiosk-links.js"></script>
 <script>
 (function () {
 'use strict';
@@ -281,18 +282,7 @@ $('themeToggle').addEventListener('click', function () {
 applyThemeLabel();
 
 // ---- Parsing ----
-function parsePostLink(input) {
-  var s = String(input || '').trim();
-  var m = s.match(/^at:\/\/([^/\s]+)\/app\.bsky\.feed\.post\/([A-Za-z0-9]+)\/?$/);
-  if (m) return { id: m[1], rkey: m[2] };
-  try {
-    var u = new URL(s);
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
-    m = u.pathname.match(/^\/profile\/([^/]+)\/post\/([A-Za-z0-9]+)\/?$/);
-    if (m) return { id: decodeURIComponent(m[1]), rkey: m[2] };
-  } catch (e) {}
-  return null;
-}
+var parsePostLink = KioskLinks.parsePostLink;   // shared with the Tracer and the server (kiosk-links.js)
 
 // ---- Fetching (two unauthenticated reads) ----
 function BskyError(kind) { this.kind = kind; }
