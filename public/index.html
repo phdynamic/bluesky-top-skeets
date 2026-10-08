@@ -21,8 +21,9 @@
   <style>
     /* Ticker */
     .ticker { background: var(--yellow); color: var(--navy); border-top: 3px solid var(--navy); border-bottom: 3px solid var(--navy); overflow: hidden; white-space: nowrap; font: 700 12px/1 var(--font); letter-spacing: .08em; }
-    .ticker-track { display: inline-flex; padding: 9px 0; animation: tick 40s linear infinite; }
-    .ticker-track span { padding-right: 1.2em; }
+    .ticker-track { display: inline-flex; padding: 9px 0; animation: tick 60s linear infinite; }
+    .ticker-group { display: flex; flex: none; }
+    .ticker-track span { flex: none; padding-right: 1.2em; }
     @keyframes tick { to { transform: translateX(-50%); } }
 
     .brand-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; max-width: 1040px; margin: 0 auto; width: 100%; }
@@ -106,10 +107,22 @@
 <body>
   <div class="ticker" aria-hidden="true">
     <div class="ticker-track">
+    <div class="ticker-group">
       <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
       <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
       <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
       <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+    </div>
+    <div class="ticker-group" aria-hidden="true">
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+      <span>CORN DOGS ★ BUTTER ★ SONG LYRICS ★ PARASOCIAL BUTTERFLIES ★ QUOTE POST GAMES ★</span>
+    </div>
     </div>
   </div>
 
