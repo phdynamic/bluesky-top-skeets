@@ -7,7 +7,7 @@
 <meta name="description" content="Paste a link to any public Bluesky post and get a receipt of its stats. Save it, share it, frame it." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Caveat:wght@600;700&family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet" />
 <script>
   // Apply the theme before first paint to avoid a light flash
   (function() {
@@ -83,6 +83,16 @@ html[data-theme="dark"] .actions .k-btn.primary .arr { color: var(--navy); }
 .slot .bar { height: 12px; border-radius: 6px; background: var(--navy); margin: 0 auto 22px; width: 70%; }
 html[data-theme="dark"] .slot .bar { background: var(--line); }
 
+/* write on it */
+.write { margin-top: 18px; padding-top: 16px; border-top: 3px dashed var(--line); }
+.write h3 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.write label.fl { display: block; font-weight: 700; font-size: 14px; margin: 10px 0 6px; }
+.write input[type="text"] { width: 100%; min-height: 44px; padding: 0 14px; border: 2px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: 600 20px/1 'Caveat', cursive; }
+.write .count { font: 400 12px var(--mono); color: var(--ink2); text-align: right; margin-top: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-height: 44px; padding: 0 14px; border: 2px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: 700 14px var(--font); cursor: pointer; }
+.chip[aria-pressed="true"] { background: #d62828; border-color: #d62828; color: #fff; }
+
 /* receipt (always light paper, whatever the page theme) */
 .receipt-wrap { width: min(340px, 100%); filter: drop-shadow(6px 7px 0 var(--shadow-c)); transform: rotate(-.6deg); }
 @media (prefers-reduced-motion: reduce) { .receipt-wrap { transform: none; } }
@@ -106,6 +116,12 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 .line b { font-weight: 500; }
 .line.total { font-size: 15px; font-weight: 500; line-height: 22px; }
 .barcode { display: block; width: 100%; height: 46px; margin: 14px 0 8px; }
+.num { position: relative; font-weight: 500; }
+.num[data-k] { cursor: pointer; }
+.circ { position: absolute; left: -10px; right: -10px; top: -7px; bottom: -7px; width: calc(100% + 20px); height: calc(100% + 14px); overflow: visible; pointer-events: none; }
+.circ path { fill: none; stroke: #d62828; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.hand { margin: 6px -4px 0; font: 700 22px/26px 'Caveat', cursive; color: #1d3fa8; transform: rotate(-2.5deg); transform-origin: 20% 50%; }
+.hand div { white-space: pre; overflow: hidden; }
 .thanks { text-align: center; font-size: 11px; line-height: 16px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
 .thanks .credit { text-transform: none; letter-spacing: .04em; margin-top: 4px; }
 </style>
@@ -169,6 +185,20 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
           <label class="opt"><input type="checkbox" id="o-text" checked /><span>Include post text<small>Turn off to share just the numbers.</small></span></label>
           <label class="opt"><input type="checkbox" id="o-handle" checked /><span>Include handle<small>Turn off to keep the author off the receipt.</small></span></label>
           <p class="labelnote" id="labelnote" hidden>Text hidden because this post has a content label.</p>
+          <div class="write">
+            <h3>Write on it</h3>
+            <label class="fl" for="note">Handwritten note <span style="font-weight:400">(optional)</span></label>
+            <input type="text" id="note" maxlength="80" autocomplete="off" spellcheck="true" placeholder="e.g. worth it" />
+            <div class="count" id="notecount" aria-hidden="true">0 / 80</div>
+            <span class="fl" id="circ-l" style="display:block;font-weight:700;font-size:14px;margin:10px 0 6px">Circle in red ink</span>
+            <div class="chips" role="group" aria-labelledby="circ-l">
+              <button class="chip" type="button" data-k="likes" aria-pressed="false">Likes</button>
+              <button class="chip" type="button" data-k="reposts" aria-pressed="false">Reposts</button>
+              <button class="chip" type="button" data-k="quotes" aria-pressed="false">Quotes</button>
+              <button class="chip" type="button" data-k="replies" aria-pressed="false">Replies</button>
+              <button class="chip" type="button" data-k="total" aria-pressed="false">Total touches</button>
+            </div>
+          </div>
           <div class="actions">
             <button class="k-btn primary" id="save" type="button" disabled>Share or save image <span class="arr" aria-hidden="true">&rarr;</span></button>
             <button class="k-btn" id="copyimg" type="button" disabled>Copy image</button>
@@ -358,7 +388,9 @@ function wrap(text, cols, maxLines) {
 }
 
 // What actually shows on the receipt for the current toggles
-var state = { model: null, showText: true, showHandle: true };
+var state = { model: null, showText: true, showHandle: true, note: '', circled: {} };
+var CIRCLE_NAMES = { likes: 'Likes', reposts: 'Reposts', quotes: 'Quotes', replies: 'Replies', total: 'Total touches' };
+var NOTE_FONT = '700 22px Caveat, cursive', NOTE_W = 262, NOTE_LINES = 3, INK = '#1d3fa8', RED_INK = '#d62828';
 function view() {
   var m = state.model;
   var hideText = m.labeled || !state.showText || !m.text.trim();
@@ -367,6 +399,54 @@ function view() {
     handleLines: hideHandle ? [] : wrap('@' + m.handle, COLS, 2),
     textLines: hideText ? [] : wrap(m.text, COLS, TEXT_LINES)
   };
+}
+
+// ---- Handwritten note and red-ink circles ----
+var measureCtx = document.createElement('canvas').getContext('2d');
+function noteLines() {
+  var t = state.note.replace(/\s+/g, ' ').trim();
+  if (!t) return [];
+  measureCtx.font = NOTE_FONT;
+  var words = t.split(' '), lines = [], cur = '';
+  function fits(x) { return measureCtx.measureText(x).width <= NOTE_W; }
+  for (var i = 0; i < words.length; i++) {
+    var w = words[i], test = cur ? cur + ' ' + w : w;
+    if (fits(test)) { cur = test; continue; }
+    if (cur) { lines.push(cur); cur = ''; }
+    while (!fits(w) && w.length > 1) {              // break a word that is wider than a line
+      var k = w.length; while (k > 1 && !fits(w.slice(0, k))) k--;
+      lines.push(w.slice(0, k)); w = w.slice(k);
+    }
+    cur = w;
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > NOTE_LINES) {
+    lines = lines.slice(0, NOTE_LINES);
+    var last = lines[NOTE_LINES - 1];
+    while (last.length > 1 && !fits(last + '…')) last = last.slice(0, -1);
+    lines[NOTE_LINES - 1] = last.replace(/\s+$/, '') + '…';
+  }
+  return lines;
+}
+// One hand-drawn loop, in unit coordinates: slightly wobbly, overshoots its own start like a real pen stroke.
+function scribble(seedBase, key) {
+  var seed = (seedBase ^ fnv(key)) >>> 0 || 7;
+  function rnd() { seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  var a0 = -2.4 + rnd() * 0.9, turns = 1.13 + rnd() * 0.07, n = 56, pts = [], ph = rnd() * 6, amp = 0.045 + rnd() * 0.03;
+  for (var i = 0; i <= n; i++) {
+    var t = i / n, a = a0 + t * turns * Math.PI * 2;
+    var r = 1 + amp * Math.sin(ph + t * 11) + 0.1 * (t - 0.5);
+    pts.push([Math.cos(a) * r, Math.sin(a) * r * 0.97]);
+  }
+  return pts;
+}
+function circlePath(key) {   // SVG path in a 100 x 40 box
+  return scribble(state.model.hash, key).map(function (p, i) { return (i ? 'L' : 'M') + (50 + p[0] * 46).toFixed(1) + ' ' + (20 + p[1] * 17).toFixed(1); }).join('');
+}
+function numHtml(key, text) {
+  var on = state.circled[key];
+  return '<b class="num" data-k="' + key + '" title="Click to ' + (on ? 'remove the circle' : 'circle in red ink') + '">' + text +
+    (on ? '<svg class="circ" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="' + circlePath(key) + '"/></svg>' : '') + '</b>';
 }
 
 // ---- Receipt DOM ----
@@ -380,6 +460,10 @@ function barcodeBars(hash) {
     bars.push([x, w]); x += w + gap;
   }
   return bars;
+}
+function noteHtml() {
+  var l = noteLines();
+  return l.length ? '<div class="hand">' + l.map(function (x) { return '<div>' + esc(x) + '</div>'; }).join('') + '</div>' : '';
 }
 function renderReceipt() {
   var m = state.model, v = view(), c = m.counts;
@@ -396,10 +480,10 @@ function renderReceipt() {
   }
   html += '<hr class="rule">';
   [['Likes', c.likes], ['Reposts', c.reposts], ['Quotes', c.quotes], ['Replies', c.replies]].forEach(function (r) {
-    html += '<div class="line"><span>' + r[0] + '</span><i class="dots"></i><b>' + fmtN(r[1]) + '</b></div>';
+    html += '<div class="line"><span>' + r[0] + '</span><i class="dots"></i>' + numHtml(r[0].toLowerCase(), fmtN(r[1])) + '</div>';
   });
-  html += '<hr class="rule"><div class="line total"><span>TOTAL TOUCHES</span><i class="dots"></i><b>' + fmtN(m.total) + '</b></div>' +
-    '<div class="line"><span>PAID WITH</span><i class="dots"></i><b>VIBES</b></div><hr class="rule">' +
+  html += '<hr class="rule"><div class="line total"><span>TOTAL TOUCHES</span><i class="dots"></i>' + numHtml('total', fmtN(m.total)) + '</div>' +
+    '<div class="line"><span>PAID WITH</span><i class="dots"></i><b>VIBES</b></div>' + noteHtml() + '<hr class="rule">' +
     '<svg class="barcode" viewBox="0 0 280 46" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
     barcodeBars(m.hash).map(function (b) { return '<rect x="' + b[0] + '" y="0" width="' + b[1] + '" height="46" fill="' + RED + '"/>'; }).join('') + '</svg>' +
     '<p class="thanks">Thank you for posting.<br>Please take your receipt.<br><span class="credit">' + CREDIT + '</span></p>' +
@@ -417,14 +501,18 @@ function altText() {
   if (v.handleLines.length) out.push(v.handleLines.join(' '));
   if (v.textLines.length) out.push(v.textLines.join(' '));
   out.push('Likes: ' + fmtN(c.likes), 'Reposts: ' + fmtN(c.reposts), 'Quotes: ' + fmtN(c.quotes), 'Replies: ' + fmtN(c.replies),
-    'TOTAL TOUCHES: ' + fmtN(m.total), 'PAID WITH: VIBES', 'Thank you for posting. Please take your receipt.', CREDIT);
+    'TOTAL TOUCHES: ' + fmtN(m.total), 'PAID WITH: VIBES');
+  var nl = noteLines(), circ = Object.keys(CIRCLE_NAMES).filter(function (k) { return state.circled[k]; }).map(function (k) { return CIRCLE_NAMES[k]; });
+  if (nl.length) out.push('Handwritten note: ' + nl.join(' '));
+  if (circ.length) out.push('Circled in red ink: ' + circ.join(', '));
+  out.push('Thank you for posting. Please take your receipt.', CREDIT);
   return out.join('\n');
 }
 
 // ---- PNG export (drawn on a canvas; the receipt DOM is never rasterised) ----
 var SCALE = 3, CW = 360, W = 340, PADX = 8, PADY = 12;   // 360 CSS px canvas x3 = 1080 px; the receipt is 340 wide inside it
 function withFonts(fn) {
-  var faces = ['800 22px "DM Sans"', '400 13px "DM Mono"', '500 13px "DM Mono"', '500 15px "DM Mono"'];
+  var faces = ['700 22px Caveat', '800 22px "DM Sans"', '400 13px "DM Mono"', '500 13px "DM Mono"', '500 15px "DM Mono"'];
   var load = Promise.all(faces.map(function (f) { return document.fonts && document.fonts.load ? document.fonts.load(f) : null; }));
   var timeout = new Promise(function (r) { setTimeout(r, 3000); });
   return Promise.race([load, timeout]).then(fn, fn);
@@ -447,11 +535,13 @@ function drawReceipt() {
   }
   rule();
   [['Likes', c.likes], ['Reposts', c.reposts], ['Quotes', c.quotes], ['Replies', c.replies]].forEach(function (r) {
-    ops.push({ t: 'dots', y: y, a: r[0], b: fmtN(r[1]), font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
+    ops.push({ t: 'dots', y: y, a: r[0], b: fmtN(r[1]), key: r[0].toLowerCase(), font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
   });
   rule();
-  ops.push({ t: 'dots', y: y, a: 'TOTAL TOUCHES', b: fmtN(m.total), font: '500 15px ' + MONO, bfont: '500 15px ' + MONO, h: 22 }); y += 22;
+  ops.push({ t: 'dots', y: y, a: 'TOTAL TOUCHES', b: fmtN(m.total), key: 'total', font: '500 15px ' + MONO, bfont: '500 15px ' + MONO, h: 22 }); y += 22;
   ops.push({ t: 'dots', y: y, a: 'PAID WITH', b: 'VIBES', font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
+  var nl = noteLines();
+  if (nl.length) { y += 6; ops.push({ t: 'note', y: y, lines: nl }); y += nl.length * 26; }
   rule();
   y += 14; ops.push({ t: 'barcode', y: y }); y += 46 + 8;
   ['THANK YOU FOR POSTING.', 'PLEASE TAKE YOUR RECEIPT.'].forEach(function (l) {
@@ -503,6 +593,17 @@ function drawReceipt() {
       g.save(); g.setLineDash([2, 3]); g.lineWidth = 2; g.lineCap = 'round'; g.strokeStyle = RED;
       g.beginPath(); g.moveTo(L + aw + 6, base2 - 3); g.lineTo(R - bw - 6, base2 - 3); g.stroke(); g.restore();
       g.textAlign = 'left';
+      if (op.key && state.circled[op.key]) {
+        var cx = R - bw / 2, cy = op.y + op.h / 2 + 1, bx = (bw + 20) / 2 * 0.92, by = (op.h + 14) / 2 * 0.85;
+        g.save(); g.strokeStyle = RED_INK; g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+        scribble(m.hash, op.key).forEach(function (p, i) { var px = cx + p[0] * bx, py = cy + p[1] * by; if (i) g.lineTo(px, py); else g.moveTo(px, py); });
+        g.stroke(); g.restore();
+      }
+    } else if (op.t === 'note') {
+      g.save(); g.translate(L, op.y + 13); g.rotate(-2.5 * Math.PI / 180);
+      g.font = NOTE_FONT; g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'middle';
+      op.lines.forEach(function (ln, i) { g.fillText(ln, 0, i * 26); });
+      g.restore(); g.textBaseline = 'alphabetic';
     } else if (op.t === 'barcode') {
       var sx = (R - L) / 280;
       barcodeBars(m.hash).forEach(function (b) { g.fillRect(L + b[0] * sx, op.y, b[1] * sx, 46); });
@@ -613,9 +714,31 @@ $('another').addEventListener('click', function () {
   $('receipt').innerHTML = ''; $('rwrap').hidden = true; $('slot').hidden = false;
   $('labelnote').hidden = true; $('o-text').disabled = $('o-handle').disabled = false;
   setActions(false); showErr(''); say('');
+  state.note = ''; state.circled = {}; $('note').value = ''; $('notecount').textContent = '0 / 80'; syncChips();
   $('url').value = ''; $('url').focus();
   if (location.hash) history.replaceState(null, '', location.pathname);
 });
+
+// ---- Write on it: note and red circles ----
+function syncChips() {
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) { c.setAttribute('aria-pressed', state.circled[c.dataset.k] ? 'true' : 'false'); });
+}
+function toggleCircle(k) { state.circled[k] = !state.circled[k]; syncChips(); if (state.model) renderReceipt(); }
+Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) {
+  c.addEventListener('click', function () { toggleCircle(c.dataset.k); });
+});
+$('receipt').addEventListener('click', function (e) {
+  var n = e.target.closest && e.target.closest('.num[data-k]');
+  if (n) toggleCircle(n.dataset.k);
+});
+$('note').addEventListener('input', function () {
+  state.note = $('note').value;
+  $('notecount').textContent = state.note.length + ' / 80';
+  if (state.model) renderReceipt();
+});
+if (document.fonts && document.fonts.load) {      // re-wrap the note once the handwriting font is ready
+  document.fonts.load(NOTE_FONT).then(function () { if (state.model && state.note) renderReceipt(); });
+}
 
 // ---- Deep link: /receipt#post=<encoded post URL> (fragment, so it never reaches server logs) ----
 function fromHash() {
