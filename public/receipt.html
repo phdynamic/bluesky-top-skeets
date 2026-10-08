@@ -251,7 +251,7 @@ var APPVIEW = 'https://public.api.bsky.app';
 // Label values from @atproto/api's built-in label definitions: adult, graphic and moderation labels.
 var HIDE_LABELS = ['porn', 'sexual', 'nudity', 'graphic-media', 'gore', '!hide', '!warn', '!no-unauthenticated'];
 var COLS = 34;          // receipt text width in monospace columns
-var TEXT_LINES = 6;     // post text is trimmed after this many lines
+var TEXT_LINES = 300;   // a post is at most 300 graphemes, so every line fits; the receipt just gets longer
 var CREDIT = 'professorkiosk.wtf/receipt';
 var RED = '#1d1b4f';
 var PAPER = '#fffdf6';
