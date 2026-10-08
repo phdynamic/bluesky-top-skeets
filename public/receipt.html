@@ -668,7 +668,17 @@ function print(input) {
   }).then(function () { busy = false; setBusy(false); });
 }
 
-$('find').addEventListener('submit', function (e) { e.preventDefault(); print($('url').value); });
+function clearHash() { if (location.hash) history.replaceState(null, '', location.pathname); }
+$('find').addEventListener('submit', function (e) { e.preventDefault(); clearHash(); print($('url').value); });
+// The example link is a deep link; clicking it when the address already carries the same #post=
+// fragment fires no hashchange, so it is handled here and prints every time.
+$('find-note').addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a[href*="#post="]');
+  if (!a) return;
+  e.preventDefault();
+  var link = decodeURIComponent(a.getAttribute('href').split('#post=')[1]);
+  clearHash(); $('url').value = link; print(link);
+});
 ['o-text', 'o-handle'].forEach(function (id) {
   $(id).addEventListener('change', function () {
     state.showText = $('o-text').checked; state.showHandle = $('o-handle').checked;
