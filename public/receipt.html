@@ -96,14 +96,14 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 .chip[aria-pressed="true"] { background: #d62828; border-color: #d62828; color: #fff; }
 
 /* receipt (always light paper, whatever the page theme) */
-.receipt-wrap { width: min(340px, 100%); filter: drop-shadow(6px 7px 0 var(--shadow-c)); transform: rotate(-.6deg); }
-@media (prefers-reduced-motion: reduce) { .receipt-wrap { transform: none; } }
+/* no tilt here: a rotated, filtered, clipped element renders jaggedly in Safari-based browsers */
+.receipt-wrap { width: min(340px, 100%); filter: drop-shadow(6px 7px 0 var(--shadow-c)); }
 .receipt { width: 100%; font: 400 13px/19px var(--mono); color: var(--rink); }
 .receipt.printing { animation: feed 1.4s steps(26, end) both; }
 @keyframes feed { from { clip-path: inset(0 0 100% 0); transform: translateY(-16px); } to { clip-path: inset(0 0 -20px 0); transform: none; } }
-.edge { height: 12px; background-repeat: repeat-x; background-size: 20px 12px; }
-.edge.top { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 12 L10 2 L20 12' fill='%23FFFDF6' stroke='%231B2150' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E"); }
-.edge.bottom { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 0 L10 10 L20 0' fill='%23FFFDF6' stroke='%231B2150' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.edge { display: block; width: 100%; height: 12px; overflow: visible; }
+.edge .fill { fill: var(--paper); stroke: none; }
+.edge .ink { fill: none; stroke: var(--rink); stroke-width: 3; stroke-linejoin: round; stroke-linecap: butt; vector-effect: non-scaling-stroke; }
 .rbody { background: var(--paper); border-left: 3px solid var(--rink); border-right: 3px solid var(--rink); padding: 4px 20px 6px; margin: -1px 0; }
 .rhead { text-align: center; }
 .rhead .name { font: 800 22px/24px var(--font); letter-spacing: -.01em; outline: none; }
@@ -254,6 +254,7 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 var APPVIEW = 'https://public.api.bsky.app';
 // Label values from @atproto/api's built-in label definitions: adult, graphic and moderation labels.
 var HIDE_LABELS = ['porn', 'sexual', 'nudity', 'graphic-media', 'gore', '!hide', '!warn', '!no-unauthenticated'];
+var HEAD_W = 290;       // widest header line, in CSS px
 var COLS = 34;          // receipt text width in monospace columns
 var TEXT_LINES = 300;   // a post is at most 300 graphemes, so every line fits; the receipt just gets longer
 var CREDIT = 'professorkiosk.wtf/receipt';
@@ -336,6 +337,7 @@ function buildModel(res) {
   return {
     uri: res.uri, hash: h, order: String(h % 10000).padStart(4, '0'),
     handle: (post.author && post.author.handle) || '',
+    name: ((post.author && post.author.displayName) || '').trim(),
     text: typeof rec.text === 'string' ? rec.text : '',
     createdAt: rec.createdAt, printedAt: new Date(),
     counts: counts,
@@ -396,6 +398,21 @@ var PAYMENTS = ['VIBES', 'CORN DOGS', 'BUTTER', 'SONG LYRICS', 'SPITE', 'EXPOSUR
 var state = { model: null, showText: true, showHandle: true, note: '', circled: {}, paid: PAYMENTS[0] };
 var CIRCLE_NAMES = { likes: 'Likes', reposts: 'Reposts', quotes: 'Quotes', replies: 'Replies', total: 'Total touches' };
 var NOTE_FONT = '700 22px Caveat, cursive', NOTE_W = 262, NOTE_LINES = 3, INK = '#1d3fa8', RED_INK = '#d62828';
+// Header: the author's display name (or @handle), shrunk to fit one line; neutral when the author is hidden.
+function fitHeader(text) {
+  var gs = graphemes(text.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()), size = 22;
+  function width(t, px) { measureCtx.font = '800 ' + px + 'px "DM Sans", system-ui, sans-serif'; return measureCtx.measureText(t).width; }
+  var t = gs.join('');
+  while (size > 13 && width(t, size) > HEAD_W) size--;
+  while (gs.length > 1 && width(t, size) > HEAD_W) { gs.pop(); t = gs.join('').replace(/\s+$/, '') + '…'; gs = graphemes(t.slice(0, -1)); }
+  return { text: t, size: size };
+}
+function headerInfo(v) {
+  var m = state.model;
+  if (!v.handleLines.length) return { text: 'SKEET RECEIPT', size: 22, sub: 'PROFESSOR KIOSK · KIOSK 04' };
+  var f = fitHeader(m.name || '@' + m.handle);
+  return { text: f.text, size: f.size, sub: 'SKEET RECEIPT · KIOSK 04' };
+}
 function view() {
   var m = state.model;
   var hideText = m.labeled || !state.showText || !m.text.trim();
@@ -466,14 +483,23 @@ function barcodeBars(hash) {
   }
   return bars;
 }
+// One SVG per edge (17 teeth, scaled to the receipt width), so there are no tile seams on high-density screens.
+function edgeSvg(which) {
+  var d = '', i;
+  for (i = 0; i < 17; i++) d += (i ? 'L' : 'M') + (i * 20) + ' ' + (which === 'top' ? 12 : 0) + 'L' + (i * 20 + 10) + ' ' + (which === 'top' ? 2 : 10) + 'L' + (i * 20 + 20) + ' ' + (which === 'top' ? 12 : 0);
+  var cap = which === 'top' ? 'V13H0Z' : 'V-1H0Z';
+  return '<svg class="edge ' + which + '" viewBox="0 0 340 12" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
+    '<path class="fill" d="' + d + cap + '"/><path class="ink" d="' + d + '"/></svg>';
+}
 function noteHtml() {
   var l = noteLines();
   return l.length ? '<div class="hand">' + l.map(function (x) { return '<div>' + esc(x) + '</div>'; }).join('') + '</div>' : '';
 }
 function renderReceipt() {
   var m = state.model, v = view(), c = m.counts;
-  var html = '<div class="edge top" aria-hidden="true"></div><div class="rbody">' +
-    '<div class="rhead"><h2 class="name" id="rname" tabindex="-1">PROFESSOR KIOSK</h2><div class="sub">SKEET RECEIPT · KIOSK 04</div></div>' +
+  var hd = headerInfo(v);
+  var html = edgeSvg('top') + '<div class="rbody">' +
+    '<div class="rhead"><h2 class="name" id="rname" tabindex="-1" style="font-size:' + hd.size + 'px">' + esc(hd.text) + '</h2><div class="sub">' + esc(hd.sub) + '</div></div>' +
     '<hr class="rule">' +
     '<div class="meta"><span>ORDER</span><span>#' + m.order + '</span></div>' +
     '<div class="meta"><span>POSTED</span><span>' + esc(fmtWhen(m.createdAt)) + '</span></div>' +
@@ -492,7 +518,7 @@ function renderReceipt() {
     '<svg class="barcode" viewBox="0 0 280 46" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
     barcodeBars(m.hash).map(function (b) { return '<rect x="' + b[0] + '" y="0" width="' + b[1] + '" height="46" fill="' + RED + '"/>'; }).join('') + '</svg>' +
     '<p class="thanks">Thank you for posting.<br>Please take your receipt.<br><span class="credit">' + CREDIT + '</span></p>' +
-    '</div><div class="edge bottom" aria-hidden="true"></div>';
+    '</div>' + edgeSvg('bottom');
   $('receipt').innerHTML = html;
   $('labelnote').hidden = !m.labeled;
   $('o-text').disabled = $('o-handle').disabled = m.labeled;
@@ -501,7 +527,8 @@ function renderReceipt() {
 // ---- Alt text (mirrors the visible receipt) ----
 function altText() {
   var m = state.model, v = view(), c = m.counts;
-  var out = ['PROFESSOR KIOSK', 'SKEET RECEIPT · KIOSK 04', 'ORDER #' + m.order,
+  var hd = headerInfo(v);
+  var out = [hd.text, hd.sub, 'ORDER #' + m.order,
     'POSTED ' + fmtWhen(m.createdAt), 'PRINTED ' + fmtWhen(m.printedAt)];
   if (v.handleLines.length) out.push(v.handleLines.join(' '));
   if (v.textLines.length) out.push(v.textLines.join(' '));
@@ -527,8 +554,9 @@ function drawReceipt() {
   var MONO = '"DM Mono", ui-monospace, Menlo, Consolas, monospace', HEAD = '"DM Sans", system-ui, sans-serif';
   var ops = [], y = 12 + 4;                 // top edge, body padding
   function rule() { y += 12; ops.push({ t: 'rule', y: y }); y += 2 + 12; }
-  ops.push({ t: 'text', y: y, font: '800 22px ' + HEAD, text: 'PROFESSOR KIOSK', o: { align: 'center', h: 24 } }); y += 24;
-  y += 2; ops.push({ t: 'text', y: y, font: '400 11px ' + MONO, text: 'SKEET RECEIPT · KIOSK 04', o: { align: 'center', h: 16, spacing: '1.3px' } }); y += 16;
+  var hd = headerInfo(v);
+  ops.push({ t: 'text', y: y, font: '800 ' + hd.size + 'px ' + HEAD, text: hd.text, o: { align: 'center', h: 24 } }); y += 24;
+  y += 2; ops.push({ t: 'text', y: y, font: '400 11px ' + MONO, text: hd.sub, o: { align: 'center', h: 16, spacing: '1.3px' } }); y += 16;
   rule();
   [['ORDER', '#' + m.order], ['POSTED', fmtWhen(m.createdAt)], ['PRINTED', fmtWhen(m.printedAt)]].forEach(function (r) {
     ops.push({ t: 'pair', y: y, a: r[0], b: r[1], font: '400 13px ' + MONO }); y += 19;
@@ -764,9 +792,10 @@ $('note').addEventListener('input', function () {
   $('notecount').textContent = state.note.length + ' / 80';
   if (state.model) renderReceipt();
 });
-if (document.fonts && document.fonts.load) {      // re-wrap the note once the handwriting font is ready
-  document.fonts.load(NOTE_FONT).then(function () { if (state.model && state.note) renderReceipt(); });
+if (document.fonts && document.fonts.load) {      // re-measure the note and header once their fonts are ready
+  Promise.all([document.fonts.load(NOTE_FONT), document.fonts.load('800 22px "DM Sans"')]).then(function () { if (state.model) renderReceipt(); });
 }
+$('receipt').addEventListener('animationend', function () { $('receipt').classList.remove('printing'); });
 
 // ---- Deep link: /receipt#post=<encoded post URL> (fragment, so it never reaches server logs) ----
 function fromHash() {
