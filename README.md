@@ -17,7 +17,7 @@ Both can optionally include replies (an "Include replies" checkbox at registrati
 
 ## Skeet Receipt
 
-`/receipt` turns any public Bluesky post link into a receipt of its stats (likes, reposts, quotes, replies), which can be shared or saved as a 1080 px PNG, copied as an image, or copied as alt text. A handwritten note (Caveat font, blue ink) and red-ink circles around any of the numbers can be added; both appear in the PNG and the alt text. It runs entirely in the visitor's browser with two unauthenticated reads against the public AppView (`resolveHandle`, then `getPosts`); there is no sign-in and nothing is stored. Posts with adult, graphic or moderation labels print stats only. Deep link: `/receipt#post=<encoded post URL>` (a fragment, so pasted links never reach server logs).
+`/receipt` turns any public Bluesky post link into a receipt of its stats (likes, reposts, quotes, replies), which can be shared or saved as a 1080 px PNG, copied as an image, or copied as alt text. A handwritten note (Caveat font, blue ink) and red-ink circles around any of the numbers can be added; both appear in the PNG and the alt text. It runs entirely in the visitor's browser with two unauthenticated reads against the public AppView (`resolveHandle`, then `getPosts`); there is no sign-in and nothing is stored. The "paid with" line can be switched from VIBES to a handful of presets. Posts with adult, graphic or moderation labels print stats only. Deep link: `/receipt#post=<encoded post URL>` (a fragment, so pasted links never reach server logs).
 
 ---
 

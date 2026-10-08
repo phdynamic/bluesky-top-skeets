@@ -84,6 +84,8 @@ html[data-theme="dark"] .actions .k-btn.primary .arr { color: var(--navy); }
 html[data-theme="dark"] .slot .bar { background: var(--line); }
 
 /* write on it */
+.paidl { display: block; font-weight: 700; font-size: 14px; margin: 12px 0 6px; }
+.sel { width: 100%; min-height: 44px; padding: 0 12px; border: 2px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: 700 14px var(--font); }
 .write { margin-top: 18px; padding-top: 16px; border-top: 3px dashed var(--line); }
 .write h3 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
 .write label.fl { display: block; font-weight: 700; font-size: 14px; margin: 10px 0 6px; }
@@ -184,6 +186,8 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
           <h2 id="opts">Make it yours</h2>
           <label class="opt"><input type="checkbox" id="o-text" checked /><span>Include post text<small>Turn off to share just the numbers.</small></span></label>
           <label class="opt"><input type="checkbox" id="o-handle" checked /><span>Include handle<small>Turn off to keep the author off the receipt.</small></span></label>
+          <label class="fl paidl" for="paid">Paid with</label>
+          <select id="paid" class="sel"></select>
           <p class="labelnote" id="labelnote" hidden>Text hidden because this post has a content label.</p>
           <div class="write">
             <h3>Write on it</h3>
@@ -388,7 +392,8 @@ function wrap(text, cols, maxLines) {
 }
 
 // What actually shows on the receipt for the current toggles
-var state = { model: null, showText: true, showHandle: true, note: '', circled: {} };
+var PAYMENTS = ['VIBES', 'CORN DOGS', 'BUTTER', 'SONG LYRICS', 'SPITE', 'EXPOSURE', 'CLOUT', 'NO MERIT', 'SPARE CHANGE'];
+var state = { model: null, showText: true, showHandle: true, note: '', circled: {}, paid: PAYMENTS[0] };
 var CIRCLE_NAMES = { likes: 'Likes', reposts: 'Reposts', quotes: 'Quotes', replies: 'Replies', total: 'Total touches' };
 var NOTE_FONT = '700 22px Caveat, cursive', NOTE_W = 262, NOTE_LINES = 3, INK = '#1d3fa8', RED_INK = '#d62828';
 function view() {
@@ -483,7 +488,7 @@ function renderReceipt() {
     html += '<div class="line"><span>' + r[0] + '</span><i class="dots"></i>' + numHtml(r[0].toLowerCase(), fmtN(r[1])) + '</div>';
   });
   html += '<hr class="rule"><div class="line total"><span>TOTAL TOUCHES</span><i class="dots"></i>' + numHtml('total', fmtN(m.total)) + '</div>' +
-    '<div class="line"><span>PAID WITH</span><i class="dots"></i><b>VIBES</b></div>' + noteHtml() + '<hr class="rule">' +
+    '<div class="line"><span>PAID WITH</span><i class="dots"></i><b>' + esc(state.paid) + '</b></div>' + noteHtml() + '<hr class="rule">' +
     '<svg class="barcode" viewBox="0 0 280 46" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
     barcodeBars(m.hash).map(function (b) { return '<rect x="' + b[0] + '" y="0" width="' + b[1] + '" height="46" fill="' + RED + '"/>'; }).join('') + '</svg>' +
     '<p class="thanks">Thank you for posting.<br>Please take your receipt.<br><span class="credit">' + CREDIT + '</span></p>' +
@@ -501,7 +506,7 @@ function altText() {
   if (v.handleLines.length) out.push(v.handleLines.join(' '));
   if (v.textLines.length) out.push(v.textLines.join(' '));
   out.push('Likes: ' + fmtN(c.likes), 'Reposts: ' + fmtN(c.reposts), 'Quotes: ' + fmtN(c.quotes), 'Replies: ' + fmtN(c.replies),
-    'TOTAL TOUCHES: ' + fmtN(m.total), 'PAID WITH: VIBES');
+    'TOTAL TOUCHES: ' + fmtN(m.total), 'PAID WITH: ' + state.paid);
   var nl = noteLines(), circ = Object.keys(CIRCLE_NAMES).filter(function (k) { return state.circled[k]; }).map(function (k) { return CIRCLE_NAMES[k]; });
   if (nl.length) out.push('Handwritten note: ' + nl.join(' '));
   if (circ.length) out.push('Circled in red ink: ' + circ.join(', '));
@@ -539,7 +544,7 @@ function drawReceipt() {
   });
   rule();
   ops.push({ t: 'dots', y: y, a: 'TOTAL TOUCHES', b: fmtN(m.total), key: 'total', font: '500 15px ' + MONO, bfont: '500 15px ' + MONO, h: 22 }); y += 22;
-  ops.push({ t: 'dots', y: y, a: 'PAID WITH', b: 'VIBES', font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
+  ops.push({ t: 'dots', y: y, a: 'PAID WITH', b: state.paid, font: '400 13px ' + MONO, bfont: '500 13px ' + MONO, h: 19 }); y += 19;
   var nl = noteLines();
   if (nl.length) { y += 6; ops.push({ t: 'note', y: y, lines: nl }); y += nl.length * 26; }
   rule();
@@ -730,12 +735,19 @@ $('another').addEventListener('click', function () {
   if (location.hash) history.replaceState(null, '', location.pathname);
 });
 
+// ---- Paid with ----
+PAYMENTS.forEach(function (p) { var o = document.createElement('option'); o.value = o.textContent = p; $('paid').appendChild(o); });
+$('paid').addEventListener('change', function () {
+  state.paid = PAYMENTS.indexOf($('paid').value) === -1 ? PAYMENTS[0] : $('paid').value;
+  if (state.model) renderReceipt();
+});
+
 // ---- Write on it: note and red circles ----
 function syncChips() {
   Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) { c.setAttribute('aria-pressed', state.circled[c.dataset.k] ? 'true' : 'false'); });
 }
 function resetInk() {
-  state.note = ''; state.circled = {};
+  state.note = ''; state.circled = {}; state.paid = PAYMENTS[0]; $('paid').value = PAYMENTS[0];
   $('note').value = ''; $('notecount').textContent = '0 / 80';
   syncChips();
 }
