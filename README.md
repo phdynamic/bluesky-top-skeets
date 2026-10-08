@@ -13,7 +13,7 @@ Both can optionally include replies (an "Include replies" checkbox at registrati
 
 ## Quote Post Game Tracer
 
-`/tracer` turns any public Bluesky post into a browsable tree of its quote posts. It runs entirely in the visitor's browser against Bluesky's public API (no login, nothing stored on the server). A trace loads up to 2,000 quotes, with a "Load more" button to keep going (up to 20,000). Only quotes visible to logged-out viewers can be traced. Share a trace with `/tracer?post=<bsky.app post link>`.
+`/tracer` turns any public Bluesky post into a browsable tree of its quote posts. It runs entirely in the visitor's browser against Bluesky's public API (no login, nothing stored on the server). The page is split in two scripts: `public/tracer-viewer.js` shows a tree (and makes no network requests of its own) and `public/tracer-live.js` is the crawler that feeds it. A trace loads up to 2,000 quotes, with a "Load more" button to keep going (up to 20,000). Only quotes visible to logged-out viewers can be traced. Share a trace with `/tracer?post=<bsky.app post link>`.
 
 ## Skeet Receipt
 
@@ -74,7 +74,7 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 - **Shared AppView budget.** Everything this server asks of the public AppView draws from one allowance. The AppView sends no rate-limit headers (the probe confirmed it), so the limit can't be read; the budget learns it. `APPVIEW_MAX_RPS` is the ceiling in requests per second (0, the default, means no pacing and no adapting). Optionally `APPVIEW_START_RPS` sets where it starts. On every `429` it halves its rate and pauses all callers for the retry delay, then climbs back about 10% every 30 quiet seconds, never above the ceiling.
 - **Probe.** `npm run build && npm run probe -- <post link> [--ramp [--ramp-seconds N]] [--burst N] [--uri at://...]` is read-only and stores nothing. It reports the `getPosts` batch cap (25, confirmed), how deep the biggest quote branch goes, quotes counted but not returned, labels seen, and whether the AppView sends rate-limit headers. `--ramp` steps through 2, 4, 8 and 16 requests per second to find where `429`s begin; `--burst N` fires up to N back-to-back requests; `--uri` checks whether specific posts are visible to a public read.
 - **Takedown contact.** `TAKEDOWN_CONTACT` (default `phdynamic@icloud.com`) is where removal and takedown requests are sent; it is shown on the policy page for saved games once those are built.
-- **Tests.** `npm test` builds and runs the unit tests in `test/` (link parsing, client address, request budget, probe).
+- **Tests.** `npm test` builds and runs the unit tests in `test/` (link parsing, client address, request budget, probe). `npm run test:browser` runs the browser suites in `test/browser/` (Tracer, Tracer viewer, Skeet Receipt, Top Skeets form, footer) against a static copy of `public/`; it needs a Chromium (`CHROME_PATH` if it is not found automatically) and a dev install (`npm install --include=dev`).
 
 ---
 
