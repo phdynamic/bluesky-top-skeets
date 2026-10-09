@@ -218,7 +218,7 @@ export function createGamesRouter(o: GamesApiOptions): express.Router {
       const pos = new Map<number, number>(); rows.forEach((r, i) => pos.set(r.id, i));
       const payload = {
         game: { id: game.id, createdAt: game.created_at, frozen: !!game.frozen },
-        version: { ...versionSummary(version), versions: db.listVersions(game.id).map(v => v.n), rootQuoteCount: version.root_quote_count, directQuotes: db.directQuotes(game.id, version.n) },
+        version: { ...versionSummary(version), versions: db.listVersions(game.id).map(v => v.n), refused: db.refusedBranches(game.id, version.n), rootQuoteCount: Math.max(0, version.root_quote_count), directQuotes: db.directQuotes(game.id, version.n) },
         nodes: rows.map(r => nodeForViewer(r, pos)),
       };
       const raw = Buffer.from(JSON.stringify(payload));
@@ -251,5 +251,5 @@ function versionSummary(v: { n: number; captured_at: number; node_count: number;
 function nodeForViewer(r: NodeRow, pos: Map<number, number>) {
   const p = r.parent_id === null ? -1 : (pos.get(r.parent_id) ?? -1);
   if (r.state !== 'live') return { p, tomb: TOMB_LABEL[r.state] ?? 'deleted' };
-  return { p, h: r.handle, did: r.did, dn: r.display_name, d: r.created_at, t: r.text, k: String(r.uri).split('/').pop(), qc: r.quote_count };
+  return { p, h: r.handle, did: r.did, dn: r.display_name, d: r.created_at, t: r.text, k: String(r.uri).split('/').pop(), qc: Math.max(0, r.quote_count) };
 }

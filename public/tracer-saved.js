@@ -62,6 +62,7 @@ function renderBanner(d){
   }
   if(d.nodes[0]&&d.nodes[0].tomb) bits.push('The original post was deleted, removed or hidden. Its replies are kept below.');
   if(v.missing>0) bits.push('At least '+fmtN(v.missing)+' more quote'+(v.missing===1?' is':'s are')+' counted by Bluesky but not in this copy (deleted, hidden, or not visible to logged-out viewers).');
+  if(v.refused>0) bits.push(fmtN(v.refused)+' branch'+(v.refused===1?'':'es')+' could not be read from Bluesky, so quotes under '+(v.refused===1?'it are':'them are')+' missing. Refresh to try again.');
   warn.textContent=bits.join(' '); warn.hidden=bits.length===0;
 }
 function renderVersions(){

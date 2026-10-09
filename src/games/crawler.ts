@@ -64,7 +64,7 @@ export class GameCrawler {
       gameId, vAdded, uri: p.uri, did: p.author?.did ?? '', handle: p.author?.handle ?? 'unknown',
       displayName: p.author?.displayName ?? '', text: typeof p.record?.text === 'string' ? p.record.text : '',
       createdAt: validDate(p.record?.createdAt, p.indexedAt), parentId: parent ? parent.id : null,
-      depth: parent ? parent.depth + 1 : 0, quoteCount: typeof p.quoteCount === 'number' ? p.quoteCount : 0, state,
+      depth: parent ? parent.depth + 1 : 0, quoteCount: typeof p.quoteCount === 'number' ? p.quoteCount : -1, state,   // -1: Bluesky gave no count, so look once
     });
   }
 
@@ -89,7 +89,11 @@ export class GameCrawler {
       try {
         page = await this.appview.getQuotes(node.uri!, node.cursor || undefined);
       } catch (e) {
-        if (e instanceof NotFound) { this.db.setNodeProgress(node.id, '', true); this.db.addJobProgress(job.id, this.appview.requests - before, 0); continue; }
+        if (e instanceof NotFound) {
+          console.warn(`[games] quotes request refused for a post in game ${job.game_id}: ${e.message}`);
+          this.db.tx(() => { this.db.markRefused(node.id); if (node.state !== 'live') this.db.releaseUri(node.id); this.db.addJobProgress(job.id, this.appview.requests - before, 0); });
+          continue;
+        }
         throw e;
       }
       let added = 0, capped = false;
@@ -102,7 +106,11 @@ export class GameCrawler {
         // On the cap the page is left unfinished: it is fetched again on resume and dedupe skips what is stored.
         if (!capped) {
           if (page.cursor && page.posts.length && page.cursor !== node.cursor) this.db.setNodeProgress(node.id, page.cursor, false);
-          else this.db.setNodeProgress(node.id, '', true);
+          else {
+            this.db.setNodeProgress(node.id, '', true);
+            if (node.quote_count < 0) this.db.setQuoteCount(node.id, this.db.childCount(node.id));   // an unknown count becomes what was found
+            if (node.state !== 'live') this.db.releaseUri(node.id);   // a hidden post's address goes as soon as its replies are held
+          }
         }
         this.db.addJobProgress(job.id, this.appview.requests - before, added);
       });

@@ -139,6 +139,9 @@ export function uriHash(uri: string): string {
   return crypto.createHash('sha256').update(uri).digest('hex').slice(0, 32);
 }
 
+/** Stored in the cursor of a finished node whose quotes request was refused. */
+const REFUSED = '!refused';
+
 const SLUG_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';   // no look-alikes
 export function newSlug(): string {
   const bytes = crypto.randomBytes(10);
@@ -247,14 +250,16 @@ export class GamesDb {
   insertNode(n: NewNode): number {
     const state: NodeState = n.state ?? 'live';
     const live = state === 'live';
+    // A hidden post that has replies keeps its address only until those replies are fetched (see releaseUri).
+    const hold = !live && n.quoteCount !== 0;
     const ord = this.nextOrd(n.gameId);
     const r = this.db.prepare(
       `INSERT INTO node (game_id, v_added, ord, uri, uri_hash, did, handle, display_name, text, created_at, parent_id, depth, quote_count, state, exhausted)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       n.gameId, n.vAdded, ord,
-      live ? n.uri : null, uriHash(n.uri),
+      live || hold ? n.uri : null, uriHash(n.uri),
       live ? n.did : null, live ? n.handle : null, live ? n.displayName : null, live ? n.text : null, live ? n.createdAt : null,
-      n.parentId, n.depth, live ? n.quoteCount : 0, state, live ? 0 : 1);
+      n.parentId, n.depth, live || hold ? n.quoteCount : 0, state, live || hold ? 0 : 1);
     return Number(r.lastInsertRowid);
   }
   childCount(nodeId: number): number { return (this.db.prepare('SELECT COUNT(*) c FROM node WHERE parent_id = ?').get(nodeId) as { c: number }).c; }
@@ -263,17 +268,25 @@ export class GamesDb {
     this.db.prepare('UPDATE node SET cursor = ?, exhausted = ? WHERE id = ?').run(cursor, exhausted ? 1 : 0, id);
   }
   setQuoteCount(id: number, quoteCount: number): void { this.db.prepare('UPDATE node SET quote_count = ? WHERE id = ?').run(quoteCount, id); }
+  /** A hidden post's replies are all fetched: forget its address and leave only its place in the tree. */
+  releaseUri(id: number): void { this.db.prepare("UPDATE node SET uri = NULL, quote_count = 0 WHERE id = ? AND state != 'live'").run(id); }
+  /** Marks a node whose quotes Bluesky refused to give, so the copy can say so. */
+  markRefused(id: number): void { this.db.prepare("UPDATE node SET cursor = ?, exhausted = 1 WHERE id = ?").run(REFUSED, id); }
+  /** Posts in a version whose quotes could not be read. */
+  refusedBranches(gameId: string, n: number): number {
+    return (this.db.prepare('SELECT COUNT(*) c FROM node WHERE game_id = ? AND v_added <= ? AND cursor = ?').get(gameId, n, REFUSED) as { c: number }).c;
+  }
   reopenNode(id: number): void { this.db.prepare("UPDATE node SET cursor = '', exhausted = 0 WHERE id = ?").run(id); }
   /** Live nodes still to expand, the one with the most quotes left to fetch first. */
   nextFrontier(gameId: string): NodeRow | undefined {
     return this.db.prepare(
       `SELECT n.* FROM node n
-        WHERE n.game_id = ? AND n.state = 'live' AND n.quote_count > 0 AND n.exhausted = 0
-        ORDER BY (n.quote_count - (SELECT COUNT(*) FROM node k WHERE k.parent_id = n.id)) DESC, n.ord ASC
+        WHERE n.game_id = ? AND n.uri IS NOT NULL AND n.quote_count != 0 AND n.exhausted = 0
+        ORDER BY CASE WHEN n.quote_count < 0 THEN 1 ELSE n.quote_count - (SELECT COUNT(*) FROM node k WHERE k.parent_id = n.id) END DESC, n.ord ASC
         LIMIT 1`).get(gameId) as NodeRow | undefined;
   }
   frontierSize(gameId: string): number {
-    return (this.db.prepare("SELECT COUNT(*) c FROM node WHERE game_id = ? AND state = 'live' AND quote_count > 0 AND exhausted = 0").get(gameId) as { c: number }).c;
+    return (this.db.prepare("SELECT COUNT(*) c FROM node WHERE game_id = ? AND uri IS NOT NULL AND quote_count != 0 AND exhausted = 0").get(gameId) as { c: number }).c;
   }
   liveNodesAfter(gameId: string, afterId: number, limit: number): NodeRow[] {
     return this.db.prepare("SELECT * FROM node WHERE game_id = ? AND state = 'live' AND id > ? ORDER BY id LIMIT ?").all(gameId, afterId, limit) as NodeRow[];

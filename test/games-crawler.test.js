@@ -123,18 +123,19 @@ test('labeled posts and suppressed authors are stored as tombstones with no text
       assert.deepStrictEqual([r.uri, r.did, r.handle, r.display_name, r.text, r.created_at], [null, null, null, null, null, null], n + ' must hold nothing identifying');
     }
     assert.strictEqual(by('ok').state, 'live'); assert.ok(by('ok').text);
-    assert.strictEqual(by('under'), undefined, 'a tombstone is never expanded, so nothing under it is fetched');
+    assert.strictEqual(by('under').parent_id, by('lab').id, 'replies under a hidden post stay attached to its gravestone');
   } finally { await x.done(); }
 });
 
-test('a labeled root is kept as a single tombstone', async () => {
+test('a labeled root is kept as a gravestone with its replies under it', async () => {
   const x = await setup();
   try {
     x.world.post('root', { labels: ['sexual'] }); x.world.quote('root', 'a');
     const { game, job, crawler } = await x.create('root');
     assert.strictEqual((await crawler.run(job)).status, 'complete');
-    assert.strictEqual(x.db.nodeCount(game.id), 1);
-    assert.strictEqual(x.db.getNode(x.db.nodesForVersion(game.id, 1)[0].id).state, 'label_hidden');
+    assert.strictEqual(x.db.nodeCount(game.id), 2);
+    const root = x.db.getNode(x.db.nodesForVersion(game.id, 1)[0].id);
+    assert.strictEqual(root.state, 'label_hidden'); assert.strictEqual(root.uri, null);
   } finally { await x.done(); }
 });
 
@@ -358,5 +359,77 @@ test('the spacing between two misses is configurable, and an optional stable pos
     // the stable post itself going missing does not stop checks while other control posts answer
     x.world.remove('stable'); x.world.remove('b'); x.clock.t += 2 * 3600_000;
     await assert.doesNotReject(x.refresh(game, 5000, undefined, opts));
+  } finally { await x.done(); }
+});
+
+// ---- gravestone branches, unknown counts, refusals
+test('a hidden post keeps its replies under a gravestone and its address is wiped afterwards', async () => {
+  const x = await setup();
+  try {
+    x.world.tree('root', { a: { a1: {}, a2: { a2x: {} } }, b: {} });
+    x.world.posts.get('a').labels = ['porn'];
+    const { game, job, crawler } = await x.create('root');
+    const out = await crawler.run(job);
+    assert.strictEqual(out.status, 'complete');
+    assert.deepStrictEqual(x.names(game.id, 1).sort(), ['a1', 'a2', 'a2x', 'b', 'root', '·label_hidden']);
+    const rows = x.db.db.prepare("SELECT * FROM node WHERE game_id = ? AND state != 'live'").all(game.id);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].uri, null); assert.strictEqual(rows[0].text, null); assert.strictEqual(rows[0].handle, null); assert.strictEqual(rows[0].did, null);
+    assert.strictEqual(x.db.frontierSize(game.id), 0);
+  } finally { await x.done(); }
+});
+
+test('a kept-out account keeps its branch too', async () => {
+  const x = await setup();
+  try {
+    x.world.tree('root', { a: { a1: {}, a2: {} }, b: {} });
+    const { game, job, crawler } = await x.create('root');
+    x.db.addSuppression?.(x.world.did('a'), 'all');
+    if (!x.db.addSuppression) x.db.db.prepare("INSERT INTO suppression (did, scope, created_at) VALUES (?, 'all', 0)").run(x.world.did('a'));
+    await crawler.run(job);
+    assert.deepStrictEqual(x.names(game.id, 1).sort(), ['a1', 'a2', 'b', 'root', '·removed_by_author']);
+    assert.strictEqual(x.db.db.prepare('SELECT COUNT(*) c FROM node WHERE uri IS NULL AND state != ?').get('live').c, 1);
+  } finally { await x.done(); }
+});
+
+test('a post with no quote count is still expanded once, and then knows its count', async () => {
+  const x = await setup();
+  try {
+    x.world.tree('root', { a: { a1: {}, a2: {} } });
+    x.world.posts.get('a').noCount = true;
+    const { game, job, crawler } = await x.create('root');
+    await crawler.run(job);
+    assert.deepStrictEqual(x.names(game.id, 1).sort(), ['a', 'a1', 'a2', 'root']);
+    assert.strictEqual(x.db.getNodeByUri(game.id, x.world.uri('a')).quote_count, 2);
+    assert.strictEqual(x.db.getVersion(game.id, 1).missing_count, 0);
+  } finally { await x.done(); }
+});
+
+test('a refused quotes request is counted and logged, not hidden', async () => {
+  const x = await setup();
+  const warn = console.warn; let warned = 0; console.warn = () => { warned++; };
+  try {
+    x.world.tree('root', { a: { a1: {} }, b: {} });
+    x.world.posts.get('a').refuseQuotes = true;
+    const { game, job, crawler } = await x.create('root');
+    await crawler.run(job);
+    assert.strictEqual(x.db.refusedBranches(game.id, 1), 1);
+    assert.strictEqual(warned, 1);
+    assert.deepStrictEqual(x.names(game.id, 1).sort(), ['a', 'b', 'root']);
+  } finally { console.warn = warn; await x.done(); }
+});
+
+test('diagnose explains where the saved crawl differs from the live one', async () => {
+  const x = await setup();
+  try {
+    const { diagnose } = require('../dist/diagnose');
+    x.world.tree('root', { a: { a1: {} }, b: { b1: {} }, c: {} });
+    x.world.posts.get('b').refuseQuotes = true;
+    const r = await diagnose(x.mkClient(), x.world.uri('root'));
+    assert.strictEqual(r.live.refused.length, 1);
+    assert.strictEqual(r.saved.refusedBranches, 1);
+    assert.strictEqual(r.live.total, 4);
+    assert.strictEqual(r.saved.total, 4);
+    assert.strictEqual(r.onlyLive, 0);
   } finally { await x.done(); }
 });

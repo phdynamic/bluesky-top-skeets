@@ -44,7 +44,7 @@ class World {
       author: { did: this.did(name), handle: name + '.example', displayName: name.toUpperCase(), labels: p.authorLabels.map(val => ({ val })) },
       record: { text: p.text, createdAt: p.createdAt },
       indexedAt: p.createdAt,
-      quoteCount: kids.length + p.quoteCountExtra,
+      ...(p.noCount ? {} : { quoteCount: kids.length + p.quoteCountExtra }),
       labels: p.labels.map(val => ({ val })),
     };
     if (p.quoteOf && !p.noEmbed) v.record.embed = { $type: 'app.bsky.embed.record', record: { uri: this.uri(p.quoteOf) } };
@@ -85,7 +85,7 @@ function serve(world) {
     }
     if (method === 'app.bsky.feed.getQuotes') {
       const name = world.nameOf(params.uri);
-      if (!world.posts.has(name) || !world.live(name)) return send(400, { error: 'InvalidRequest', message: 'Post not found' });
+      if (!world.posts.has(name) || !world.live(name) || world.posts.get(name).refuseQuotes) return send(400, { error: 'InvalidRequest', message: 'Post not found' });
       const kids = (world.children.get(name) || []).filter(k => world.live(k));
       const limit = Number(params.limit || 50), start = Number(params.cursor || 0);
       const page = kids.slice(start, start + limit);
