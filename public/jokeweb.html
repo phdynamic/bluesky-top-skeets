@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Joke-Web Maker</title>
+<meta name="description" content="Free-associate your way to a shitpost. Build a web of ideas, cover up the subject, then bring it back and see what's funny." />
+<link rel="preload" href="/fonts/dm-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/dm-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<script>
+  // Apply the theme before first paint to avoid a light flash
+  (function() {
+    var saved = null;
+    try { saved = localStorage.getItem('theme'); } catch (e) {}
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+</script>
+<link rel="stylesheet" href="/kiosk.css" />
+<style>
+:root { --hero: var(--yellow); --paper: #fffdf6; --rink: #1d1b4f; }
+h1, h2, h3, p, ul, ol { margin: 0; }
+button, input, textarea { font: inherit; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+main.k-main { padding: 32px 0 0; }
+.layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "controls" "web" "composer"; }
+@media (min-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 400px); grid-template-areas: "web controls" "web composer"; align-items: start; }
+}
+#controls { grid-area: controls; } #webpanel { grid-area: web; min-width: 0; } #composer { grid-area: composer; }
+@media (min-width: 900px) { #webpanel { position: sticky; top: 12px; } .frame { max-height: calc(100vh - 190px); } }
+.panel { background: var(--surface); border: 3px solid var(--line); border-radius: 20px; box-shadow: 5px 5px 0 var(--shadow-c); padding: 18px; min-width: 0; }
+.panel h2 { font-size: 21px; font-weight: 800; margin-bottom: 10px; }
+.panel h3 { font-size: 16px; font-weight: 800; margin: 14px 0 6px; }
+.hint { font-size: 14px; color: var(--ink2); margin: 6px 0 10px; }
+.hint b { color: var(--ink); }
+
+.seg { display: inline-flex; border: 2px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 8px 14px; min-height: 40px; font-weight: 700; font-size: 14px; cursor: pointer; color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--navy); color: var(--yellow); }
+.toprow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; padding: 0; list-style: none; }
+.steps button { min-height: 44px; border: 2px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); padding: 0 12px; font: 700 13px var(--font); cursor: pointer; }
+.steps button[aria-current="step"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+.steps button:disabled { opacity: .5; cursor: not-allowed; }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row input[type=text], textarea.draft { flex: 1 1 180px; min-width: 0; min-height: 46px; border: 2px solid var(--line); border-radius: 14px; padding: 0 12px; background: var(--surface); color: var(--ink); font: 400 15px var(--font); }
+textarea.draft { width: 100%; min-height: 150px; padding: 10px 12px; resize: vertical; line-height: 1.45; flex: none; display: block; }
+.row .k-btn, .tools .k-btn, .cbtns .k-btn { min-height: 44px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.chip { display: inline-flex; align-items: center; border: 2px solid var(--line); border-radius: 999px; background: var(--surface2); max-width: 100%; }
+.chip.on { background: var(--yellow); color: var(--navy); border-color: var(--navy); }
+.chip button { border: 0; background: none; color: inherit; cursor: pointer; min-height: 40px; padding: 0 12px; font: 700 14px var(--font); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip button.x { padding: 0 12px 0 4px; font-weight: 400; }
+.chip button:first-child:not(.x) { padding-right: 6px; }
+.chip button:first-child:last-child { padding-right: 12px; }
+.next { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+.k-btn.primary .arr { color: var(--yellow); }
+html[data-theme="dark"] .k-btn.primary .arr { color: var(--navy); }
+
+.prompts { margin: 0; padding-left: 20px; font-size: 14px; display: grid; gap: 6px; }
+.prompts b { font-weight: 800; }
+details.pr { margin-top: 12px; border: 2px dashed var(--line); border-radius: 14px; padding: 8px 12px; background: var(--surface2); }
+details.pr summary { cursor: pointer; font-weight: 800; min-height: 32px; display: flex; align-items: center; }
+.crumbs { font-size: 14px; margin: 4px 0 8px; color: var(--ink2); }
+.crumbs b { color: var(--ink); }
+
+/* the web */
+.webtools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+.webtools .sp { flex: 1; }
+.webtools .k-btn { min-height: 44px; padding: 8px 14px; font-size: 14px; }
+.frame { background: var(--paper); border: 3px solid var(--rink); border-radius: 16px; overflow: auto; max-height: 72vh; min-height: 260px; position: relative; -webkit-overflow-scrolling: touch; }
+.frame svg { display: block; }
+.web text { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 700; fill: #1d1b4f; text-anchor: middle; pointer-events: none; user-select: none; }
+.web .edge { fill: none; stroke-linecap: round; }
+.web .nd { cursor: pointer; outline: none; }
+.web .nd:focus-visible .hit { stroke: #7d5fe0; stroke-width: 3; }
+.web .hit { fill: transparent; stroke: transparent; }
+.web .halo { fill: #ffd23f; opacity: .6; }
+.web .dim { opacity: .28; }
+.web .root-shape { fill: #fff0b0; stroke: #1d1b4f; stroke-width: 3; stroke-linejoin: round; }
+.free .web .nd { cursor: grab; touch-action: none; }
+.empty { padding: 60px 20px; text-align: center; color: #565c86; font-weight: 700; }
+.empty span { display: block; font-weight: 400; margin-top: 6px; }
+.status { min-height: 22px; margin-top: 8px; font-size: 14px; font-weight: 700; }
+
+/* ideas + composer */
+.ideas { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.ideas li { border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--surface2); font-size: 14px; display: grid; gap: 6px; }
+.ideas li small { color: var(--ink2); }
+.ideas .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.ideas .k-btn { min-height: 40px; padding: 6px 12px; font-size: 13px; }
+.cbtns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.dcount { font: 500 13px var(--mono); margin-left: auto; color: var(--ink2); }
+.dcount.over { color: #b91c1c; font-weight: 700; }
+html[data-theme="dark"] .dcount.over { color: #fca5a5; }
+.cbtns a.k-btn { text-decoration: none; }
+@media (max-width: 480px) { .panel { padding: 14px; } }
+</style>
+</head>
+<body>
+
+<div class="k-top">
+  <a class="k-btn" href="/">&larr; Professor Kiosk</a>
+  <div class="right">
+    <button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
+  </div>
+</div>
+
+<header class="k-hero">
+  <div class="k-wrap">
+    <div>
+      <span class="k-tag navy">Level 1 &middot; Tool 05</span>
+      <h1>Joke-Web Maker</h1>
+      <p>Free-associate your way to a shitpost. Build a web of ideas, cover up the subject, then bring it back and see what's funny.</p>
+    </div>
+  </div>
+</header>
+
+<main class="k-main">
+  <div class="k-wrap">
+    <div class="layout" id="layout">
+
+      <section class="panel" id="controls" aria-label="Build your web"></section>
+
+      <section class="panel" id="webpanel" aria-label="Your joke-web">
+        <div class="webtools">
+          <button class="k-btn" id="zoomOut" type="button" aria-label="Zoom out">&minus;</button>
+          <button class="k-btn" id="zoomIn" type="button" aria-label="Zoom in">+</button>
+          <button class="k-btn" id="fit" type="button">Fit</button>
+          <span class="sp"></span>
+          <button class="k-btn primary" id="saveImg" type="button">Save image</button>
+          <button class="k-btn" id="copyWeb" type="button">Copy web</button>
+          <button class="k-btn" id="copyIdeas" type="button">Copy joke ideas</button>
+        </div>
+        <div class="frame" id="frame"></div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" id="composer" aria-labelledby="ctitle">
+        <h2 id="ctitle">Draft post</h2>
+        <p class="hint">Inspiration can strike any time. Write here, and copy it when it's ready.</p>
+        <label class="sr" for="draft">Draft post</label>
+        <textarea class="draft" id="draft" spellcheck="true" placeholder="Type your shitpost here…"></textarea>
+        <div class="cbtns">
+          <button class="k-btn primary" id="dcopy" type="button">Copy</button>
+          <button class="k-btn" id="dclear" type="button">Clear</button>
+          <a class="k-btn" id="dbluesky" href="https://bsky.app/intent/compose" target="_blank" rel="noopener">Open in Bluesky</a>
+          <span class="dcount" id="dcount" aria-live="polite">0 / 300</span>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<footer class="k-foot">
+  <div class="k-wrap">
+    <strong>Thank you for using Professor Kiosk.<br />Please take your receipt.</strong>
+    <div class="links">
+      <a class="by" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener"><img class="footer-avatar" data-pk-avatar src="" alt="" hidden />Made by @professorkiosk.wtf</a>
+      <a class="kofi" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">&#9749; Support these projects on Ko-fi</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+'use strict';
+
+// ---------- constants ----------
+var KEY = 'pk-jokeweb-v1';
+var MAX_NODES = 150, MAX_TEXT = 40, MAX_JOKE = 300, MAX_JOKES = 100, LIMIT = 300;
+var INK = '#1d1b4f', PAPER = '#fffdf6', TINT = '#fff0b0';
+var PAL = ['#e0523f', '#1fa88f', '#7d5fe0', '#3a8fd6', '#e0609f', '#d4a017'];
+var FONT_STACK = 'Caveat, "Comic Sans MS", cursive';
+var STEPS = ['Subject', 'Branches', 'Break it down', 'Apply it back'];
+var PROMPTS = [
+  ['Split it up', 'Break the word or phrase into pieces. Can any piece be swapped for something else?'],
+  ['Pun on it', 'Does all or half of it sound like another word or phrase?'],
+  ['Move it', 'What if these words turned up somewhere they do not belong?'],
+  ['Other meanings', 'Does it mean something else entirely?'],
+  ['Look back', 'What is its history, or its place in society?'],
+  ['Sound-alikes', 'What rhymes with it, or sounds like it?'],
+  ['Flip it', 'What is the opposite?'],
+  ['Clichés', 'What phrases and sayings come with it?']
+];
+function $(id) { return document.getElementById(id); }
+
+// ---------- theme (shared 'theme' key) ----------
+function applyThemeLabel() {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  $('themeToggle').textContent = dark ? '☀️ Day mode' : '🌙 Night mode';
+}
+$('themeToggle').addEventListener('click', function () {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (dark) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', 'dark');
+  try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (e) {}
+  applyThemeLabel();
+});
+applyThemeLabel();
+
+// ---------- state ----------
+var S = fresh();
+function fresh() { return { mode: 'guided', step: 1, sel: 0, nextId: 1, nodes: [{ id: 0, t: '', p: null, x: null, y: null, jokes: [] }], draft: '' }; }
+function clean(s, n) { return String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); }
+function load() {
+  var raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+  if (!raw) return;
+  try {
+    var d = JSON.parse(raw), nodes = [], ids = {};
+    if (!d || !Array.isArray(d.nodes) || !d.nodes.length) return;
+    d.nodes.slice(0, MAX_NODES).forEach(function (n, i) {
+      if (!n || typeof n.id !== 'number' || ids[n.id]) return;
+      var node = { id: n.id, t: clean(n.t, MAX_TEXT), p: (typeof n.p === 'number' ? n.p : null), x: (typeof n.x === 'number' && isFinite(n.x) ? n.x : null), y: (typeof n.y === 'number' && isFinite(n.y) ? n.y : null), jokes: [] };
+      if (Array.isArray(n.jokes)) node.jokes = n.jokes.slice(0, MAX_JOKES).map(function (j) { return clean(j, MAX_JOKE); }).filter(Boolean);
+      if (i === 0) { node.id = 0; node.p = null; }
+      ids[node.id] = true; nodes.push(node);
+    });
+    if (!nodes.length || nodes[0].id !== 0) return;
+    nodes = nodes.filter(function (n) { return n.p === null ? n.id === 0 : ids[n.p]; });
+    var s = fresh();
+    s.nodes = nodes; s.nextId = nodes.reduce(function (m, n) { return Math.max(m, n.id); }, 0) + 1;
+    s.mode = d.mode === 'free' ? 'free' : 'guided';
+    s.step = Math.min(4, Math.max(1, parseInt(d.step, 10) || 1));
+    s.sel = ids[d.sel] ? d.sel : 0;
+    s.draft = String(d.draft || '').slice(0, 2000);
+    S = s;
+  } catch (e) {}
+}
+var saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }, 150);
+}
+window.addEventListener('pagehide', function () { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} });
+
+// ---------- tree helpers ----------
+function byId(id) { for (var i = 0; i < S.nodes.length; i++) if (S.nodes[i].id === id) return S.nodes[i]; return null; }
+function kidsOf(id) { return S.nodes.filter(function (n) { return n.p === id; }); }
+function depthOf(n) { var d = 0; while (n && n.p !== null) { n = byId(n.p); d++; } return d; }
+function pathOf(n) { var out = []; while (n) { out.push(n.t || '…'); n = n.p === null ? null : byId(n.p); } return out.reverse(); }
+function addNode(parent, text) {
+  var t = clean(text, MAX_TEXT);
+  if (!t || S.nodes.length >= MAX_NODES) return null;
+  var n = { id: S.nextId++, t: t, p: parent, x: null, y: null, jokes: [] };
+  S.nodes.push(n); return n;
+}
+function removeBranch(id) {
+  if (id === 0) return;
+  var gone = {}; gone[id] = true;
+  var changed = true;
+  while (changed) { changed = false; S.nodes.forEach(function (n) { if (!gone[n.id] && n.p !== null && gone[n.p]) { gone[n.id] = true; changed = true; } }); }
+  var parent = byId(id).p;
+  S.nodes = S.nodes.filter(function (n) { return !gone[n.id]; });
+  if (gone[S.sel]) S.sel = parent === null ? 0 : parent;
+}
+function allIdeas() {
+  var out = [];
+  S.nodes.forEach(function (n) { n.jokes.forEach(function (j, i) { out.push({ node: n, i: i, text: j }); }); });
+  return out;
+}
+
+// ---------- scene: one description drawn both as SVG on screen and onto a canvas for the image ----------
+var measureCtx = document.createElement('canvas').getContext('2d');
+function rng(seed) { var a = (seed * 2654435761 + 12345) >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function fsFor(d) { return d === 0 ? 30 : d === 1 ? 26 : d === 2 ? 21 : 18; }
+function wrapLabel(t, max) {
+  var words = (t || '…').split(' '), lines = [], cur = '';
+  words.forEach(function (w) { if (cur && (cur + ' ' + w).length > max) { lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; });
+  if (cur) lines.push(cur);
+  return lines;
+}
+function textW(s, fs) { measureCtx.font = '700 ' + fs + 'px ' + FONT_STACK; return measureCtx.measureText(s).width; }
+function box(n, d) {
+  var fs = fsFor(d), lines = wrapLabel(n.t, d === 0 ? 12 : 16), lh = fs * 1.02;
+  var w = Math.max.apply(null, lines.map(function (l) { return textW(l, fs); })) + 12, h = lines.length * lh + 6;
+  return { lines: lines, fs: fs, lh: lh, w: w, h: h, d: d };
+}
+function autoLayout() {
+  var kids = {}, leaves = {};
+  S.nodes.forEach(function (n) { if (n.p !== null) (kids[n.p] = kids[n.p] || []).push(n); });
+  (function count(id) { var k = kids[id] || []; leaves[id] = k.length ? k.reduce(function (s, c) { return s + count(c.id); }, 0) : 1; return leaves[id]; })(0);
+  var scale = 1 + Math.max(0, (S.nodes.length - 25) / 90), pos = {};
+  function R(d) { return (d === 0 ? 0 : 175 + (d - 1) * 135) * scale; }
+  function place(n, d, a0, a1) {
+    var a = (a0 + a1) / 2;
+    pos[n.id] = { x: Math.cos(a) * R(d) * 1.3, y: Math.sin(a) * R(d) };
+    var k = kids[n.id] || [], at = a0;
+    k.forEach(function (c) { var span = (a1 - a0) * leaves[c.id] / leaves[n.id]; place(c, d + 1, at, at + span); at += span; });
+  }
+  place(S.nodes[0], 0, -Math.PI / 2, Math.PI * 1.5);
+  return pos;
+}
+function wobbleEllipse(cx, cy, rx, ry, seed) {
+  var r = rng(seed + 7), pts = [], N = 72, off = r() * 6.28;
+  for (var i = 0; i <= N + 3; i++) {
+    var a = off + (i / N) * 6.2832, j = 1 + (r() - 0.5) * 0.02 + (i > N ? (i - N) * 0.01 : 0);
+    pts.push((cx + Math.cos(a) * rx * j).toFixed(1) + ' ' + (cy + Math.sin(a) * ry * j).toFixed(1));
+  }
+  return 'M' + pts.join(' L');
+}
+function edgePoint(c, b, tx, ty, pad) {   // where the line from a node centre toward (tx,ty) leaves its shape
+  var dx = tx - c.x, dy = ty - c.y, len = Math.sqrt(dx * dx + dy * dy) || 1, t;
+  if (b.root) t = 1 / Math.sqrt(Math.pow(dx / b.rx, 2) + Math.pow(dy / b.ry, 2));
+  else t = Math.min((b.w / 2) / (Math.abs(dx) || 1e-6), (b.h / 2) / (Math.abs(dy) || 1e-6));
+  t = Math.min(t, 1) ; var k = t + pad / len;
+  return { x: c.x + dx * Math.min(k, 0.9), y: c.y + dy * Math.min(k, 0.9) };
+}
+function buildScene() {
+  var auto = autoLayout(), items = [], nodes = [], P = {}, B = {}, minX = 0, maxX = 0, minY = 0, maxY = 0;
+  S.nodes.forEach(function (n) {
+    var d = depthOf(n), b = box(n, d), a = auto[n.id];
+    P[n.id] = { x: n.x !== null ? n.x : a.x, y: n.y !== null ? n.y : a.y };
+    if (d === 0) { b.root = true; b.rx = Math.max(b.w / 2 + 26, 84); b.ry = b.h / 2 + 18; }
+    B[n.id] = b;
+    var hw = b.root ? b.rx : b.w / 2, hh = b.root ? b.ry : b.h / 2;
+    minX = Math.min(minX, P[n.id].x - hw); maxX = Math.max(maxX, P[n.id].x + hw); minY = Math.min(minY, P[n.id].y - hh); maxY = Math.max(maxY, P[n.id].y + hh);
+  });
+  var topIndex = {};
+  kidsOf(0).forEach(function (n, i) { topIndex[n.id] = i; });
+  function branchOf(n) { while (n.p !== null && n.p !== 0) n = byId(n.p); return topIndex[n.id] || 0; }
+  S.nodes.forEach(function (n) {
+    if (n.p === null) return;
+    var d = depthOf(n), p = byId(n.p), a = P[p.id], z = P[n.id];
+    var s = edgePoint(a, B[p.id], z.x, z.y, 6), e = edgePoint(z, B[n.id], a.x, a.y, 7);
+    var r = rng(n.id), dx = e.x - s.x, dy = e.y - s.y, dist = Math.sqrt(dx * dx + dy * dy) || 1, bend = (r() - 0.5) * 0.35 * dist;
+    var cx = (s.x + e.x) / 2 - dy / dist * bend, cy = (s.y + e.y) / 2 + dx / dist * bend;
+    items.push({ k: 'edge', d: 'M' + s.x.toFixed(1) + ' ' + s.y.toFixed(1) + ' Q' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + e.x.toFixed(1) + ' ' + e.y.toFixed(1), w: d === 1 ? 3.4 : d === 2 ? 2.6 : 2, c: PAL[branchOf(n) % PAL.length] });
+  });
+  var root = S.nodes[0], rb = B[0];
+  var rootShape = wobbleEllipse(P[0].x, P[0].y, rb.rx, rb.ry, 3);
+  S.nodes.forEach(function (n) { nodes.push({ id: n.id, x: P[n.id].x, y: P[n.id].y, b: B[n.id] }); });
+  var pad = 36;
+  return { items: items, rootShape: rootShape, nodes: nodes, box: { x: minX - pad, y: minY - pad, w: maxX - minX + 2 * pad, h: maxY - minY + 2 * pad } };
+}
+
+// ---------- drawing on screen ----------
+var NS = 'http://www.w3.org/2000/svg';
+function se(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+var zoom = 1, userZoomed = false, vb = { x: 0, y: 0, w: 1000, h: 600 };
+function renderWeb() {
+  var frame = $('frame'), has = !!S.nodes[0].t;
+  frame.textContent = '';
+  if (!has) {
+    var em = document.createElement('div'); em.className = 'empty'; em.innerHTML = '<b>Your web grows here</b><span>Start with a subject.</span>';
+    em.querySelector('b').textContent = 'Your web grows here'; frame.appendChild(em);
+    return;
+  }
+  var sc = buildScene(); vb = sc.box;
+  var svg = se('svg', { class: 'web', viewBox: vb.x.toFixed(0) + ' ' + vb.y.toFixed(0) + ' ' + vb.w.toFixed(0) + ' ' + vb.h.toFixed(0), role: 'group', 'aria-label': 'Joke-web with ' + S.nodes.length + ' bubbles' });
+  sc.items.forEach(function (it) { se('path', { class: 'edge', d: it.d, 'stroke-width': it.w, stroke: it.c }, svg); });
+  var dimRoot = S.mode === 'guided' && S.step === 3;
+  sc.nodes.forEach(function (nd) {
+    var n = byId(nd.id), g = se('g', { class: 'nd' + (nd.id === 0 && dimRoot ? ' dim' : ''), 'data-id': nd.id, tabindex: 0, role: 'button', 'aria-label': (n.t || 'subject') + (nd.id === S.sel ? ' (selected)' : '') }, svg), b = nd.b;
+    if (b.root) {
+      if (nd.id === S.sel) se('ellipse', { class: 'halo', cx: nd.x, cy: nd.y, rx: b.rx + 8, ry: b.ry + 8 }, g);
+      se('path', { class: 'root-shape', d: wobbleEllipse(nd.x, nd.y, b.rx, b.ry, 3) }, g);
+      se('ellipse', { class: 'hit', cx: nd.x, cy: nd.y, rx: b.rx, ry: b.ry }, g);
+    } else {
+      if (nd.id === S.sel) se('rect', { class: 'halo', x: nd.x - b.w / 2 - 6, y: nd.y - b.h / 2 - 4, width: b.w + 12, height: b.h + 8, rx: 10 }, g);
+      se('rect', { class: 'hit', x: nd.x - Math.max(b.w, 44) / 2, y: nd.y - Math.max(b.h, 44) / 2, width: Math.max(b.w, 44), height: Math.max(b.h, 44), rx: 8 }, g);
+    }
+    b.lines.forEach(function (l, i) {
+      var t = se('text', { x: nd.x.toFixed(1), y: (nd.y + (i - (b.lines.length - 1) / 2) * b.lh + b.fs * 0.3).toFixed(1), 'font-size': b.fs }, g);
+      t.textContent = l;
+    });
+  });
+  frame.appendChild(svg);
+  sizeSvg();
+}
+function sizeSvg() {
+  var svg = $('frame').querySelector('svg'); if (!svg) return;
+  if (!userZoomed) zoom = Math.max(0.6, Math.min(1.1, ($('frame').clientWidth - 4) / vb.w));
+  svg.setAttribute('width', Math.round(vb.w * zoom)); svg.setAttribute('height', Math.round(vb.h * zoom));
+}
+$('zoomIn').onclick = function () { userZoomed = true; zoom = Math.min(3, zoom * 1.25); sizeSvg(); };
+$('zoomOut').onclick = function () { userZoomed = true; zoom = Math.max(0.15, zoom / 1.25); sizeSvg(); };
+$('fit').onclick = function () { userZoomed = false; sizeSvg(); };
+window.addEventListener('resize', function () { if (!userZoomed) sizeSvg(); });
+
+// select / drag
+var drag = null;
+function svgPoint(svg, ev) { var pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; var m = svg.getScreenCTM(); return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 }; }
+$('frame').addEventListener('pointerdown', function (ev) {
+  var g = ev.target.closest && ev.target.closest('.nd'); if (!g) return;
+  var id = +g.getAttribute('data-id'), svg = g.ownerSVGElement, p = svgPoint(svg, ev), n = byId(id);
+  var cur = buildScene().nodes.filter(function (x) { return x.id === id; })[0];
+  drag = { id: id, sx: ev.clientX, sy: ev.clientY, dx: cur.x - p.x, dy: cur.y - p.y, moved: false, svg: svg };
+});
+window.addEventListener('pointermove', function (ev) {
+  if (!drag || S.mode !== 'free') return;
+  if (!drag.moved && Math.abs(ev.clientX - drag.sx) + Math.abs(ev.clientY - drag.sy) < 5) return;
+  drag.moved = true; ev.preventDefault();
+  var svg = $('frame').querySelector('svg'), p = svgPoint(svg, ev), n = byId(drag.id);
+  n.x = Math.round(p.x + drag.dx); n.y = Math.round(p.y + drag.dy);
+  var keep = { l: $('frame').scrollLeft, t: $('frame').scrollTop };
+  renderWeb(); $('frame').scrollLeft = keep.l; $('frame').scrollTop = keep.t;
+});
+window.addEventListener('pointercancel', function () { drag = null; });
+window.addEventListener('pointerup', function () {
+  if (!drag) return;
+  var d = drag; drag = null;
+  if (d.moved) { save(); return; }
+  select(d.id);
+});
+$('frame').addEventListener('keydown', function (ev) {
+  var g = ev.target.closest && ev.target.closest('.nd'); if (!g) return;
+  var id = +g.getAttribute('data-id');
+  if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(id); return; }
+  var step = ev.shiftKey ? 30 : 10, dx = ev.key === 'ArrowLeft' ? -step : ev.key === 'ArrowRight' ? step : 0, dy = ev.key === 'ArrowUp' ? -step : ev.key === 'ArrowDown' ? step : 0;
+  if ((dx || dy) && S.mode === 'free') {
+    ev.preventDefault();
+    var cur = buildScene().nodes.filter(function (x) { return x.id === id; })[0], n = byId(id);
+    n.x = Math.round(cur.x + dx); n.y = Math.round(cur.y + dy);
+    renderWeb(); save();
+    var again = $('frame').querySelector('.nd[data-id="' + id + '"]'); if (again) again.focus();
+  }
+});
+function select(id) { S.sel = id; render(); save(); }
+
+// ---------- controls ----------
+function h(tag, attrs) {
+  var e = document.createElement(tag);
+  for (var k in (attrs || {})) { if (attrs[k] === null || attrs[k] === undefined) continue; if (k === 'text') e.textContent = attrs[k]; else if (k === 'class') e.className = attrs[k]; else if (k === 'on') { for (var ev in attrs.on) e.addEventListener(ev, attrs.on[ev]); } else e.setAttribute(k, attrs[k]); }
+  for (var i = 2; i < arguments.length; i++) { var c = arguments[i]; if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }
+  return e;
+}
+var focusId = null, confirmReset = false, resetTimer = null;
+function inputRow(id, ph, btnText, onAdd, value) {
+  var inp = h('input', { type: 'text', id: id, maxlength: MAX_TEXT, placeholder: ph, autocomplete: 'off', 'aria-label': ph });
+  if (value) inp.value = value;
+  function go() { var v = inp.value; if (!clean(v, MAX_TEXT)) { inp.focus(); return; } onAdd(v); }
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  return h('div', { class: 'row' }, inp, h('button', { class: 'k-btn primary', type: 'button', id: id + '-go', text: btnText, on: { click: go } }));
+}
+function chipList(nodes, opts) {
+  var ul = h('ul', { class: 'chips' });
+  nodes.forEach(function (n) {
+    var li = h('li', { class: 'chip' + (n.id === S.sel && opts.mark ? ' on' : '') });
+    li.appendChild(h('button', { type: 'button', text: n.t, title: n.t, 'data-chip': n.id, on: { click: function () { if (opts.pick) opts.pick(n); else select(n.id); } } }));
+    if (opts.remove) li.appendChild(h('button', { class: 'x', type: 'button', 'aria-label': 'Remove ' + n.t, text: '×', on: { click: function () { removeBranch(n.id); render(); save(); } } }));
+    ul.appendChild(li);
+  });
+  return ul;
+}
+function setStep(n) {
+  if (n > 1 && !S.nodes[0].t) return;
+  S.step = n;
+  if (n === 3) { var sel = byId(S.sel); if (!sel || sel.id === 0) { var k = kidsOf(0)[0]; if (k) S.sel = k.id; } }
+  render(); save();
+}
+function renderControls() {
+  var c = $('controls'); c.textContent = '';
+  var guided = S.mode === 'guided';
+  c.appendChild(h('div', { class: 'toprow' },
+    h('div', { class: 'seg', role: 'group', 'aria-label': 'Mode' },
+      h('button', { type: 'button', id: 'mode-guided', 'aria-pressed': String(guided), text: 'Guided', on: { click: function () { S.mode = 'guided'; render(); save(); } } }),
+      h('button', { type: 'button', id: 'mode-free', 'aria-pressed': String(!guided), text: 'Free board', on: { click: function () { S.mode = 'free'; render(); save(); } } })),
+    h('div', { class: 'tools' },
+      h('button', { class: 'k-btn', type: 'button', id: 'tidy', text: 'Tidy up', title: 'Put every bubble back in its automatic place', on: { click: function () { S.nodes.forEach(function (n) { n.x = null; n.y = null; }); render(); save(); } } }), ' ',
+      h('button', { class: 'k-btn' + (confirmReset ? ' coral' : ''), type: 'button', id: 'reset', text: confirmReset ? 'Really start over?' : 'Start over', on: { click: startOver } }))));
+  if (guided) renderGuided(c); else renderFree(c);
+  renderIdeas(c);
+  if (focusId) { var f = $(focusId); if (f) f.focus(); focusId = null; }
+}
+function startOver() {
+  if (!confirmReset) { confirmReset = true; clearTimeout(resetTimer); resetTimer = setTimeout(function () { confirmReset = false; renderControls(); }, 4000); renderControls(); return; }
+  clearTimeout(resetTimer); confirmReset = false; S = fresh(); userZoomed = false; render(); save();
+  $('draft').value = ''; updateDraft();
+}
+function renderGuided(c) {
+  var ol = h('ol', { class: 'steps', 'aria-label': 'Steps' });
+  STEPS.forEach(function (name, i) {
+    var b = h('button', { type: 'button', 'data-step': i + 1, text: (i + 1) + '. ' + name, on: { click: function () { setStep(i + 1); } } });
+    if (S.step === i + 1) b.setAttribute('aria-current', 'step');
+    if (i > 0 && !S.nodes[0].t) b.disabled = true;
+    ol.appendChild(h('li', {}, b));
+  });
+  c.appendChild(ol);
+  var root = S.nodes[0], sel = byId(S.sel) || root;
+  if (S.step === 1) {
+    c.appendChild(h('h2', { text: 'What is it about?' }));
+    c.appendChild(h('p', { class: 'hint', text: 'Pick the general subject: a thing, a person, a situation. It goes in the middle.' }));
+    var cur = root.t;
+    var inp = h('input', { type: 'text', id: 'subject', maxlength: MAX_TEXT, placeholder: 'e.g. strikes, cheese, mondays', autocomplete: 'off', 'aria-label': 'General subject' });
+    inp.value = cur;
+    function go() { var v = clean(inp.value, MAX_TEXT); if (!v) { inp.focus(); return; } root.t = v; S.step = 2; focusId = 'sub-input'; render(); save(); }
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    c.appendChild(h('div', { class: 'row' }, inp, h('button', { class: 'k-btn primary', type: 'button', id: 'subject-go', on: { click: go } }, cur ? 'Update and continue ' : 'Start the web ', h('span', { class: 'arr', 'aria-hidden': 'true', text: '→' }))));
+    if (!cur) focusId = 'subject';
+  } else if (S.step === 2) {
+    c.appendChild(h('h2', { text: 'Branches' }));
+    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Think big things, small things and obscure things ' }), 'that go with “' + root.t + '”. Three to eight is plenty.'));
+    c.appendChild(inputRow('sub-input', 'Add an association…', 'Add', function (v) { addNode(0, v); focusId = 'sub-input'; render(); save(); }));
+    c.appendChild(chipList(kidsOf(0), { remove: true, mark: false, pick: function (n) { S.sel = n.id; setStep(3); } }));
+    c.appendChild(h('div', { class: 'next' }, h('button', { class: 'k-btn primary', type: 'button', id: 'to3', text: 'Next: break them down →', disabled: kidsOf(0).length ? null : 'disabled', on: { click: function () { setStep(3); } } })));
+  } else if (S.step === 3) {
+    var first = kidsOf(0);
+    c.appendChild(h('h2', { text: 'Break it down' }));
+    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Forget “' + root.t + '”.' }), ' Pick a branch and think about it in its own right. What does it make you think of?'));
+    if (first.length) c.appendChild(chipList(first, { mark: true }));
+    if (sel.id !== 0) {
+      c.appendChild(h('div', { class: 'crumbs' }, 'Working on: ', h('b', { text: sel.t })));
+      c.appendChild(inputRow('kid-input', 'Add an association to “' + sel.t + '”…', 'Add', function (v) { addNode(sel.id, v); focusId = 'kid-input'; render(); save(); }));
+      var kids = kidsOf(sel.id);
+      if (kids.length) c.appendChild(chipList(kids, { remove: true, mark: true }));
+      c.appendChild(h('p', { class: 'hint', text: 'Tap any bubble in the web to go deeper from there.' }));
+    } else c.appendChild(h('p', { class: 'hint', text: 'Add a branch in step 2 first.' }));
+    var dt = h('details', { class: 'pr', open: 'open' }, h('summary', { text: 'Ways to think about words' }));
+    var ul = h('ul', { class: 'prompts' }); PROMPTS.forEach(function (p) { ul.appendChild(h('li', {}, h('b', { text: p[0] + '. ' }), p[1])); });
+    dt.appendChild(ul); c.appendChild(dt);
+    c.appendChild(h('div', { class: 'next' }, h('button', { class: 'k-btn primary', type: 'button', id: 'to4', text: 'Next: apply it back →', on: { click: function () { setStep(4); } } })));
+  } else {
+    c.appendChild(h('h2', { text: 'Apply it back' }));
+    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Remember “' + root.t + '”.' }), ' Pick any bubble, then ask how it changes what the subject means. That is where the joke is.'));
+    c.appendChild(h('div', { class: 'crumbs' }, 'Path: ', h('b', { text: pathOf(sel).join(' → ') })));
+    c.appendChild(jokeInput(sel));
+    var more = S.nodes.filter(function (n) { return n.id !== 0; });
+    if (more.length) c.appendChild(chipList(more.slice(0, 60), { mark: true }));
+  }
+}
+function jokeInput(sel) {
+  var inp = h('input', { type: 'text', id: 'joke-input', maxlength: MAX_JOKE, placeholder: 'Joke idea for “' + (sel.t || 'the subject') + '”…', autocomplete: 'off', 'aria-label': 'Joke idea' });
+  function go() { var v = clean(inp.value, MAX_JOKE); if (!v) { inp.focus(); return; } if (allIdeas().length < MAX_JOKES) sel.jokes.push(v); focusId = 'joke-input'; render(); save(); }
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  return h('div', { class: 'row' }, inp, h('button', { class: 'k-btn primary', type: 'button', id: 'joke-go', text: 'Save idea', on: { click: go } }));
+}
+function renderFree(c) {
+  var sel = byId(S.sel) || S.nodes[0];
+  c.appendChild(h('h2', { text: 'Free board' }));
+  if (!S.nodes[0].t) {
+    c.appendChild(h('p', { class: 'hint', text: 'Start with the general subject.' }));
+    c.appendChild(inputRow('free-root', 'General subject…', 'Start', function (v) { S.nodes[0].t = clean(v, MAX_TEXT); S.sel = 0; render(); save(); }));
+    return;
+  }
+  c.appendChild(h('p', { class: 'hint' }, 'Tap a bubble to select it, drag to move it. ', h('b', { text: 'Selected: ' + (sel.t || '…') })));
+  c.appendChild(inputRow('free-add', 'Add an idea under “' + sel.t + '”…', 'Add', function (v) { var n = addNode(sel.id, v); if (n) S.sel = n.id; focusId = 'free-add'; render(); save(); }));
+  c.appendChild(h('h3', { text: 'Rename selected' }));
+  c.appendChild(inputRow('free-rename', 'New name…', 'Rename', function (v) { sel.t = clean(v, MAX_TEXT); render(); save(); }, sel.t));
+  if (sel.id !== 0) c.appendChild(h('div', { class: 'next' }, h('button', { class: 'k-btn coral', type: 'button', id: 'free-del', text: 'Delete this bubble and its branch', on: { click: function () { removeBranch(sel.id); render(); save(); } } })));
+  c.appendChild(h('h3', { text: 'Joke idea for this bubble' }));
+  c.appendChild(jokeInput(sel));
+}
+function renderIdeas(c) {
+  var list = allIdeas();
+  c.appendChild(h('h3', { text: 'Joke ideas' + (list.length ? ' (' + list.length + ')' : '') }));
+  if (!list.length) { c.appendChild(h('p', { class: 'hint', text: 'Ideas you save show up here, ready to drop into your draft.' })); return; }
+  var ul = h('ul', { class: 'ideas', id: 'ideas' });
+  list.forEach(function (it) {
+    ul.appendChild(h('li', {},
+      h('span', { text: it.text }),
+      h('small', { text: pathOf(it.node).join(' → ') }),
+      h('div', { class: 'acts' },
+        h('button', { class: 'k-btn', type: 'button', 'data-use': '1', text: 'Use in draft', on: { click: function () { useInDraft(it.text); } } }),
+        h('button', { class: 'k-btn', type: 'button', text: 'Remove', 'aria-label': 'Remove idea', on: { click: function () { it.node.jokes.splice(it.i, 1); render(); save(); } } }))));
+  });
+  c.appendChild(ul);
+}
+
+// ---------- composer ----------
+var seg = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+function glen(s) { if (seg) { var n = 0; for (var x of seg.segment(s)) { n++; void x; } return n; } return Array.from(s).length; }
+function updateDraft() {
+  var v = $('draft').value, n = glen(v);
+  $('dcount').textContent = n + ' / ' + LIMIT; $('dcount').className = 'dcount' + (n > LIMIT ? ' over' : '');
+  $('dbluesky').href = 'https://bsky.app/intent/compose' + (v.trim() ? '?text=' + encodeURIComponent(v) : '');
+  S.draft = v; save();
+}
+$('draft').addEventListener('input', updateDraft);
+function useInDraft(t) { var d = $('draft'); d.value = d.value.trim() ? d.value.replace(/\s+$/, '') + '\n' + t : t; updateDraft(); d.focus(); say('Added to your draft.'); }
+$('dclear').onclick = function () { $('draft').value = ''; updateDraft(); $('draft').focus(); };
+function copyText(t, ok) {
+  function fallback() { var ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); var done = false; try { done = document.execCommand('copy'); } catch (e) {} ta.remove(); say(done ? ok : "Couldn't copy. Select the text and copy it yourself."); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { say(ok); }, fallback); else fallback();
+}
+$('dcopy').onclick = function () { var v = $('draft').value; if (!v.trim()) { say('Nothing to copy yet.'); return; } copyText(v, 'Draft copied.'); };
+
+// ---------- outputs ----------
+var sayTimer = null;
+function say(t) { var s = $('status'); s.textContent = t; clearTimeout(sayTimer); sayTimer = setTimeout(function () { s.textContent = ''; }, 3500); }
+function outline() {
+  if (!S.nodes[0].t) return '';
+  var out = [];
+  (function walk(n, d) { out.push(new Array(d * 2 + 1).join(' ') + n.t); kidsOf(n.id).forEach(function (k) { walk(k, d + 1); }); })(S.nodes[0], 0);
+  return out.join('\n');
+}
+$('copyWeb').onclick = function () { var t = outline(); if (!t) { say('Add a subject first.'); return; } copyText(t, 'Web copied as an outline.'); };
+$('copyIdeas').onclick = function () { var l = allIdeas(); if (!l.length) { say('No joke ideas saved yet.'); return; } copyText(l.map(function (i) { return i.text; }).join('\n'), 'Joke ideas copied.'); };
+$('saveImg').onclick = function () {
+  if (!S.nodes[0].t) { say('Add a subject first.'); return; }
+  var ready = document.fonts && document.fonts.load ? document.fonts.load('700 20px Caveat') : Promise.resolve();
+  Promise.resolve(ready).then(drawImage, drawImage);
+};
+function drawImage() {
+  var sc = buildScene(), b = sc.box, scale = Math.min(2, 4000 / b.w, 4000 / b.h), cv = document.createElement('canvas');
+  var credit = 'professorkiosk.wtf/jokeweb', extra = 34;
+  cv.width = Math.round(b.w * scale); cv.height = Math.round((b.h + extra) * scale);
+  var g = cv.getContext('2d'); g.scale(scale, scale);
+  g.fillStyle = PAPER; g.fillRect(0, 0, b.w, b.h + extra);
+  g.translate(-b.x, -b.y);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  sc.items.forEach(function (it) { g.strokeStyle = it.c; g.lineWidth = it.w; g.stroke(new Path2D(it.d)); });
+  var root = sc.nodes[0];
+  g.fillStyle = TINT; g.strokeStyle = INK; g.lineWidth = 3; var rp = new Path2D(sc.rootShape); g.fill(rp); g.stroke(rp);
+  g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  sc.nodes.forEach(function (nd) {
+    g.font = '700 ' + nd.b.fs + 'px ' + FONT_STACK;
+    nd.b.lines.forEach(function (l, i) { g.fillText(l, nd.x, nd.y + (i - (nd.b.lines.length - 1) / 2) * nd.b.lh + nd.b.fs * 0.3); });
+  });
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  g.font = '400 12px "DM Mono", ui-monospace, Menlo, monospace'; g.fillStyle = INK; g.globalAlpha = 0.7; g.textAlign = 'right';
+  g.fillText(credit, b.w - 14, b.h + extra - 12); g.globalAlpha = 1;
+  cv.toBlob(function (blob) {
+    if (!blob) { say("Couldn't make the image."); return; }
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'joke-web-' + clean(S.nodes[0].t, 20).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.png';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    say('Image saved.');
+  }, 'image/png');
+}
+
+// ---------- go ----------
+function render() {
+  document.getElementById('layout').classList.toggle('free', S.mode === 'free');
+  renderControls(); renderWeb();
+}
+load();
+$('draft').value = S.draft;
+updateDraft();
+render();
+if (document.fonts && document.fonts.load) document.fonts.load('700 20px Caveat').then(function () { renderWeb(); });
+window.__jokeweb = { state: function () { return S; }, outline: outline, glen: glen };
+})();
+</script>
+<script src="/kiosk.js" defer></script>
+</body>
+</html>

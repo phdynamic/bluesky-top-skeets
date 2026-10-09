@@ -74,6 +74,10 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 - **Shared AppView budget.** Everything this server asks of the public AppView draws from one allowance. The AppView sends no rate-limit headers (the probe confirmed it), so the limit can't be read; the budget learns it. `APPVIEW_MAX_RPS` is the ceiling in requests per second (0, the default, means no pacing and no adapting). Optionally `APPVIEW_START_RPS` sets where it starts. On every `429` it halves its rate and pauses all callers for the retry delay, then climbs back about 10% every 30 quiet seconds, never above the ceiling.
 - **Tests.** `npm test` builds and runs the unit tests in `test/` (link parsing, client address, request budget). `npm run test:browser` runs the browser suites for the Tracer, Skeet Receipt, feeds page and footer (needs Chrome, Brave, Edge or Chromium; set `CHROME_PATH` to point at one).
 
+## Joke-Web Maker
+
+`/jokeweb` is a browser-only page (no server calls, no sign-in) for free-associating ideas for a post: a guided mode (subject, branches, break it down, apply it back) and a free board where bubbles can be dragged. It has a draft box with a 300-character counter, saves the web as a PNG, copies it as an outline, and remembers your work in the browser (`localStorage`, key `pk-jokeweb-v1`).
+
 ## Prerequisites
 
 - Node.js 20 (see `.nvmrc`)

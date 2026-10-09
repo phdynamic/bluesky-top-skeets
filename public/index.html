@@ -75,7 +75,7 @@
     .section { margin-bottom: 46px; }
 
     .grid3 { display: grid; gap: 22px; grid-template-columns: 1fr; }
-    @media (min-width: 640px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 640px) { .grid3 { grid-template-columns: 1fr 1fr; } .grid3 > .tool:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 11px); } }
     .grid2 { display: grid; gap: 22px; grid-template-columns: 1fr; }
     @media (min-width: 640px) { .grid2 { grid-template-columns: 1fr 1fr; } }
 
@@ -199,6 +199,14 @@
             <p>Paste a post link and get a receipt of its stats. Save it, share it, frame it. No sign-in.</p>
             <span class="url">professorkiosk.wtf/receipt</span>
             <a class="k-btn" href="/receipt">Print a receipt →</a>
+          </div>
+        </article>
+        <article class="tool" style="--c: var(--yellow)">
+          <div class="tool-head"><span class="num">05</span><h3>Joke-Web Maker</h3></div>
+          <div class="tool-body">
+            <p>Free-associate your way to a shitpost. Build a web of ideas around a subject, cover the subject up, think about each branch on its own, then bring it back and see what's funny. Includes a draft box. No sign-in.</p>
+            <span class="url">professorkiosk.wtf/jokeweb</span>
+            <a class="k-btn" href="/jokeweb">Build a web →</a>
           </div>
         </article>
       </div>
