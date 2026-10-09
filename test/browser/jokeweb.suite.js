@@ -73,14 +73,17 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
     const { page } = await mk(browser, { init: bigWeb() }); await page.goto(BASE);
     ok('C1 a restored web draws every bubble', await nds(page).count() === 43);
     await page.click('#mode-free');
-    const first = nds(page).nth(2); const b0 = await first.boundingBox();
+    const rel = async () => page.evaluate(() => { const s = document.querySelector('#frame svg').getBoundingClientRect(), b = document.querySelectorAll('#frame .nd')[2].getBoundingClientRect(); return { x: b.left - s.left, y: b.top - s.top }; });
+    const first = nds(page).nth(2); await first.scrollIntoViewIfNeeded(); const b0 = await first.boundingBox(); const r0 = await rel();
     await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2); await page.mouse.down(); await page.mouse.move(b0.x + b0.width / 2 + 80, b0.y + b0.height / 2 + 40, { steps: 6 }); await page.mouse.up();
     const b1 = await nds(page).nth(2).boundingBox();
-    ok('C2 dragging moves a bubble', Math.abs(b1.x - b0.x - 80) < 25 && Math.abs(b1.y - b0.y - 40) < 25, JSON.stringify([b0.x, b1.x]));
+    const moved = await page.evaluate(() => window.__jokeweb.state().nodes.filter(n => n.x !== null).length);
+    ok('C2 dragging moves a bubble (and only that one)', moved === 1 && (Math.abs(b1.x - b0.x) > 5 || Math.abs(b1.y - b0.y) > 5), JSON.stringify([b0.x, b1.x, moved]));
     await page.reload(); const b2 = await nds(page).nth(2).boundingBox();
     ok('C3 the moved position survives reload', Math.abs(b2.x - b1.x) < 3);
     await page.click('#tidy'); const b3 = await nds(page).nth(2).boundingBox();
-    ok('C4 Tidy up puts it back', Math.abs(b3.x - b0.x) < 3 && Math.abs(b3.y - b0.y) < 3);
+    const r3 = await rel();
+    ok('C4 Tidy up puts it back', Math.abs(r3.x - r0.x) < 3 && Math.abs(r3.y - r0.y) < 3, JSON.stringify([r0, r3]));
     await nds(page).nth(1).click();
     await page.fill('#free-rename', 'Walkout'); await page.click('#free-rename-go');
     ok('C5 rename works', (await labels(page)).includes('Walkout'));
@@ -122,6 +125,31 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
     await x.page.waitForTimeout(300);
     ok('E3 typed markup is shown as text, never run', (await x.page.evaluate(() => window.__pwn)) === undefined && (await labels(x.page)).some(s => /<img/.test(s) || /<script/.test(s)));
     await x.page.close();
+  }
+  // G. desktop: web on top at full width; phone: whole web fits, even when deep
+  {
+    const { page } = await mk(browser, { init: bigWeb(), vp: { width: 1280, height: 900 } }); await page.goto(BASE);
+    const r = await page.evaluate(() => { const b = id => document.getElementById(id).getBoundingClientRect(), w = b('webpanel'), c = b('controls'), d = b('composer'), k = document.querySelector('.k-wrap').getBoundingClientRect(); return { ww: w.width, kw: k.width, wb: w.bottom, ct: c.top, dt: d.top, cl: c.left, dl: d.left, over: document.documentElement.scrollWidth > innerWidth + 1 }; });
+    ok('G1 desktop: the web panel spans the full content width', r.ww >= r.kw - 41, JSON.stringify(r));
+    ok('G2 desktop: steps and draft boxes sit under the web, side by side', r.ct >= r.wb && r.dt >= r.wb && Math.abs(r.ct - r.dt) < 2 && r.dl > r.cl && !r.over, JSON.stringify(r));
+    const fit = await page.evaluate(() => { const f = document.getElementById('frame'), s = f.querySelector('svg'); return { fw: f.clientWidth, sw: s.getBoundingClientRect().width, sh: s.getBoundingClientRect().height, fh: f.clientHeight, sc: f.scrollWidth - f.clientWidth }; });
+    ok('G3 desktop: the whole 43-bubble web fits the frame without scrolling', fit.sc <= 1 && fit.sw <= fit.fw && fit.sh <= fit.fh + 1, JSON.stringify(fit));
+    await page.screenshot({ path: 'jw-desktop2.png', fullPage: true });
+    await page.close();
+    function deep(n) { const nodes = [{ id: 0, t: 'Strikes', p: null, x: null, y: null, jokes: [] }]; let id = 1; const lv1 = [];
+      for (let i = 0; i < 6; i++) { nodes.push({ id, t: 'Branch ' + (i + 1), p: 0, x: null, y: null, jokes: [] }); lv1.push(id++); }
+      let cur = lv1; for (let d = 0; d < 3 && nodes.length < n; d++) { const next = []; cur.forEach(p => { for (let k = 0; k < (d === 0 ? 3 : 2) && nodes.length < n; k++) { nodes.push({ id, t: 'Level ' + (d + 2) + ' idea ' + id, p, x: null, y: null, jokes: [] }); next.push(id++); } }); cur = next; }
+      return { mode: 'guided', step: 3, sel: 1, nextId: id, nodes, draft: '' }; }
+    for (const [label, n] of [['43', 43], ['120', 120]]) {
+      const w = deep(n), q = await mk(browser, { init: w, vp: { width: 390, height: 800 } }); await q.page.goto(BASE);
+      const f = await q.page.evaluate(() => { const fr = document.getElementById('frame'), s = fr.querySelector('svg'); return { fw: fr.clientWidth, sw: s.getBoundingClientRect().width, scx: fr.scrollWidth - fr.clientWidth, over: document.documentElement.scrollWidth > innerWidth + 1, n: fr.querySelectorAll('.nd').length }; });
+      ok('G4 phone: a ' + label + '-bubble web fits the frame width, no sideways scroll', f.scx <= 1 && f.sw <= f.fw && !f.over, JSON.stringify(f));
+      await q.page.click('#zoomIn'); await q.page.click('#zoomIn'); await q.page.click('#fit');
+      const g = await q.page.evaluate(() => { const fr = document.getElementById('frame'), s = fr.querySelector('svg'); return { scx: fr.scrollWidth - fr.clientWidth, sw: s.getBoundingClientRect().width, fw: fr.clientWidth }; });
+      ok('G5 phone: Fit brings the whole ' + label + '-bubble web back after zooming', g.scx <= 1 && g.sw <= g.fw, JSON.stringify(g));
+      await q.page.screenshot({ path: 'jw-phone' + label + '.png', fullPage: false });
+      await q.page.close();
+    }
   }
   ok('F1 no requests beyond this site and the shared footer avatar lookup', third.length === 0, third.join(' '));
   console.log(out.join('\n')); console.log('JS errors:', errors.length ? errors.join('|') : 'none');

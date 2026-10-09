@@ -27,10 +27,10 @@ button, input, textarea { font: inherit; }
 main.k-main { padding: 32px 0 0; }
 .layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "controls" "web" "composer"; }
 @media (min-width: 900px) {
-  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 400px); grid-template-areas: "web controls" "web composer"; align-items: start; }
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 400px); grid-template-areas: "web web" "controls composer"; align-items: start; }
 }
 #controls { grid-area: controls; } #webpanel { grid-area: web; min-width: 0; } #composer { grid-area: composer; }
-@media (min-width: 900px) { #webpanel { position: sticky; top: 12px; } .frame { max-height: calc(100vh - 190px); } }
+@media (min-width: 900px) { .frame { max-height: min(78vh, 720px); } }
 .panel { background: var(--surface); border: 3px solid var(--line); border-radius: 20px; box-shadow: 5px 5px 0 var(--shadow-c); padding: 18px; min-width: 0; }
 .panel h2 { font-size: 21px; font-weight: 800; margin-bottom: 10px; }
 .panel h3 { font-size: 16px; font-weight: 800; margin: 14px 0 6px; }
@@ -72,7 +72,7 @@ details.pr summary { cursor: pointer; font-weight: 800; min-height: 32px; displa
 .webtools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
 .webtools .sp { flex: 1; }
 .webtools .k-btn { min-height: 44px; padding: 8px 14px; font-size: 14px; }
-.frame { background: var(--paper); border: 3px solid var(--rink); border-radius: 16px; overflow: auto; max-height: 72vh; min-height: 260px; position: relative; -webkit-overflow-scrolling: touch; }
+.frame { background: var(--paper); border: 3px solid var(--rink); border-radius: 16px; overflow: auto; max-height: 85vh; min-height: 260px; position: relative; -webkit-overflow-scrolling: touch; }
 .frame svg { display: block; }
 .web text { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 700; fill: #1d1b4f; text-anchor: middle; pointer-events: none; user-select: none; }
 .web .edge { fill: none; stroke-linecap: round; }
@@ -281,15 +281,18 @@ function box(n, d) {
   var w = Math.max.apply(null, lines.map(function (l) { return textW(l, fs); })) + 12, h = lines.length * lh + 6;
   return { lines: lines, fs: fs, lh: lh, w: w, h: h, d: d };
 }
+function frameMaxH() { return window.matchMedia && window.matchMedia('(min-width: 900px)').matches ? Math.min(innerHeight * 0.78, 720) : innerHeight * 0.85; }
+function frameAspect() { var w = $('frame').clientWidth || 800; return Math.max(0.55, Math.min(2, w / Math.max(300, frameMaxH()))); }
 function autoLayout() {
   var kids = {}, leaves = {};
   S.nodes.forEach(function (n) { if (n.p !== null) (kids[n.p] = kids[n.p] || []).push(n); });
   (function count(id) { var k = kids[id] || []; leaves[id] = k.length ? k.reduce(function (s, c) { return s + count(c.id); }, 0) : 1; return leaves[id]; })(0);
-  var scale = 1 + Math.max(0, (S.nodes.length - 25) / 90), pos = {};
+  var aspect = frameAspect(), xf = Math.max(0.7, Math.min(1.9, aspect)) * 0.85;
+  var scale = (1 + Math.max(0, (S.nodes.length - 25) / 90)) * (1 + Math.max(0, 1 - aspect) * 0.5), pos = {};
   function R(d) { return (d === 0 ? 0 : 175 + (d - 1) * 135) * scale; }
   function place(n, d, a0, a1) {
     var a = (a0 + a1) / 2;
-    pos[n.id] = { x: Math.cos(a) * R(d) * 1.3, y: Math.sin(a) * R(d) };
+    pos[n.id] = { x: Math.cos(a) * R(d) * xf, y: Math.sin(a) * R(d) };
     var k = kids[n.id] || [], at = a0;
     k.forEach(function (c) { var span = (a1 - a0) * leaves[c.id] / leaves[n.id]; place(c, d + 1, at, at + span); at += span; });
   }
@@ -351,7 +354,7 @@ function renderWeb() {
     em.querySelector('b').textContent = 'Your web grows here'; frame.appendChild(em);
     return;
   }
-  var sc = buildScene(); vb = sc.box;
+  var sc = buildScene(); vb = drag && drag.moved ? drag.vb : sc.box;   // while dragging the view holds still
   var svg = se('svg', { class: 'web', viewBox: vb.x.toFixed(0) + ' ' + vb.y.toFixed(0) + ' ' + vb.w.toFixed(0) + ' ' + vb.h.toFixed(0), role: 'group', 'aria-label': 'Joke-web with ' + S.nodes.length + ' bubbles' });
   sc.items.forEach(function (it) { se('path', { class: 'edge', d: it.d, 'stroke-width': it.w, stroke: it.c }, svg); });
   var dimRoot = S.mode === 'guided' && S.step === 3;
@@ -375,13 +378,13 @@ function renderWeb() {
 }
 function sizeSvg() {
   var svg = $('frame').querySelector('svg'); if (!svg) return;
-  if (!userZoomed) zoom = Math.max(0.6, Math.min(1.1, ($('frame').clientWidth - 4) / vb.w));
+  if (!userZoomed && !(drag && drag.moved)) zoom = Math.max(0.08, Math.min(1.1, ($('frame').clientWidth - 6) / vb.w, (frameMaxH() - 6) / vb.h));
   svg.setAttribute('width', Math.round(vb.w * zoom)); svg.setAttribute('height', Math.round(vb.h * zoom));
 }
 $('zoomIn').onclick = function () { userZoomed = true; zoom = Math.min(3, zoom * 1.25); sizeSvg(); };
 $('zoomOut').onclick = function () { userZoomed = true; zoom = Math.max(0.15, zoom / 1.25); sizeSvg(); };
-$('fit').onclick = function () { userZoomed = false; sizeSvg(); };
-window.addEventListener('resize', function () { if (!userZoomed) sizeSvg(); });
+$('fit').onclick = function () { userZoomed = false; renderWeb(); };
+window.addEventListener('resize', function () { if (!userZoomed) renderWeb(); });
 
 // select / drag
 var drag = null;
@@ -390,7 +393,7 @@ $('frame').addEventListener('pointerdown', function (ev) {
   var g = ev.target.closest && ev.target.closest('.nd'); if (!g) return;
   var id = +g.getAttribute('data-id'), svg = g.ownerSVGElement, p = svgPoint(svg, ev), n = byId(id);
   var cur = buildScene().nodes.filter(function (x) { return x.id === id; })[0];
-  drag = { id: id, sx: ev.clientX, sy: ev.clientY, dx: cur.x - p.x, dy: cur.y - p.y, moved: false, svg: svg };
+  drag = { id: id, sx: ev.clientX, sy: ev.clientY, dx: cur.x - p.x, dy: cur.y - p.y, moved: false, svg: svg, vb: { x: vb.x, y: vb.y, w: vb.w, h: vb.h } };
 });
 window.addEventListener('pointermove', function (ev) {
   if (!drag || S.mode !== 'free') return;
@@ -405,7 +408,7 @@ window.addEventListener('pointercancel', function () { drag = null; });
 window.addEventListener('pointerup', function () {
   if (!drag) return;
   var d = drag; drag = null;
-  if (d.moved) { save(); return; }
+  if (d.moved) { save(); renderWeb(); return; }
   select(d.id);
 });
 $('frame').addEventListener('keydown', function (ev) {
