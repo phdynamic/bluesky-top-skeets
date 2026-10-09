@@ -17,10 +17,10 @@ async function setup(o = {}) {
   const db = new GamesDb(':memory:', () => clock.t);
   const client = (opts = {}) => new AppViewClient({ baseUrl: fake.url, budget, userAgent: 'test', gapMs: 0, maxAttempts: 3, sleep: async () => {}, ...opts });
   const queue = new GamesQueue({ db, sizeCap: o.sizeCap ?? 5000, makeAppView: () => client({ maxAttempts: o.crawlAttempts ?? 3 }), retryDelayMs: 5, maxRetries: 2, idleMs: 10 });
-  const limits = new GamesLimits({ lookupsPerIpPerHour: o.lookups ?? 100, createsPerIpPerHour: o.creates ?? 50, refreshesPerIpPerHour: 50 }, () => clock.t);
+  const limits = new GamesLimits({ lookupsPerIpPerHour: o.lookups ?? 100, createsPerIpPerHour: o.creates ?? 50, refreshesPerIpPerHour: 50, reportsPerIpPerHour: o.reports ?? 10, rechecksPerIpPerHour: 6 }, () => clock.t);
   const app = express(); app.use(express.json());
   app.use('/api/games', createGamesRouter({ db, queue, limits, makeLookupClient: () => client({ maxAttempts: 2 }), sizeCap: o.sizeCap ?? 5000,
-    refreshCooldownMs: 6 * 3600_000, maxCreatesPerDay: o.maxPerDay ?? 100, maxQueued: o.maxQueued ?? 20, trustedProxyHops: 1, now: () => clock.t }));
+    refreshCooldownMs: 6 * 3600_000, recheckCooldownMs: 60 * 60_000, maxCreatesPerDay: o.maxPerDay ?? 100, maxQueued: o.maxQueued ?? 20, trustedProxyHops: 1, now: () => clock.t }));
   const srv = await new Promise(r => { const s = app.listen(0, '127.0.0.1', () => r(s)); });
   const base = `http://127.0.0.1:${srv.address().port}/api/games`;
   if (o.run !== false) queue.start();
@@ -32,7 +32,7 @@ async function setup(o = {}) {
   const link = name => `https://bsky.app/profile/${name}.example/post/${name}`;
   const waitReady = async id => { for (let i = 0; i < 200; i++) { const s = await req('GET', `/${id}/status`); if (s.json && s.json.state === 'ready') return s.json; await sleep(15); } throw new Error('never became ready'); };
   const done = async () => { await queue.stop(); await new Promise(r => srv.close(r)); await fake.close(); db.close(); };
-  return { world, fake, db, clock, queue, req, link, waitReady, done, base, budget };
+  return { world, fake, db, clock, queue, req, link, waitReady, done, base, budget, app, limits, client };
 }
 const SMALL = { a: { a1: {}, a2: {} }, b: {}, c: { c1: {} } };
 

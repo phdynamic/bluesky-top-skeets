@@ -39,7 +39,7 @@ async function page(browser, o = {}) {
   world.tree('r0', { a: { a1: {}, a2: {} }, b: {}, c: { c1: { c1a: {} } } });
   const fake = await serve(world);
   const browser = await chromium.launch({ executablePath: CHROME });
-  const s = boot({ APPVIEW_URL: fake.url, GAMES_REFRESH_COOLDOWN_HOURS: '0.0008' });
+  const s = boot({ APPVIEW_URL: fake.url, GAMES_REFRESH_COOLDOWN_HOURS: '0.0008', ADMIN_SECRET: 'e2e-admin-secret-long', TAKEDOWN_CONTACT: 'takedown@example.test', GAMES_RECHECK_COOLDOWN_MINUTES: '0' });
   try {
     await s.ready;
     // ---- live Tracer with the feature on
@@ -98,6 +98,64 @@ async function page(browser, o = {}) {
     await A.p.waitForURL(/\/g\/[a-z0-9]{10}$/);
     await A.p.locator('#snapExists').waitFor({ state: 'visible', timeout: 20000 });
     ok('E22 saving again lands on the same game with a note', A.p.url() === gameUrl && /already has a snapshot/.test(await A.p.locator('#snapExists').innerText()));
+
+    // ---- report, policy, re-check (still on the cold-open page B)
+    await B.p.goto(gameUrl); await B.p.locator('#snapReady').waitFor({ state: 'visible' }); await B.p.locator('#tree .card').first().waitFor();
+    await B.p.locator('#tree [data-a="report"]:visible').nth(1).click();
+    ok('E26 a card Report button opens the report box, naming the card', /reporting one card by @/.test(await B.p.locator('#reportAbout').innerText()));
+    await B.p.click('#reportSend');
+    ok('E27 sending with no reason asks for one', /Pick a reason/.test(await B.p.locator('#reportErr').innerText()));
+    await B.p.check('input[value=removal]');
+    ok('E28 choosing "Remove my post" shows the delete-it-on-Bluesky hint', await B.p.locator('#removalHint').isVisible());
+    await B.p.fill('#reportNote', 'this one is mine'); await B.p.click('#reportSend');
+    await B.p.locator('#reportOk').waitFor({ state: 'visible' });
+    ok('E29 report accepted with the plain thank-you', /Thanks\. We've got it\./.test(await B.p.locator('#reportOk').innerText()));
+    await B.p.click('#reportCancel');
+    await B.p.click('#reportGame'); await B.p.check('input[value=harassment]'); await B.p.click('#reportSend'); await B.p.locator('#reportOk').waitFor({ state: 'visible' }); await B.p.click('#reportCancel');
+    const db = new Database(path.join(s.dir, 'games.sqlite'), { readonly: true });
+    const reps = db.prepare('SELECT * FROM report ORDER BY id').all();
+    ok('E30 two reports stored, one on a card and one on the game, with no sender information', reps.length === 2 && reps[0].node_id !== null && reps[1].node_id === null && Object.keys(reps[0]).join() === 'id,game_id,node_id,reason,note,created_at,status,resolved_at', JSON.stringify(reps.map(r => r.reason)));
+    const href = await B.p.locator('a[href="/g/about"]').getAttribute('href');
+    ok('E31 the saved page links to the policy page', href === '/g/about');
+    await B.p.click('#recheckBtn'); await B.p.waitForFunction(() => document.getElementById('recheckNote').textContent.length > 0);
+    ok('E32 "Check for deleted posts" answers', /Checking for deleted posts|checked recently|already running/.test(await B.p.locator('#recheckNote').innerText()), await B.p.locator('#recheckNote').innerText());
+    await B.p.goto(s.base + '/g/about');
+    ok('E33 the policy page loads, shows the takedown address, is noindex and keeps the shared footer', /How saved games work/.test(await B.p.locator('h1').innerText()) && /takedown@example\.test/.test(await B.p.locator('.contact').first().innerText()) && /Support these projects on Ko-fi/.test(await B.p.locator('footer.k-foot').innerText()));
+
+    // ---- admin page
+    const AD = await page(browser, { mock: false });
+    const adminNav = await AD.p.goto(s.base + '/admin');
+    ok('E34 admin page: no outside requests, strict policy, never cached', /script-src 'self'/.test(adminNav.headers()['content-security-policy']) && adminNav.headers()['cache-control'] === 'no-store');
+    await AD.p.fill('#secret', 'wrong'); await AD.p.click('#signIn');
+    await AD.p.locator('#loginErr').waitFor({ state: 'visible' });
+    ok('E35 a wrong secret is refused', /Wrong or missing admin secret/.test(await AD.p.locator('#loginErr').innerText()) && !(await AD.p.locator('#app').isVisible()));
+    await AD.p.fill('#secret', 'e2e-admin-secret-long'); await AD.p.click('#signIn');
+    await AD.p.locator('#app').waitFor({ state: 'visible' });
+    await AD.p.locator('#reports .card').first().waitFor();
+    ok('E36 signed in: the open reports are listed with the card text and reason', (await AD.p.locator('#reports .card').count()) === 2 && /Remove my post/i.test(await AD.p.locator('#reports').innerText()) && /this one is mine/.test(await AD.p.locator('#reports').innerText()), (await AD.p.locator('#reports .card').count()) + ' cards: ' + (await AD.p.locator('#reports').innerText()).replace(/\n/g, ' | ').slice(0, 300));
+    ok('E37 the open count shows', /2 open/i.test(await AD.p.locator('#openCount').innerText()), await AD.p.locator('#openCount').innerText());
+    const wipeBtn = AD.p.locator('#reports button', { hasText: 'Wipe this card' }).first();
+    await wipeBtn.click(); await AD.p.waitForFunction(() => /Card wiped/.test(document.getElementById('msg').textContent));
+    await AD.p.reload(); await AD.p.locator('#reports .card').first().waitFor();
+    ok('E38 wiping a card works and the admin stays signed in for the tab', /already wiped/.test(await AD.p.locator('#reports').innerText()));
+    await AD.p.locator('#reports button', { hasText: 'Mark resolved' }).first().click();
+    await AD.p.waitForFunction(() => document.querySelectorAll('#reports .card').length === 1);
+    ok('E39 resolving a report removes it from the open list', true);
+    await B.p.goto(gameUrl); await B.p.locator('#snapReady').waitFor({ state: 'visible' }); await B.p.locator('#tree .card').first().waitFor();
+    ok('E40 the wiped card now shows as a placeholder on the saved page', (await B.p.locator('#tree .card.tomb').count()) >= 1);
+    await AD.p.click('[data-tab=lookup]'); await AD.p.fill('#q', id); await AD.p.click('#find');
+    await AD.p.locator('#found .card').waitFor();
+    ok('E41 look up a game by id and see its counts', /Game /.test(await AD.p.locator('#found').innerText()) && /live,/.test(await AD.p.locator('#found').innerText()));
+    AD.p.on('dialog', d => d.accept());
+    await AD.p.locator('#found button', { hasText: 'Hide game' }).click(); await AD.p.locator('#found button', { hasText: 'Unhide' }).waitFor();
+    await B.p.goto(gameUrl); await B.p.locator('#snapError').waitFor({ state: 'visible', timeout: 10000 });
+    ok('E42 hiding a game makes its saved page say it is not available', (await B.p.locator('#snapError').innerText()) === "This game isn't available.");
+    await AD.p.locator('#found button', { hasText: 'Unhide' }).click(); await AD.p.locator('#found button', { hasText: 'Hide game' }).waitFor();
+    await B.p.goto(gameUrl); await B.p.locator('#snapReady').waitFor({ state: 'visible', timeout: 10000 });
+    ok('E43 unhiding brings it back', true);
+    await AD.p.click('[data-tab=log]'); await AD.p.locator('#log p').first().waitFor();
+    ok('E44 the log lists the actions without any reporter details', /node\./.test(await AD.p.locator('#log').innerText()) && /game\.hide/.test(await AD.p.locator('#log').innerText()), (await AD.p.locator('#log').innerText()).replace(/\n/g, ' | ').slice(0, 300));
+    ok('E45 no violations on the admin page', AD.violations.length === 0, AD.violations.join(' | '));
 
     // ---- frozen
     new Database(path.join(s.dir, 'games.sqlite')).prepare('UPDATE game SET frozen = 1 WHERE id = ?').run(id);

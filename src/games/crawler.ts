@@ -165,13 +165,22 @@ export class GameCrawler {
     return { status: partial ? 'partial' : 'complete', reason: partial ? PARTIAL_CAP : null };
   }
 
+  /** Only look for deleted, labeled or removed posts; no new version is written. */
+  async runRecheck(job: JobRow): Promise<CrawlOutcome> {
+    await this.recheckAll(job);
+    return { status: 'complete', reason: null };
+  }
+
   async run(job: JobRow): Promise<CrawlOutcome> {
-    return job.kind === 'create' ? this.runCreate(job) : this.runRefresh(job);
+    const out = job.kind === 'create' ? await this.runCreate(job) : job.kind === 'refresh' ? await this.runRefresh(job) : await this.runRecheck(job);
+    this.db.markChecked(job.game_id);
+    return out;
   }
 
   /** Called when a job gives up: keep whatever it found as a partial version, so no progress is lost. */
   keepProgress(job: JobRow, reason: string): boolean {
     const j = this.db.getJob(job.id);
+    if (job.kind === 'recheck') return false;
     if (!j || j.nodes_added === 0 && job.kind === 'refresh') return false;
     if (this.db.getVersion(job.game_id, job.version_n)) return false;
     this.db.writeVersion(job.game_id, job.version_n, 'partial', reason);

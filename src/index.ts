@@ -3,7 +3,7 @@ import path from 'path';
 import { config } from './config';
 import { clientIp, hashIp } from './clientip';
 import { startGames } from './games';
-import { renderTracerPage } from './pages';
+import { renderTracerPage, renderAboutPage } from './pages';
 import { SAVED_CSP, LIVE_CSP } from './csp';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
@@ -349,6 +349,13 @@ app.get('/tracer', (_req, res) => {
 // itself says "This game isn't available." for anything unknown, hidden or deleted, so the address
 // reveals nothing). Only when the feature is on.
 if (config.gamesEnabled) {
+  const quietHeaders = { 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' };
+  // The explanation and takedown page (before /g/:id so "about" is never read as a game id).
+  app.get('/g/about', (_req, res) => { res.set(quietHeaders).type('html').send(renderAboutPage(config.takedownContact)); });
+  // The admin page exists only when an admin secret is set.
+  if (config.games.adminSecret) {
+    app.get('/admin', (_req, res) => { res.set({ ...quietHeaders, 'Cache-Control': 'no-store' }); res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')); });
+  }
   app.get(['/g/:id', '/g/:id/v/:n'], (req, res) => {
     res.set({ 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
     res.type('html').send(renderTracerPage({ mode: 'saved', gameId: req.params.id, version: req.params.n ? parseInt(req.params.n, 10) : undefined }));

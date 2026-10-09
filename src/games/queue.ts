@@ -1,10 +1,11 @@
-import { GamesDb, JobRow } from './db';
+import { GamesDb, JobRow, JobKind } from './db';
 import { AppViewClient, BskyUnavailable } from './appview';
 import { GameCrawler, JobStopped } from './crawler';
 
 export interface QueueOptions {
   db: GamesDb;
-  makeAppView: () => AppViewClient;
+  /** A client for this kind of job: background re-checks take a lower place in the shared budget. */
+  makeAppView: (kind: JobKind) => AppViewClient;
   sizeCap: number;
   /** How many times a job is put back after Bluesky fails before it keeps what it found and stops. */
   maxRetries?: number;
@@ -69,7 +70,7 @@ export class GamesQueue {
   private async runOne(job: JobRow): Promise<void> {
     const db = this.o.db;
     db.markJobStarted(job.id);
-    const crawler = new GameCrawler({ db, appview: this.o.makeAppView(), sizeCap: this.o.sizeCap, shouldStop: () => !this.running });
+    const crawler = new GameCrawler({ db, appview: this.o.makeAppView(job.kind), sizeCap: this.o.sizeCap, shouldStop: () => !this.running });
     try {
       const outcome = await crawler.run(job);
       this.notBefore.delete(job.id);

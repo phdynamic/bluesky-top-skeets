@@ -112,6 +112,15 @@ body:not([data-mode="saved"]) .saved-only{display:none!important}
 #saveDlg .chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 #saveDlg .errbox{margin:10px 0 0}
 #savebar small{display:block;color:var(--ink2);margin-top:2px}
+.snap-links{margin-top:12px;font-size:14px}
+.linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer;color:inherit;min-height:24px}
+.reasons{border:2px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px}
+.reasons legend{font-weight:800;padding:0 6px}
+.reasons label{display:flex;gap:10px;align-items:center;min-height:44px;font-weight:600;cursor:pointer}
+#reportDlg .db{max-height:80vh}
+.reasons input{width:20px;height:20px;accent-color:var(--navy)}
+#reportNote{width:100%;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;padding:10px;margin:4px 0 8px}
+.ok{font-weight:700}
 /* tombstone: a post that is gone, kept in place so its replies stay attached */
 .card.tomb{background:var(--surface2);border-style:dashed;box-shadow:none}
 .card.tomb .handle{font-weight:600;font-style:italic;color:var(--ink2)}
@@ -221,6 +230,7 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
       </div>
       <p class="hint" id="snapLatest" hidden></p>
       <p class="hint" id="snapExists" hidden></p>
+      <p class="snap-links"><button class="linkbtn" id="reportGame" type="button">Report this game</button> · <a href="/g/about">What is stored and how to get a post removed</a> · <button class="linkbtn" id="recheckBtn" type="button">Check for deleted posts</button> <span class="snap-note" id="recheckNote" aria-live="polite"></span></p>
     </div>
     <p class="hint"><b>What this stores.</b> A saved copy keeps the text, handle and post time of public quote posts, and which post each one quotes. It does not keep images, avatars, likes or anything private. If someone deletes a post, its text is wiped from every saved copy. We don't keep a record of who saved or refreshed a game. <a href="/tracer">Trace a post live &rarr;</a></p>
     <div class="errbox" id="snapError" hidden role="alert"></div>
@@ -273,6 +283,28 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
     </div>
   </div>
 </footer>
+
+<dialog id="reportDlg" class="saved-only" aria-labelledby="reportDt">
+  <div class="dh"><h2 id="reportDt">Report</h2><button class="k-btn" id="reportX" type="button" aria-label="Close">✕</button></div>
+  <div class="db">
+    <p id="reportAbout" class="hint"></p>
+    <fieldset class="reasons"><legend>What is wrong?</legend>
+      <label><input type="radio" name="reason" value="personal_info"> Contains personal information</label>
+      <label><input type="radio" name="reason" value="harassment"> Harassment</label>
+      <label><input type="radio" name="reason" value="label"> Content that should be labeled</label>
+      <label><input type="radio" name="reason" value="wrong"> Wrong or misleading</label>
+      <label><input type="radio" name="reason" value="removal"> Remove my post</label>
+      <label><input type="radio" name="reason" value="other"> Something else</label>
+    </fieldset>
+    <p class="hint" id="removalHint" hidden>If this is your post, you can also just delete it on Bluesky: it is wiped from saved copies once it has been missing on two checks a day apart. Otherwise tell us what to remove and we will do it by hand.</p>
+    <label for="reportNote" class="hint">A note (optional, up to 500 characters)</label>
+    <textarea id="reportNote" maxlength="500" rows="3"></textarea>
+    <p class="hint">A report stores the reason, your note, the game and the card. It never stores who you are.</p>
+    <p class="errbox" id="reportErr" hidden role="alert"></p>
+    <p class="ok" id="reportOk" hidden role="status"></p>
+    <div class="save-actions"><button class="k-btn" id="reportCancel" type="button">Close</button><button class="k-btn primary" id="reportSend" type="button">Send report</button></div>
+  </div>
+</dialog>
 
 <div class="trace" id="trace"></div>
 <div class="toast" id="toast" role="status"></div>

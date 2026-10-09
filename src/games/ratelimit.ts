@@ -9,6 +9,8 @@ export interface LimitConfig {
   lookupsPerIpPerHour: number;      // looking a post up before saving (two Bluesky requests each)
   createsPerIpPerHour: number;
   refreshesPerIpPerHour: number;
+  reportsPerIpPerHour: number;
+  rechecksPerIpPerHour: number;
 }
 
 export type LimitResult = { ok: true } | { ok: false; retryAfterSec: number };
@@ -36,4 +38,6 @@ export class GamesLimits {
   lookup(ip: string): LimitResult { return this.take('lookup', ip, this.cfg.lookupsPerIpPerHour); }
   create(ip: string): LimitResult { return this.take('create', ip, this.cfg.createsPerIpPerHour); }
   refresh(ip: string): LimitResult { return this.take('refresh', ip, this.cfg.refreshesPerIpPerHour); }
+  report(ip: string): LimitResult { return this.take('report', ip, this.cfg.reportsPerIpPerHour); }
+  recheck(ip: string): LimitResult { return this.take('recheck', ip, this.cfg.rechecksPerIpPerHour); }
 }

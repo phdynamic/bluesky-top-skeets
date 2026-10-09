@@ -1,7 +1,7 @@
 import express from 'express';
 import zlib from 'zlib';
 import crypto from 'crypto';
-import { GamesDb, GameRow, NodeRow } from './db';
+import { GamesDb, GameRow, NodeRow, ReportReason } from './db';
 import { AppViewClient, BskyUnavailable, NotFound, PostView } from './appview';
 import { GameCrawler, quotedPostUri } from './crawler';
 import { GamesQueue } from './queue';
@@ -17,6 +17,7 @@ export interface GamesApiOptions {
   limits: GamesLimits;
   sizeCap: number;
   refreshCooldownMs: number;
+  recheckCooldownMs: number;
   maxCreatesPerDay: number;
   maxQueued: number;
   trustedProxyHops: number;
@@ -34,6 +35,8 @@ const MSG = {
 };
 
 const TOMB_LABEL: Record<string, string> = { deleted: 'deleted', removed_by_author: 'removed', label_hidden: 'label' };
+
+export const REPORT_REASONS: ReportReason[] = ['personal_info', 'harassment', 'label', 'wrong', 'removal', 'other'];
 
 function fmtDuration(sec: number): string {
   if (sec < 90) return `${Math.max(1, Math.round(sec))} seconds`;
@@ -147,6 +150,8 @@ export function createGamesRouter(o: GamesApiOptions): express.Router {
       versions: versions.map((v, i) => ({ n: v.n, capturedAt: v.captured_at, nodeCount: v.node_count, added: v.node_count - (i ? versions[i - 1].node_count : 1) , status: v.status })),
       refresh: { available: r.available, availableAt: r.availableAt || null, secondsLeft: r.secondsLeft },
       failed: job?.state === 'failed',
+      lastCheckedAt: game.last_checked_at || null,
+      recheck: { secondsLeft: Math.max(0, Math.ceil(((game.last_checked_at || 0) + o.recheckCooldownMs - now()) / 1000)) },
     });
   });
 
@@ -164,6 +169,36 @@ export function createGamesRouter(o: GamesApiOptions): express.Router {
     db.createJob(game.id, 'refresh', db.nextVersionNumber(game.id));
     queue.kick();
     res.status(202).json({ status: 'queued' });
+  });
+
+  // ---- report a game or one card (no reporter identity is stored: no address, no account, nothing)
+  router.post('/:id/report', (req, res) => {
+    const game = activeGame(req.params.id); if (!game) return notAvailable(res);
+    const b = (req.body ?? {}) as { reason?: unknown; note?: unknown; version?: unknown; pos?: unknown };
+    if (typeof b.reason !== 'string' || !REPORT_REASONS.includes(b.reason as ReportReason)) {
+      return res.status(400).json({ error: 'BadReason', message: 'Pick a reason for the report.' });
+    }
+    const note = (typeof b.note === 'string' ? b.note : '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim().slice(0, 500);
+    const lim = limits.report(ipKey(req)); if (!lim.ok) return limited(res, lim.retryAfterSec);
+    let nodeId: number | null = null;
+    const pos = typeof b.pos === 'number' && Number.isInteger(b.pos) && b.pos >= 0 ? b.pos : null;
+    const ver = typeof b.version === 'number' && Number.isInteger(b.version) && b.version >= 1 ? b.version : null;
+    if (pos !== null && ver !== null && db.getVersion(game.id, ver)) nodeId = db.nodesForVersion(game.id, ver)[pos]?.id ?? null;
+    db.addReport(game.id, nodeId, b.reason as ReportReason, note);
+    res.status(201).json({ ok: true, message: "Thanks. We've got it." });
+  });
+
+  // ---- ask for a fresh look at whether any posts have been deleted (rate limited per game and per visitor)
+  router.post('/:id/recheck', (req, res) => {
+    const game = activeGame(req.params.id); if (!game) return notAvailable(res);
+    if (db.activeJob(game.id)) return res.json({ status: 'running' });
+    const left = Math.ceil(((game.last_checked_at || 0) + o.recheckCooldownMs - now()) / 1000);
+    if (left > 0) return res.status(429).json({ error: 'Cooldown', message: `Posts were checked recently. You can check again in ${fmtDuration(left)}.`, secondsLeft: left });
+    if (!db.latestVersion(game.id)) return res.status(409).json({ error: 'NotReady', message: 'This snapshot is still being taken.' });
+    const lim = limits.recheck(ipKey(req)); if (!lim.ok) return limited(res, lim.retryAfterSec);
+    db.createJob(game.id, 'recheck', 0);
+    queue.kick();
+    res.status(202).json({ status: 'queued', message: 'Checking for deleted posts. Wiped posts disappear from the copy once they have been missing on two checks a day apart.' });
   });
 
   // ---- the stored tree, for the viewer

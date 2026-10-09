@@ -117,6 +117,7 @@ function cardHTML(n,isRoot){
     +txt+media
     +'<div class="acts"><a class="open keep" href="'+esc(link)+'" target="_blank" rel="noopener" title="Open on Bluesky">↗ <span class="lbl">Open on Bluesky</span></a>'
     +(isRoot?'':(n.kids.length?'<button data-a="tog">Fold</button>':'')+'<button data-a="trace">Lineage</button><button data-a="copy">Copy link</button>')
+    +(mode==='saved'?'<button class="keep" data-a="report">Report</button>':'')
     +'</div></div>';
 }
 function nodeHTML(i){
@@ -162,8 +163,11 @@ $('#tree').addEventListener('click',e=>{
     nodeEl.classList.toggle('closed');
     if(!hits) state.open[nodeEl.classList.contains('closed')?'delete':'add'](i);
   } else if(a==='trace') showTrace(i);
+  else if(a==='report'){ if(reportHandler) reportHandler(i) }
   else if(a==='copy'){ if(N[i].tomb) return; const l=location.href.split('#')[0]+'#'+N[i].k; (navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(()=>toast('Link copied'),()=>toast(l)) }
 });
+let reportHandler=null;
+$('#rootcard').addEventListener('click',e=>{ const b=e.target.closest('[data-a="report"]'); if(b&&reportHandler) reportHandler(0) });
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.x);toast.x=setTimeout(()=>t.classList.remove('on'),2200)}
 function path(i){const a=[];while(i>0){a.unshift(i);i=N[i].p}return a}
 function showTrace(i){
@@ -239,6 +243,8 @@ document.addEventListener('keydown',e=>{
 
 function init(opts){ mode=(opts&&opts.mode)==='saved'?'saved':'live'; document.body.dataset.mode=mode }
 
-return {init,add,reset,renderAll,renderRoot,renderStats,defaultOpen,goTo,toast,
+function onReport(fn){ reportHandler=fn }
+
+return {init,onReport,add,reset,renderAll,renderRoot,renderStats,defaultOpen,goTo,toast,
   nodes:()=>N, count:()=>N.length, maxDepth:()=>maxDep, renderedCount:()=>lastRendered, mode:()=>mode};
 })();

@@ -79,6 +79,43 @@ function renderVersions(){
   else note.hidden=true;
 }
 
+// ---------- report and re-check ----------
+let currentVersion=null;
+const rdlg=$('#reportDlg');
+function openReport(pos){
+  rdlg.dataset.pos=pos==null?'':String(pos);
+  const n=pos==null?null:V.nodes()[pos];
+  $('#reportAbout').textContent=pos==null?'You are reporting this whole game.':'You are reporting one card'+(n&&!n.tomb?' by @'+n.h:'')+' in this game.';
+  document.querySelectorAll('input[name=reason]').forEach(r=>{ r.checked=false });
+  $('#reportNote').value=''; $('#reportErr').hidden=true; $('#reportOk').hidden=true; $('#removalHint').hidden=true; $('#reportSend').disabled=false;
+  rdlg.showModal();
+}
+V.onReport(i=>openReport(i));
+$('#reportGame').onclick=()=>openReport(null);
+document.querySelectorAll('input[name=reason]').forEach(r=>r.addEventListener('change',()=>{ $('#removalHint').hidden=!($('input[name=reason]:checked')&&$('input[name=reason]:checked').value==='removal') }));
+$('#reportCancel').onclick=()=>rdlg.close(); $('#reportX').onclick=()=>rdlg.close();
+rdlg.addEventListener('click',e=>{ if(e.target===rdlg) rdlg.close() });
+$('#reportSend').onclick=async()=>{
+  const reason=$('input[name=reason]:checked'); const err=$('#reportErr'); err.hidden=true;
+  if(!reason){ err.textContent='Pick a reason for the report.'; err.hidden=false; return }
+  const body={reason:reason.value,note:$('#reportNote').value};
+  if(rdlg.dataset.pos!==''&&currentVersion){ body.pos=parseInt(rdlg.dataset.pos,10); body.version=currentVersion }
+  $('#reportSend').disabled=true;
+  try{
+    const res=await api('/report',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const j=await res.json().catch(()=>({}));
+    if(res.ok){ $('#reportOk').textContent=j.message||"Thanks. We've got it."; $('#reportOk').hidden=false; return }
+    err.textContent=j.message||'Something went wrong. Try again in a minute.'; err.hidden=false; $('#reportSend').disabled=false;
+  }catch(e){ err.textContent="Couldn't reach the server. Try again in a minute."; err.hidden=false; $('#reportSend').disabled=false }
+};
+$('#recheckBtn').onclick=async()=>{
+  const note=$('#recheckNote'); note.textContent='';
+  try{
+    const res=await api('/recheck',{method:'POST'}); const j=await res.json().catch(()=>({}));
+    note.textContent=res.status===202?(j.message||'Checking.'):res.ok&&j.status==='running'?'A check is already running.':(j.message||'Something went wrong. Try again in a minute.');
+  }catch(e){ note.textContent="Couldn't reach the server. Try again in a minute." }
+};
+
 function showTree(d){
   V.reset();
   const rows=d.nodes;
@@ -98,6 +135,7 @@ async function loadData(){
   if(!res.ok) { setStatusLine("We couldn't load this game right now. Try again in a minute."); return }
   const d=await res.json();
   $('#snapLoading').hidden=true; $('#snapReady').hidden=false;
+  currentVersion=d.version.n;
   renderBanner(d); renderVersions(); renderRefresh(); showTree(d);
   document.title='Saved game (version '+d.version.n+') · Quote Post Game Tracer';
   try{ if(sessionStorage.getItem('kiosk-saved-note')==='exists'){ sessionStorage.removeItem('kiosk-saved-note'); const e=$('#snapExists'); e.textContent='This game already has a snapshot. Here it is.'; e.hidden=false } }catch(e){}

@@ -85,3 +85,38 @@ test('pages: flag off leaves /tracer as it was and /g/ is just the normal site; 
     assert.ok(!/<script>(?!<)/.test(th.replace(/<script src=[^>]*><\/script>/g, '')), 'the page has no inline scripts, so the policy is enforceable');
   } finally { await on.stop(); }
 });
+
+test('policy page and admin page: only with the flag, the contact is escaped, the admin page needs a secret to exist', async () => {
+  const off = boot({ ADMIN_SECRET: 'secret-with-flag-off' });
+  try {
+    await off.ready;
+    const a = await fetch(off.base + '/g/about'); assert.ok(!/How saved games work/.test(await a.text()), 'no policy page with the flag off');
+    const adm = await fetch(off.base + '/admin'); assert.ok(!/Admin tools|id="login"/.test(await adm.text()), 'no admin page with the flag off');
+    const api = await fetch(off.base + '/api/admin/reports'); assert.match(api.headers.get('content-type'), /html/, 'no admin API with the flag off');
+  } finally { await off.stop(); }
+
+  const noSecret = boot({ GAMES_ENABLED: 'true', TAKEDOWN_CONTACT: 'x"><img src=x onerror=alert(1)>@evil.test' });
+  try {
+    await noSecret.ready;
+    const about = await fetch(noSecret.base + '/g/about'); const html = await about.text();
+    assert.match(html, /How saved games work/); assert.strictEqual(about.headers.get('x-robots-tag'), 'noindex, nofollow');
+    assert.match(about.headers.get('content-security-policy'), /default-src 'none'/);
+    assert.ok(!/<img src=x/.test(html) && /&lt;img src=x/.test(html), 'the takedown address is escaped');
+    assert.ok(!/<script>(?!<)/.test(html.replace(/<script src=[^>]*><\/script>/g, '')), 'no inline scripts');
+    const adm = await fetch(noSecret.base + '/admin'); assert.ok(!/id="login"/.test(await adm.text()), 'no secret: no admin page');
+    const api = await fetch(noSecret.base + '/api/admin/reports'); assert.match(api.headers.get('content-type'), /html/, 'no secret: no admin API');
+  } finally { await noSecret.stop(); }
+
+  const on = boot({ GAMES_ENABLED: 'true', ADMIN_SECRET: 'a-long-admin-secret-for-tests', TAKEDOWN_CONTACT: 'takedown@example.test' });
+  try {
+    await on.ready;
+    const html = await (await fetch(on.base + '/g/about')).text();
+    assert.match(html, /mailto:takedown@example\.test/);
+    const adm = await fetch(on.base + '/admin'); const ah = await adm.text();
+    assert.match(ah, /id="login"/); assert.strictEqual(adm.headers.get('cache-control'), 'no-store'); assert.match(adm.headers.get('content-security-policy'), /script-src 'self'/);
+    assert.ok(!/<script>(?!<)/.test(ah.replace(/<script src=[^>]*><\/script>/g, '')), 'no inline scripts on the admin page');
+    assert.strictEqual((await fetch(on.base + '/api/admin/reports')).status, 401);
+    const ok = await fetch(on.base + '/api/admin/reports', { headers: { authorization: 'Bearer a-long-admin-secret-for-tests' } });
+    assert.strictEqual(ok.status, 200); assert.deepStrictEqual(Object.keys(await ok.json()).sort(), ['open', 'reports']);
+  } finally { await on.stop(); }
+});

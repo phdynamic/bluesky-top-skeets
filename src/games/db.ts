@@ -13,10 +13,10 @@ import path from 'path';
  */
 
 export type NodeState = 'live' | 'deleted' | 'removed_by_author' | 'label_hidden';
-export type JobKind = 'create' | 'refresh';
+export type JobKind = 'create' | 'refresh' | 'recheck';
 export type JobState = 'queued' | 'crawling' | 'complete' | 'partial' | 'failed';
 
-export interface GameRow { id: string; root_uri: string; created_at: number; frozen: number; status: 'active' | 'hidden' | 'deleted' }
+export interface GameRow { id: string; root_uri: string; root_hash: string; created_at: number; frozen: number; status: 'active' | 'hidden' | 'deleted'; last_checked_at: number }
 export interface VersionRow {
   game_id: string; n: number; captured_at: number; node_count: number; max_depth: number;
   status: 'complete' | 'partial'; partial_reason: string | null; missing_count: number; root_quote_count: number;
@@ -37,15 +37,41 @@ export interface NewNode {
   createdAt: string; parentId: number | null; depth: number; quoteCount: number; state?: NodeState;
 }
 
-const SCHEMA_VERSION = 1;
+export type ReportReason = 'personal_info' | 'harassment' | 'label' | 'wrong' | 'removal' | 'other';
+export interface ReportRow { id: number; game_id: string; node_id: number | null; reason: ReportReason; note: string; created_at: number; status: 'open' | 'resolved' | 'dismissed'; resolved_at: number | null }
+
+const SCHEMA_VERSION = 2;
+// Added in schema version 2; also part of a fresh database.
+const SCHEMA_V2_TABLES = `
+CREATE TABLE report (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id TEXT NOT NULL,
+  node_id INTEGER,
+  reason TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  resolved_at INTEGER
+);
+CREATE INDEX report_status ON report (status, id);
+CREATE TABLE admin_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  action TEXT NOT NULL,
+  target TEXT NOT NULL
+);`;
+
 const SCHEMA = `
 CREATE TABLE game (
   id TEXT PRIMARY KEY,
   root_uri TEXT NOT NULL UNIQUE,
+  root_hash TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   frozen INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'active'
+  status TEXT NOT NULL DEFAULT 'active',
+  last_checked_at INTEGER NOT NULL DEFAULT 0
 );
+CREATE UNIQUE INDEX game_root_hash ON game (root_hash);
 CREATE TABLE version (
   game_id TEXT NOT NULL REFERENCES game(id),
   n INTEGER NOT NULL,
@@ -105,6 +131,7 @@ CREATE TABLE crawl_job (
 );
 CREATE INDEX job_state ON crawl_job (state, id);
 CREATE INDEX job_game ON crawl_job (game_id, id);
+${SCHEMA_V2_TABLES}
 `;
 
 /** One-way hash used to recognize a post again after its address has been wiped. */
@@ -139,6 +166,17 @@ export class GamesDb {
     if (v === 0) {
       this.db.exec(SCHEMA);
       this.db.pragma(`user_version = ${SCHEMA_VERSION}`);
+    } else if (v === 1) {
+      this.db.transaction(() => {
+        this.db.exec('ALTER TABLE game ADD COLUMN root_hash TEXT');
+        this.db.exec('ALTER TABLE game ADD COLUMN last_checked_at INTEGER NOT NULL DEFAULT 0');
+        for (const g of this.db.prepare('SELECT id, root_uri FROM game').all() as Array<{ id: string; root_uri: string }>) {
+          this.db.prepare('UPDATE game SET root_hash = ? WHERE id = ?').run(uriHash(g.root_uri), g.id);
+        }
+        this.db.exec('CREATE UNIQUE INDEX game_root_hash ON game (root_hash)');
+        this.db.exec(SCHEMA_V2_TABLES);
+        this.db.pragma(`user_version = ${SCHEMA_VERSION}`);
+      })();
     } else if (v > SCHEMA_VERSION) {
       throw new Error(`games database is newer (v${v}) than this server understands (v${SCHEMA_VERSION})`);
     }
@@ -152,7 +190,7 @@ export class GamesDb {
     for (let attempt = 0; ; attempt++) {
       const id = newSlug();
       try {
-        this.db.prepare('INSERT INTO game (id, root_uri, created_at) VALUES (?, ?, ?)').run(id, rootUri, this.now());
+        this.db.prepare('INSERT INTO game (id, root_uri, root_hash, created_at) VALUES (?, ?, ?, ?)').run(id, rootUri, uriHash(rootUri), this.now());
         return this.getGame(id)!;
       } catch (e) {
         if (attempt < 5 && /UNIQUE.*game\.id|PRIMARY KEY/.test(String(e))) continue;
@@ -161,7 +199,7 @@ export class GamesDb {
     }
   }
   getGame(id: string): GameRow | undefined { return this.db.prepare('SELECT * FROM game WHERE id = ?').get(id) as GameRow | undefined; }
-  getGameByRoot(rootUri: string): GameRow | undefined { return this.db.prepare('SELECT * FROM game WHERE root_uri = ?').get(rootUri) as GameRow | undefined; }
+  getGameByRoot(rootUri: string): GameRow | undefined { return this.db.prepare('SELECT * FROM game WHERE root_hash = ?').get(uriHash(rootUri)) as GameRow | undefined; }
   setFrozen(id: string, frozen: boolean): void { this.db.prepare('UPDATE game SET frozen = ? WHERE id = ?').run(frozen ? 1 : 0, id); }
   setGameStatus(id: string, status: GameRow['status']): void { this.db.prepare('UPDATE game SET status = ? WHERE id = ?').run(status, id); }
   gamesCreatedSince(ms: number): number { return (this.db.prepare('SELECT COUNT(*) c FROM game WHERE created_at >= ?').get(ms) as { c: number }).c; }
@@ -281,6 +319,69 @@ export class GamesDb {
     return this.db.prepare("SELECT * FROM node WHERE game_id != ? AND state = 'live' AND uri IS NOT NULL ORDER BY id LIMIT 1").get(gameId) as NodeRow | undefined;
   }
 
+  // ---- checking and sweeping
+  markChecked(gameId: string): void { this.db.prepare('UPDATE game SET last_checked_at = ? WHERE id = ?').run(this.now(), gameId); }
+  /** Active games not checked for deleted posts since `olderThanMs`, with no job in flight. */
+  dueForSweep(olderThanMs: number, limit: number): GameRow[] {
+    return this.db.prepare(
+      `SELECT g.* FROM game g WHERE g.status = 'active' AND g.last_checked_at < ?
+          AND NOT EXISTS (SELECT 1 FROM crawl_job j WHERE j.game_id = g.id AND j.state IN ('queued','crawling'))
+          AND EXISTS (SELECT 1 FROM version v WHERE v.game_id = g.id)
+        ORDER BY g.last_checked_at ASC LIMIT ?`).all(olderThanMs, limit) as GameRow[];
+  }
+
+  // ---- reports (no reporter identity is ever stored)
+  addReport(gameId: string, nodeId: number | null, reason: ReportReason, note: string): number {
+    const r = this.db.prepare('INSERT INTO report (game_id, node_id, reason, note, created_at) VALUES (?, ?, ?, ?, ?)').run(gameId, nodeId, reason, note, this.now());
+    return Number(r.lastInsertRowid);
+  }
+  listReports(status: 'open' | 'resolved' | 'dismissed' | 'all', limit = 200): ReportRow[] {
+    return (status === 'all'
+      ? this.db.prepare('SELECT * FROM report ORDER BY id DESC LIMIT ?').all(limit)
+      : this.db.prepare('SELECT * FROM report WHERE status = ? ORDER BY id DESC LIMIT ?').all(status, limit)) as ReportRow[];
+  }
+  getReport(id: number): ReportRow | undefined { return this.db.prepare('SELECT * FROM report WHERE id = ?').get(id) as ReportRow | undefined; }
+  setReportStatus(id: number, status: 'open' | 'resolved' | 'dismissed'): boolean {
+    return this.db.prepare('UPDATE report SET status = ?, resolved_at = ? WHERE id = ?').run(status, status === 'open' ? null : this.now(), id).changes > 0;
+  }
+  /** Drops resolved and dismissed reports older than `beforeMs`. */
+  purgeReports(beforeMs: number): number {
+    return this.db.prepare("DELETE FROM report WHERE status != 'open' AND resolved_at IS NOT NULL AND resolved_at < ?").run(beforeMs).changes;
+  }
+  openReportCount(): number { return (this.db.prepare("SELECT COUNT(*) c FROM report WHERE status = 'open'").get() as { c: number }).c; }
+
+  // ---- moderation actions (used by the admin tools)
+  /** Wipes every stored post by this account, in one game or in all of them. Returns how many. */
+  tombstoneByDid(did: string, scope: string): number {
+    const where = scope === 'all' ? '' : ' AND game_id = ?';
+    const args: Array<string> = scope === 'all' ? [did] : [did, scope];
+    return this.db.prepare(
+      `UPDATE node SET state = 'removed_by_author', uri = NULL, did = NULL, handle = NULL, display_name = NULL, text = NULL, created_at = NULL,
+         exhausted = 1, cursor = '', missing_checks = 0, last_missing_at = 0 WHERE state = 'live' AND did = ?${where}`).run(...args).changes;
+  }
+  gamesWithAccount(did: string): Array<{ game_id: string; posts: number }> {
+    return this.db.prepare("SELECT game_id, COUNT(*) posts FROM node WHERE did = ? AND state = 'live' GROUP BY game_id").all(did) as Array<{ game_id: string; posts: number }>;
+  }
+  /** Removes every version and post of a game but keeps a hash of its root, so it cannot be quietly recreated. */
+  deleteGameContents(gameId: string): void {
+    this.tx(() => {
+      this.db.prepare('DELETE FROM node WHERE game_id = ?').run(gameId);
+      this.db.prepare('DELETE FROM version WHERE game_id = ?').run(gameId);
+      this.db.prepare("DELETE FROM crawl_job WHERE game_id = ? AND state IN ('queued','crawling')").run(gameId);
+      this.db.prepare("UPDATE report SET node_id = NULL WHERE game_id = ?").run(gameId);
+      this.db.prepare("UPDATE game SET status = 'deleted', root_uri = ?, frozen = 0 WHERE id = ?").run('deleted:' + gameId, gameId);
+    });
+  }
+  logAdmin(action: string, target: string): void { this.db.prepare('INSERT INTO admin_log (at, action, target) VALUES (?, ?, ?)').run(this.now(), action, target); }
+  recentAdminLog(limit = 50): Array<{ at: number; action: string; target: string }> {
+    return this.db.prepare('SELECT at, action, target FROM admin_log ORDER BY id DESC LIMIT ?').all(limit) as Array<{ at: number; action: string; target: string }>;
+  }
+  gameSummary(gameId: string): { nodes: number; live: number; tombstones: number; versions: number } {
+    const n = this.db.prepare("SELECT COUNT(*) c, COALESCE(SUM(state = 'live'), 0) l FROM node WHERE game_id = ?").get(gameId) as { c: number; l: number };
+    const v = this.db.prepare('SELECT COUNT(*) c FROM version WHERE game_id = ?').get(gameId) as { c: number };
+    return { nodes: n.c, live: n.l, tombstones: n.c - n.l, versions: v.c };
+  }
+
   // ---- suppression
   isSuppressed(did: string, gameId: string): boolean {
     return !!this.db.prepare("SELECT 1 FROM suppression WHERE did = ? AND (scope = 'all' OR scope = ?)").get(did, gameId);
@@ -302,10 +403,11 @@ export class GamesDb {
     return this.db.prepare('SELECT * FROM crawl_job WHERE game_id = ? ORDER BY id DESC LIMIT 1').get(gameId) as JobRow | undefined;
   }
   nextQueuedJob(): JobRow | undefined { return this.db.prepare("SELECT * FROM crawl_job WHERE state = 'queued' ORDER BY id LIMIT 1").get() as JobRow | undefined; }
-  listQueued(): JobRow[] { return this.db.prepare("SELECT * FROM crawl_job WHERE state = 'queued' ORDER BY id").all() as JobRow[]; }
+  /** Queued jobs: creations and refreshes (someone is waiting) before background re-checks, oldest first within each. */
+  listQueued(): JobRow[] { return this.db.prepare("SELECT * FROM crawl_job WHERE state = 'queued' ORDER BY (kind = 'recheck') ASC, id ASC").all() as JobRow[]; }
   setJobQueued(id: number): void { this.db.prepare("UPDATE crawl_job SET state = 'queued' WHERE id = ?").run(id); }
-  queuedCount(): number { return (this.db.prepare("SELECT COUNT(*) c FROM crawl_job WHERE state = 'queued'").get() as { c: number }).c; }
-  queuedAhead(jobId: number): number { return (this.db.prepare("SELECT COUNT(*) c FROM crawl_job WHERE state = 'queued' AND id < ?").get(jobId) as { c: number }).c; }
+  queuedCount(): number { return (this.db.prepare("SELECT COUNT(*) c FROM crawl_job WHERE state = 'queued' AND kind != 'recheck'").get() as { c: number }).c; }
+  queuedAhead(jobId: number): number { return (this.db.prepare("SELECT COUNT(*) c FROM crawl_job WHERE state = 'queued' AND kind != 'recheck' AND id < ?").get(jobId) as { c: number }).c; }
   markJobStarted(id: number): void { this.db.prepare("UPDATE crawl_job SET state = 'crawling', started_at = COALESCE(started_at, ?) WHERE id = ?").run(this.now(), id); }
   addJobProgress(id: number, requests: number, nodesAdded: number): void {
     this.db.prepare('UPDATE crawl_job SET requests = requests + ?, nodes_added = nodes_added + ? WHERE id = ?').run(requests, nodesAdded, id);

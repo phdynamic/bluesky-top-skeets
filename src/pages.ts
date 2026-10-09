@@ -35,3 +35,11 @@ export function renderTracerPage(o: TracerPageOptions): string {
   }
   return template().replace('<body>', `<body ${attrs.join(' ')}>`);
 }
+
+const escapeHtml = (t: string) => t.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+
+/** The "how saved games work" page, with the takedown address written in (escaped). */
+export function renderAboutPage(takedownContact: string): string {
+  const file = path.join(__dirname, '..', 'public', 'g-about.html');
+  return fs.readFileSync(file, 'utf8').split('{{TAKEDOWN_CONTACT}}').join(escapeHtml(takedownContact));
+}

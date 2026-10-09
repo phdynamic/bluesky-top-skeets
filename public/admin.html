@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Admin</title>
+<script src="/kiosk-theme-init.js"></script>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/kiosk.css" />
+<style>
+h1,h2,h3,p,ul{margin:0}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 80px}
+.card{background:var(--surface);border:3px solid var(--line);border-radius:16px;box-shadow:4px 4px 0 var(--shadow-c);padding:14px 16px;margin:14px 0}
+.card h2{font-size:18px;font-weight:800;margin-bottom:6px}
+input,select,textarea{font:inherit;font-size:15px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:10px 12px;min-height:44px;max-width:100%}
+input[type=password],input[type=text]{width:100%}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.k-btn{min-height:44px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 4px}
+.pill{display:inline-block;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;border:2px solid var(--navy);border-radius:999px;padding:4px 9px;background:var(--yellow);color:var(--navy)}
+.pill.r{background:var(--coral);color:var(--navy)}
+.meta{font:400 12px var(--mono);color:var(--ink2);margin:4px 0}
+.quote{border-left:6px solid var(--coral);background:var(--surface2);border-radius:8px;padding:8px 10px;margin:8px 0;white-space:pre-wrap;word-wrap:break-word;font-size:14.5px}
+.err{margin-top:10px;padding:10px 12px;border:2px solid #b91c1c;border-radius:12px;background:#fff1f0;color:#8f1111;font-weight:700}
+.ok{margin-top:10px;font-weight:700}
+.empty{color:var(--ink2);font-style:italic;padding:12px 0}
+[hidden]{display:none!important}
+.kv{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}
+.kv span b{font-weight:800}
+</style>
+</head>
+<body data-mode="saved">
+<div class="k-top">
+  <a class="k-btn" href="/">&larr; Professor Kiosk</a>
+  <div class="right"><span class="pill" id="openCount" hidden></span><button class="k-btn" id="signOut" type="button" hidden>Sign out</button><button class="k-btn night" id="themeToggle" type="button">🌙 Night mode</button></div>
+</div>
+<main class="wrap">
+  <h1 style="font-size:30px;font-weight:800">Admin</h1>
+  <section class="card" id="login">
+    <h2>Sign in</h2>
+    <label for="secret" class="meta">Admin secret</label>
+    <input id="secret" type="password" autocomplete="off" spellcheck="false" />
+    <div class="row"><button class="k-btn primary" id="signIn" type="button">Sign in</button></div>
+    <div class="err" id="loginErr" hidden></div>
+  </section>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button class="k-btn on" data-tab="reports" role="tab" aria-pressed="true">Reports</button>
+      <button class="k-btn" data-tab="lookup" role="tab" aria-pressed="false">Look up</button>
+      <button class="k-btn" data-tab="log" role="tab" aria-pressed="false">Log</button>
+    </div>
+    <div class="ok" id="msg" role="status" aria-live="polite"></div>
+
+    <section id="tab-reports">
+      <div class="row"><label for="rstatus" class="meta">Show</label><select id="rstatus"><option value="open">Open</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option><option value="all">All</option></select><button class="k-btn" id="rreload" type="button">Reload</button></div>
+      <div id="reports"></div>
+    </section>
+
+    <section id="tab-lookup" hidden>
+      <div class="card">
+        <h2>Find a game or an account</h2>
+        <p class="meta">A game id, a post link, or an account (@handle or did:...). An account shows every game it appears in.</p>
+        <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="game id, post link or @handle" />
+        <div class="row"><button class="k-btn primary" id="find" type="button">Find</button></div>
+      </div>
+      <div id="found"></div>
+      <div class="card">
+        <h2>Keep an account out</h2>
+        <p class="meta">Wipes what is stored for the account now and stops it being stored again.</p>
+        <input id="acct" type="text" autocomplete="off" spellcheck="false" placeholder="@handle or did:..." />
+        <div class="row"><label for="scope" class="meta">Scope</label><input id="scope" type="text" value="all" aria-describedby="scopeHelp" style="max-width:220px" /><span class="meta" id="scopeHelp">"all" or a game id</span></div>
+        <div class="row"><button class="k-btn coral" id="suppress" type="button">Keep out and wipe</button></div>
+      </div>
+    </section>
+
+    <section id="tab-log" hidden><div id="log"></div></section>
+  </div>
+</main>
+<script src="/kiosk-theme-toggle.js"></script>
+<script src="/admin.js"></script>
+</body>
+</html>

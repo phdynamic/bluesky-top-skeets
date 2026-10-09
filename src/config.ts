@@ -35,6 +35,11 @@ export const config = {
     maxCreatesPerIpPerHour: intEnv('GAMES_MAX_CREATES_PER_IP_PER_HOUR', 3, 1),
     maxCreatesPerDay: intEnv('GAMES_MAX_CREATES_PER_DAY', 100, 1),
     maxQueued: intEnv('GAMES_MAX_QUEUED', 20, 1),
+    sweepDays: numEnv('GAMES_SWEEP_DAYS', 7, 0.001),
+    reportRetentionDays: numEnv('GAMES_REPORT_RETENTION_DAYS', 30, 0),
+    recheckCooldownMinutes: numEnv('GAMES_RECHECK_COOLDOWN_MINUTES', 60, 0),
+    // Admin tools are off unless a secret is set. Keep it long and random, and only in the environment.
+    adminSecret: process.env.ADMIN_SECRET ?? '',
   },
   // Where takedown and removal requests go (shown on the policy page for saved games).
   takedownContact: process.env.TAKEDOWN_CONTACT ?? 'phdynamic@icloud.com',
