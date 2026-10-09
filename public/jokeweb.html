@@ -72,8 +72,9 @@ details.pr summary { cursor: pointer; font-weight: 800; min-height: 32px; displa
 .webtools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
 .webtools .sp { flex: 1; }
 .webtools .k-btn { min-height: 44px; padding: 8px 14px; font-size: 14px; }
-.frame { background: var(--paper); border: 3px solid var(--rink); border-radius: 16px; overflow: auto; max-height: 85vh; min-height: 260px; position: relative; -webkit-overflow-scrolling: touch; }
-.frame svg { display: block; }
+.frame { display: flex; background: var(--paper); border: 3px solid var(--rink); border-radius: 16px; overflow: auto; max-height: 85vh; min-height: 260px; position: relative; -webkit-overflow-scrolling: touch; }
+.frame svg { display: block; flex: none; margin: auto; }
+.frame .empty { flex: 1; }
 .web text { font-family: 'Caveat', 'Comic Sans MS', cursive; font-weight: 700; fill: #1d1b4f; text-anchor: middle; pointer-events: none; user-select: none; }
 .web .edge { fill: none; stroke-linecap: round; }
 .web .nd { cursor: pointer; outline: none; }
@@ -315,7 +316,7 @@ function edgePoint(c, b, tx, ty, pad) {   // where the line from a node centre t
   return { x: c.x + dx * Math.min(k, 0.9), y: c.y + dy * Math.min(k, 0.9) };
 }
 function buildScene() {
-  var auto = autoLayout(), items = [], nodes = [], P = {}, B = {}, minX = 0, maxX = 0, minY = 0, maxY = 0;
+  var auto = autoLayout(), items = [], nodes = [], P = {}, B = {}, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   S.nodes.forEach(function (n) {
     var d = depthOf(n), b = box(n, d), a = auto[n.id];
     P[n.id] = { x: n.x !== null ? n.x : a.x, y: n.y !== null ? n.y : a.y };
@@ -339,13 +340,15 @@ function buildScene() {
   var rootShape = wobbleEllipse(P[0].x, P[0].y, rb.rx, rb.ry, 3);
   S.nodes.forEach(function (n) { nodes.push({ id: n.id, x: P[n.id].x, y: P[n.id].y, b: B[n.id] }); });
   var pad = 36;
-  return { items: items, rootShape: rootShape, nodes: nodes, box: { x: minX - pad, y: minY - pad, w: maxX - minX + 2 * pad, h: maxY - minY + 2 * pad } };
+  var cx0 = P[0].x, cy0 = P[0].y, hx = Math.max(cx0 - minX, maxX - cx0) + pad, hy = Math.max(cy0 - minY, maxY - cy0) + pad;
+  // the visible area is symmetric around the subject, so the subject is always in the middle of the board
+  return { items: items, rootShape: rootShape, nodes: nodes, box: { x: cx0 - hx, y: cy0 - hy, w: 2 * hx, h: 2 * hy, hx: hx, hy: hy, cx: cx0, cy: cy0, minX: minX - pad, maxX: maxX + pad, minY: minY - pad, maxY: maxY + pad } };
 }
 
 // ---------- drawing on screen ----------
 var NS = 'http://www.w3.org/2000/svg';
 function se(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
-var zoom = 1, userZoomed = false, vb = { x: 0, y: 0, w: 1000, h: 600 };
+var zoom = 1, userZoomed = false, holdView = null, vb = { x: 0, y: 0, w: 1000, h: 600 };   // holdView: half-extents kept after a drag, so the board never snaps
 function renderWeb() {
   var frame = $('frame'), has = !!S.nodes[0].t;
   frame.textContent = '';
@@ -354,7 +357,12 @@ function renderWeb() {
     em.querySelector('b').textContent = 'Your web grows here'; frame.appendChild(em);
     return;
   }
-  var sc = buildScene(); vb = drag && drag.moved ? drag.vb : sc.box;   // while dragging the view holds still
+  var sc = buildScene(), bx = sc.box;
+  if (holdView) {   // keep the centre and size the board had, growing only as far as needed
+    holdView.hx = Math.max(holdView.hx, holdView.cx - bx.minX, bx.maxX - holdView.cx); holdView.hy = Math.max(holdView.hy, holdView.cy - bx.minY, bx.maxY - holdView.cy);
+    vb = { x: holdView.cx - holdView.hx, y: holdView.cy - holdView.hy, w: 2 * holdView.hx, h: 2 * holdView.hy };
+  }
+  else vb = { x: bx.x, y: bx.y, w: bx.w, h: bx.h };
   var svg = se('svg', { class: 'web', viewBox: vb.x.toFixed(0) + ' ' + vb.y.toFixed(0) + ' ' + vb.w.toFixed(0) + ' ' + vb.h.toFixed(0), role: 'group', 'aria-label': 'Joke-web with ' + S.nodes.length + ' bubbles' });
   sc.items.forEach(function (it) { se('path', { class: 'edge', d: it.d, 'stroke-width': it.w, stroke: it.c }, svg); });
   var dimRoot = S.mode === 'guided' && S.step === 3;
@@ -378,16 +386,24 @@ function renderWeb() {
 }
 function sizeSvg() {
   var svg = $('frame').querySelector('svg'); if (!svg) return;
-  if (!userZoomed && !(drag && drag.moved)) zoom = Math.max(0.08, Math.min(1.1, ($('frame').clientWidth - 6) / vb.w, (frameMaxH() - 6) / vb.h));
+  if (!userZoomed && !holdView) zoom = Math.max(0.08, Math.min(1.1, ($('frame').clientWidth - 6) / vb.w, (frameMaxH() - 6) / vb.h));
   svg.setAttribute('width', Math.round(vb.w * zoom)); svg.setAttribute('height', Math.round(vb.h * zoom));
+  if (!holdView) centerScroll();
 }
-$('zoomIn').onclick = function () { userZoomed = true; zoom = Math.min(3, zoom * 1.25); sizeSvg(); };
-$('zoomOut').onclick = function () { userZoomed = true; zoom = Math.max(0.15, zoom / 1.25); sizeSvg(); };
-$('fit').onclick = function () { userZoomed = false; renderWeb(); };
-window.addEventListener('resize', function () { if (!userZoomed) renderWeb(); });
+function centerScroll() { var f = $('frame'); f.scrollLeft = Math.max(0, (f.scrollWidth - f.clientWidth) / 2); f.scrollTop = Math.max(0, (f.scrollHeight - f.clientHeight) / 2); }
+$('zoomIn').onclick = function () { userZoomed = true; zoom = Math.min(3, zoom * 1.25); sizeSvg(); centerScroll(); };
+$('zoomOut').onclick = function () { userZoomed = true; zoom = Math.max(0.15, zoom / 1.25); sizeSvg(); centerScroll(); };
+$('fit').onclick = function () { userZoomed = false; clearHold(); renderWeb(); };
+window.addEventListener('resize', function () { if (!userZoomed) { clearHold(); renderWeb(); } });
 
 // select / drag
 var drag = null;
+function startHold() {   // keep the board's centre, size and frame height as they are, so nothing moves or rescales while editing positions
+  if (holdView) return; var f = $('frame'); f.style.height = f.getBoundingClientRect().height + 'px';
+  holdView = { hx: vb.w / 2, hy: vb.h / 2, cx: vb.x + vb.w / 2, cy: vb.y + vb.h / 2 };
+}
+function clearHold() { holdView = null; $('frame').style.height = ''; }
+function rootCentre() { var e = $('frame').querySelector('svg'); if (!e) return null; var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
 function svgPoint(svg, ev) { var pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; var m = svg.getScreenCTM(); return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 }; }
 $('frame').addEventListener('pointerdown', function (ev) {
   var g = ev.target.closest && ev.target.closest('.nd'); if (!g) return;
@@ -398,17 +414,20 @@ $('frame').addEventListener('pointerdown', function (ev) {
 window.addEventListener('pointermove', function (ev) {
   if (!drag || S.mode !== 'free') return;
   if (!drag.moved && Math.abs(ev.clientX - drag.sx) + Math.abs(ev.clientY - drag.sy) < 5) return;
-  drag.moved = true; ev.preventDefault();
+  if (!drag.moved) { drag.moved = true; startHold(); }
+  ev.preventDefault();
   var svg = $('frame').querySelector('svg'), p = svgPoint(svg, ev), n = byId(drag.id);
   n.x = Math.round(p.x + drag.dx); n.y = Math.round(p.y + drag.dy);
-  var keep = { l: $('frame').scrollLeft, t: $('frame').scrollTop };
-  renderWeb(); $('frame').scrollLeft = keep.l; $('frame').scrollTop = keep.t;
+  var fr = $('frame'), keep = { l: fr.scrollLeft, t: fr.scrollTop }, before = rootCentre();
+  renderWeb(); fr.scrollLeft = keep.l; fr.scrollTop = keep.t;
+  var after = rootCentre();   // the board grew around its centre: scroll by the difference so nothing on screen moves
+  if (before && after) { fr.scrollLeft += after.x - before.x; fr.scrollTop += after.y - before.y; }
 });
 window.addEventListener('pointercancel', function () { drag = null; });
 window.addEventListener('pointerup', function () {
   if (!drag) return;
   var d = drag; drag = null;
-  if (d.moved) { save(); renderWeb(); return; }
+  if (d.moved) { save(); return; }
   select(d.id);
 });
 $('frame').addEventListener('keydown', function (ev) {
@@ -419,6 +438,7 @@ $('frame').addEventListener('keydown', function (ev) {
   if ((dx || dy) && S.mode === 'free') {
     ev.preventDefault();
     var cur = buildScene().nodes.filter(function (x) { return x.id === id; })[0], n = byId(id);
+    startHold();
     n.x = Math.round(cur.x + dx); n.y = Math.round(cur.y + dy);
     renderWeb(); save();
     var again = $('frame').querySelector('.nd[data-id="' + id + '"]'); if (again) again.focus();
@@ -465,7 +485,7 @@ function renderControls() {
       h('button', { type: 'button', id: 'mode-guided', 'aria-pressed': String(guided), text: 'Guided', on: { click: function () { S.mode = 'guided'; render(); save(); } } }),
       h('button', { type: 'button', id: 'mode-free', 'aria-pressed': String(!guided), text: 'Free board', on: { click: function () { S.mode = 'free'; render(); save(); } } })),
     h('div', { class: 'tools' },
-      h('button', { class: 'k-btn', type: 'button', id: 'tidy', text: 'Tidy up', title: 'Put every bubble back in its automatic place', on: { click: function () { S.nodes.forEach(function (n) { n.x = null; n.y = null; }); render(); save(); } } }), ' ',
+      h('button', { class: 'k-btn', type: 'button', id: 'tidy', text: 'Tidy up', title: 'Put every bubble back in its automatic place', on: { click: function () { S.nodes.forEach(function (n) { n.x = null; n.y = null; }); clearHold(); render(); save(); } } }), ' ',
       h('button', { class: 'k-btn' + (confirmReset ? ' coral' : ''), type: 'button', id: 'reset', text: confirmReset ? 'Really start over?' : 'Start over', on: { click: startOver } }))));
   if (guided) renderGuided(c); else renderFree(c);
   renderIdeas(c);
@@ -473,7 +493,7 @@ function renderControls() {
 }
 function startOver() {
   if (!confirmReset) { confirmReset = true; clearTimeout(resetTimer); resetTimer = setTimeout(function () { confirmReset = false; renderControls(); }, 4000); renderControls(); return; }
-  clearTimeout(resetTimer); confirmReset = false; S = fresh(); userZoomed = false; render(); save();
+  clearTimeout(resetTimer); confirmReset = false; S = fresh(); userZoomed = false; clearHold(); render(); save();
   $('draft').value = ''; updateDraft();
 }
 function renderGuided(c) {

@@ -151,6 +151,48 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
       await q.page.close();
     }
   }
+  // H. centred subject; dragging to the edge never clips or snaps
+  {
+    const { page } = await mk(browser, { init: bigWeb(), vp: { width: 1280, height: 900 } }); await page.goto(BASE);
+    const centred = async pg => pg.evaluate(() => { const f = document.getElementById('frame').getBoundingClientRect(), r = document.querySelector('#frame .nd[data-id="0"]').getBoundingClientRect(); return { dx: (r.left + r.width / 2) - (f.left + f.width / 2), dy: (r.top + r.height / 2) - (f.top + f.height / 2) }; });
+    const c0 = await centred(page);
+    ok('H1 desktop: the subject is in the middle of the board', Math.abs(c0.dx) < 3, JSON.stringify(c0));
+    const lop = { mode: 'guided', step: 3, sel: 1, nextId: 8, draft: '', nodes: [{ id: 0, t: 'Cheese', p: null, x: null, y: null, jokes: [] }, ...[1, 2, 3].map(i => ({ id: i, t: 'Branch ' + i, p: 0, x: 400 + i * 60, y: -80 + i * 70, jokes: [] })), ...[4, 5, 6, 7].map(i => ({ id: i, t: 'Child ' + i, p: 1, x: 700 + i * 40, y: 100 * (i - 5), jokes: [] }))] };
+    const { page: lp } = await mk(browser, { init: lop, vp: { width: 1280, height: 900 } }); await lp.goto(BASE);
+    const c1 = await centred(lp);
+    ok('H2 a lopsided web still has the subject in the middle', Math.abs(c1.dx) < 3 && Math.abs(c1.dy) < 3, JSON.stringify(c1));
+    await lp.close();
+    const { page: ph } = await mk(browser, { init: bigWeb(), vp: { width: 390, height: 800 } }); await ph.goto(BASE);
+    const c2 = await centred(ph);
+    ok('H3 phone: the subject is in the middle too', Math.abs(c2.dx) < 3, JSON.stringify(c2));
+    await ph.close();
+    // drag
+    await page.click('#mode-free');
+    const snap = () => page.evaluate(() => { const f = document.getElementById('frame'), s = f.querySelector('svg'), ids = [...f.querySelectorAll('.nd')], o = ids[10].getBoundingClientRect(), t = ids[2].getBoundingClientRect(), sr = s.getBoundingClientRect(), vbw = s.viewBox.baseVal.width; return { ox: o.left, oy: o.top, tx: t.left, ty: t.top, tr: t.right, tb: t.bottom, sl: sr.left, sr: sr.right, st: sr.top, sb: sr.bottom, scale: sr.width / vbw, sw: sr.width }; });
+    await page.locator('#frame .nd').nth(2).scrollIntoViewIfNeeded();
+    const s0 = await snap(); const fb = await page.locator('#frame').boundingBox();
+    await page.mouse.move(s0.tx + 20, s0.ty + 8); await page.mouse.down();
+    const targets = [[fb.x + fb.width - 12, s0.ty + 8], [fb.x + fb.width - 12, fb.y + fb.height - 14], [fb.x + 14, fb.y + fb.height - 14]];
+    let clipped = 0, shifted = 0, scaleChanged = 0;
+    for (const [x, y] of targets) {
+      await page.mouse.move(x, y, { steps: 12 });
+      const m = await snap();
+      if (m.tx < m.sl - 1 || m.tr > m.sr + 1 || m.ty < m.st - 1 || m.tb > m.sb + 1) clipped++;
+      if (Math.abs(m.scale - s0.scale) > 0.001) scaleChanged++;
+      if (Math.abs((m.ox - m.sl) - (s0.ox - s0.sl) - 0) > 1000) shifted++;
+    }
+    await page.mouse.up();
+    const s1 = await snap();
+    ok('H4 while dragging toward every edge the bubble is never clipped', clipped === 0, 'clipped samples: ' + clipped);
+    ok('H5 the board does not rescale during or after the drag', scaleChanged === 0 && Math.abs(s1.scale - s0.scale) < 0.001, JSON.stringify([s0.scale, s1.scale]));
+    ok('H6 an untouched bubble has not moved on screen', Math.abs(s1.ox - s0.ox) < 2 && Math.abs(s1.oy - s0.oy) < 2, JSON.stringify([[s0.ox, s0.oy], [s1.ox, s1.oy]]));
+    const c3 = await centred(page);
+    ok('H7 the subject stays centred after the drag', Math.abs(c3.dx) < 3 && Math.abs(c3.dy) < 3, JSON.stringify(c3));
+    await page.click('#fit');
+    const fit = await page.evaluate(() => { const f = document.getElementById('frame'), s = f.querySelector('svg'); return { sc: f.scrollWidth - f.clientWidth, sw: s.getBoundingClientRect().width, fw: f.clientWidth }; });
+    ok('H8 Fit brings the whole board back into view', fit.sc <= 1 && fit.sw <= fit.fw, JSON.stringify(fit));
+    await page.close();
+  }
   ok('F1 no requests beyond this site and the shared footer avatar lookup', third.length === 0, third.join(' '));
   console.log(out.join('\n')); console.log('JS errors:', errors.length ? errors.join('|') : 'none');
   await browser.close();
