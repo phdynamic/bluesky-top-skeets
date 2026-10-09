@@ -2,9 +2,6 @@ import express from 'express';
 import path from 'path';
 import { config } from './config';
 import { clientIp, hashIp } from './clientip';
-import { startGames } from './games';
-import { renderTracerPage, renderAboutPage } from './pages';
-import { SAVED_CSP, LIVE_CSP } from './csp';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
@@ -82,9 +79,6 @@ app.use(wellKnownRouter);
 
 // Feed skeleton (public, no auth required)
 app.use(feedSkeletonRouter);
-
-// Saved quote-post games: built but off unless GAMES_ENABLED=true (then it mounts /api/games and starts a worker).
-const games = startGames(app);
 
 // POST /api/register — authenticate as user and publish feed
 app.post('/api/register', rateLimitMiddleware, async (req, res) => {
@@ -340,29 +334,9 @@ app.get('/feeds', (_req, res) => {
 });
 app.get('/tracer', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.set('Content-Security-Policy', LIVE_CSP);
-  if (!config.gamesEnabled) { res.sendFile(path.join(__dirname, '..', 'public', 'tracer.html')); return; }
-  res.type('html').send(renderTracerPage({ mode: 'live', gamesEnabled: true, sizeCap: config.games.sizeCap }));
+  res.sendFile(path.join(__dirname, '..', 'public', 'tracer.html'));
 });
 
-// Saved games open in the same Tracer page, in saved mode. Every /g/ address gets the page (the page
-// itself says "This game isn't available." for anything unknown, hidden or deleted, so the address
-// reveals nothing). Only when the feature is on.
-if (config.gamesEnabled) {
-  const quietHeaders = { 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' };
-  // The explanation and takedown page (before /g/:id so "about" is never read as a game id).
-  app.get('/g/about', (_req, res) => { res.set(quietHeaders).type('html').send(renderAboutPage(config.takedownContact, !!games?.signinEnabled, config.games.wipeSpacingHours)); });
-  // The admin page exists only when an admin secret is set.
-  if (config.games.adminSecret) {
-    app.get('/admin', (_req, res) => { res.set({ ...quietHeaders, 'Cache-Control': 'no-store' }); res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')); });
-  }
-  // Sign in to remove your own posts, or to control a game you started (the page says if sign-in is not set up).
-  app.get('/g/account', (_req, res) => { res.set({ ...quietHeaders, 'Cache-Control': 'no-store' }); res.sendFile(path.join(__dirname, '..', 'public', 'g-account.html')); });
-  app.get(['/g/:id', '/g/:id/v/:n'], (req, res) => {
-    res.set({ 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
-    res.type('html').send(renderTracerPage({ mode: 'saved', gameId: req.params.id, version: req.params.n ? parseInt(req.params.n, 10) : undefined, signin: !!games?.signinEnabled }));
-  });
-}
 app.get('/receipt', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'receipt.html'));
@@ -385,8 +359,7 @@ const server = app.listen(config.port, () => {
 process.on('SIGTERM', () => {
   console.log('[shutdown] SIGTERM received — stopping scheduler and closing server');
   stopScheduler();
-  const closeAll = () => server.close(() => process.exit(0));
-  if (games) games.stop().then(closeAll, closeAll); else closeAll();
+  server.close(() => process.exit(0));
   // Force exit if keep-alive connections linger past Railway's grace period
   setTimeout(() => process.exit(0), 10_000).unref();
 });

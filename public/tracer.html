@@ -9,7 +9,15 @@
 <link rel="preload" href="/fonts/dm-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/dm-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/fonts/fonts.css">
-<script src="/kiosk-theme-init.js"></script>
+<script>
+  // Apply the theme before first paint to avoid a light flash
+  (function() {
+    var saved = null;
+    try { saved = localStorage.getItem('theme'); } catch (e) {}
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+</script>
 <link rel="stylesheet" href="/kiosk.css" />
 <style>
 :root{--hero:var(--teal);--accent:var(--navy);--hit:#fff1a8;--ind:22px;--card:var(--surface);--text:var(--ink);--text2:var(--ink2);--text3:var(--ink2);
@@ -97,34 +105,6 @@ mark{background:var(--hit);color:inherit;border-radius:3px;padding:0 2px}
 .vid{position:relative;display:block;max-width:520px;border-radius:12px;overflow:hidden;text-decoration:none;border:2px solid var(--line)}
 .vid img{width:100%;max-height:340px;object-fit:cover;display:block;background:var(--surface2)}
 .vid::after{content:"\25B6  Watch on Bluesky";position:absolute;left:10px;bottom:10px;background:var(--navy);color:#fff;font-weight:700;font-size:13px;padding:4px 12px;border-radius:999px}
-/* live and saved modes share one page */
-body[data-mode="saved"] .live-only{display:none!important}
-body:not([data-mode="saved"]) .saved-only{display:none!important}
-.snap-line{font-weight:700;font-size:16px}
-.snap-warn{margin-top:8px;padding:8px 12px;border:2px dashed var(--line);border-radius:10px;background:var(--tint-yellow);font-size:14px;font-weight:600}
-.snap-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
-.snap-row label{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
-.snap-row select{font:inherit;font-size:13px;border:2px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);padding:7px 12px;max-width:100%}
-.snap-note{font-size:13px;color:var(--ink2);font-weight:500}
-#snapStatus{font-size:16px}
-.save-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
-#saveDlg .db p{margin:0 0 10px}
-#saveDlg .chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-#saveDlg .errbox{margin:10px 0 0}
-#savebar small{display:block;color:var(--ink2);margin-top:2px}
-.snap-links{margin-top:12px;font-size:14px}
-.linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer;color:inherit;min-height:24px}
-.reasons{border:2px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px}
-.reasons legend{font-weight:800;padding:0 6px}
-.reasons label{display:flex;gap:10px;align-items:center;min-height:44px;font-weight:600;cursor:pointer}
-#reportDlg .db{max-height:80vh}
-.reasons input{width:20px;height:20px;accent-color:var(--navy)}
-#reportNote{width:100%;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;padding:10px;margin:4px 0 8px}
-.ok{font-weight:700}
-/* tombstone: a post that is gone, kept in place so its replies stay attached */
-.card.tomb{background:var(--surface2);border-style:dashed;box-shadow:none}
-.card.tomb .handle{font-weight:600;font-style:italic;color:var(--ink2)}
-.av.tombav{background:var(--surface);color:var(--ink2)}
 /* compact */
 .caret{display:none}
 body.compact .caret{display:inline}
@@ -191,20 +171,15 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
 
 <header class="k-hero">
   <div class="k-wrap" style="padding-bottom:64px">
-    <div class="live-only">
+    <div>
       <span class="k-tag navy">Level 1 · Tool 02</span>
       <h1>Quote Post Game Tracer</h1>
       <p>Paste a link to the post that started a quote post game and watch every quote of it unfold as a browsable tree.</p>
     </div>
-    <div class="saved-only">
-      <span class="k-tag navy">Level 1 · Tool 02 · Saved copy</span>
-      <h1>Saved game</h1>
-      <p>A saved copy of a quote post game, as it looked when it was captured. Browse it, fold it, search it, trace any quote back to the original.</p>
-    </div>
   </div>
 </header>
 
-<div class="tpanel live-only">
+<div class="tpanel">
   <div class="tform-card">
     <label class="fl" for="postInput">Post link</label>
     <form class="tform" id="form">
@@ -213,27 +188,6 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
     </form>
     <p class="hint"><b>Public posts only.</b> Only quotes visible to logged-out Bluesky viewers can be traced. Want an example? <a href="/tracer?post=https%3A%2F%2Fbsky.app%2Fprofile%2Fprofessorkiosk.wtf%2Fpost%2F3mx6fzdyx3k2s">Try this quote post game</a>.</p>
     <div class="errbox" id="error" hidden></div>
-  </div>
-</div>
-
-<div class="tpanel saved-only">
-  <div class="tform-card" id="snapCard">
-    <div id="snapLoading" aria-live="polite"><b id="snapStatus">Loading…</b><div class="pbar" id="snapBar" hidden><i id="snapFill"></i></div></div>
-    <div id="snapReady" hidden>
-      <p class="snap-line" id="snapLine"></p>
-      <p class="snap-warn" id="snapWarn" hidden></p>
-      <div class="snap-row">
-        <label for="versionPick">Version</label>
-        <select id="versionPick"></select>
-        <button class="k-btn" id="refreshBtn" type="button">Refresh</button>
-        <span class="snap-note" id="refreshNote" aria-live="polite"></span>
-      </div>
-      <p class="hint" id="snapLatest" hidden></p>
-      <p class="hint" id="snapExists" hidden></p>
-      <p class="snap-links"><button class="linkbtn" id="reportGame" type="button">Report this game</button> · <a href="/g/about">What is stored and how to get a post removed</a> · <span id="signinLinks" hidden><a href="/g/account#remove">Remove my posts</a> · <a href="/g/account#owner">I wrote the original post</a> · </span><button class="linkbtn" id="recheckBtn" type="button">Check for deleted posts</button> <span class="snap-note" id="recheckNote" aria-live="polite"></span></p>
-    </div>
-    <p class="hint"><b>What this stores.</b> A saved copy keeps the text, handle and post time of public quote posts, and which post each one quotes. It does not keep images, avatars, likes or anything private. If someone deletes a post, its text is wiped from every saved copy. We don't keep a record of who saved or refreshed a game. <a href="/tracer">Trace a post live &rarr;</a></p>
-    <div class="errbox" id="snapError" hidden role="alert"></div>
   </div>
 </div>
 
@@ -246,10 +200,6 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
 
   <section class="panel" id="capbar" hidden>
     <div class="row"><span id="captext"></span><button class="k-btn primary" id="moreBtn" type="button"></button></div>
-  </section>
-
-  <section class="panel live-only" id="savebar" hidden>
-    <div class="row"><span>Want to come back to this one? Save it and keep the link; you can refresh it later. <small id="saveCapNote"></small></span><button class="k-btn primary" id="saveBtn" type="button">Save this game</button></div>
   </section>
 
   <p class="note" id="hiddennote" hidden></p>
@@ -284,50 +234,416 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
   </div>
 </footer>
 
-<dialog id="reportDlg" class="saved-only" aria-labelledby="reportDt">
-  <div class="dh"><h2 id="reportDt">Report</h2><button class="k-btn" id="reportX" type="button" aria-label="Close">✕</button></div>
-  <div class="db">
-    <p id="reportAbout" class="hint"></p>
-    <fieldset class="reasons"><legend>What is wrong?</legend>
-      <label><input type="radio" name="reason" value="personal_info"> Contains personal information</label>
-      <label><input type="radio" name="reason" value="harassment"> Harassment</label>
-      <label><input type="radio" name="reason" value="label"> Content that should be labeled</label>
-      <label><input type="radio" name="reason" value="wrong"> Wrong or misleading</label>
-      <label><input type="radio" name="reason" value="removal"> Remove my post</label>
-      <label><input type="radio" name="reason" value="other"> Something else</label>
-    </fieldset>
-    <p class="hint" id="removalHint" hidden>If this is your post, you can also just delete it on Bluesky: it is wiped from saved copies once it has been missing on two separate checks. Otherwise tell us what to remove and we will do it by hand.</p>
-    <label for="reportNote" class="hint">A note (optional, up to 500 characters)</label>
-    <textarea id="reportNote" maxlength="500" rows="3"></textarea>
-    <p class="hint">A report stores the reason, your note, the game and the card. It never stores who you are.</p>
-    <p class="errbox" id="reportErr" hidden role="alert"></p>
-    <p class="ok" id="reportOk" hidden role="status"></p>
-    <div class="save-actions"><button class="k-btn" id="reportCancel" type="button">Close</button><button class="k-btn primary" id="reportSend" type="button">Send report</button></div>
-  </div>
-</dialog>
-
 <div class="trace" id="trace"></div>
 <div class="toast" id="toast" role="status"></div>
 <dialog id="dlg"><div class="dh"><h2 id="dt"></h2><button class="k-btn" id="dx" aria-label="Close">✕</button></div><div class="db" id="dbody"></div></dialog>
 
-<dialog id="saveDlg" class="live-only" aria-labelledby="saveDt">
-  <div class="dh"><h2 id="saveDt">Save this game?</h2><button class="k-btn" id="saveX" type="button" aria-label="Close">✕</button></div>
-  <div class="db">
-    <p><b>What this stores.</b> A saved copy keeps the text, handle and post time of public quote posts, and which post each one quotes. It does not keep images, avatars, likes or anything private. If someone deletes a post, its text is wiped from every saved copy. We don't keep a record of who saved or refreshed a game.</p>
-    <p class="hint" id="saveCap"></p>
-    <div id="saveChoice" hidden>
-      <p><b>This post quotes another post.</b> Start from this one, or from the original?</p>
-      <div class="chips"><button class="k-btn" id="saveThis" type="button">This post</button><button class="k-btn" id="saveOrig" type="button">The original</button></div>
-    </div>
-    <p class="errbox" id="saveMsg" hidden role="alert"></p>
-    <div class="save-actions"><button class="k-btn" id="saveCancel" type="button">Cancel</button><button class="k-btn primary" id="saveGo" type="button">Save this game</button></div>
-  </div>
-</dialog>
-
 <script src="/kiosk-links.js"></script>
-<script src="/tracer-viewer.js"></script>
-<script src="/tracer-live.js"></script>
-<script src="/tracer-saved.js"></script>
+<script>
+(function(){
+'use strict';
+// Test hooks only; production uses the defaults.
+const CFG=Object.assign({cap:2000,more:2000,ceiling:20000,gapMs:120,workers:4,timeoutMs:15000},window.TRACER_TEST||{});
+const API='https://public.api.bsky.app/xrpc/';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl=u=>typeof u==='string'&&/^https:\/\//.test(u)?u:'';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const fmtN=n=>Number(n).toLocaleString();
+const hue=h=>{let x=0;for(const c of String(h))x=(x*31+c.charCodeAt(0))%360;return x};
+const avThumb=u=>u.replace('/img/avatar/','/img/avatar_thumbnail/');
+
+// ---------- theme ----------
+function applyThemeIcon(){$('#themeToggle').textContent=document.documentElement.getAttribute('data-theme')==='dark'?'☀️ Day mode':'🌙 Night mode'}
+$('#themeToggle').onclick=()=>{
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  if(dark)document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme','dark');
+  try{localStorage.setItem('theme',dark?'light':'dark')}catch(e){}
+  applyThemeIcon();
+};
+applyThemeIcon();
+
+// ---------- state ----------
+let N=[];            // node 0 is the original post; the rest are quotes
+let run=null;        // current crawl
+let maxDep=0, lastRendered=0, tick=null, hashDone=false;
+const state={view:'exp',q:'',sort:'old',open:new Set()};
+let hits=null,desc=null;
+
+// ---------- input parsing ----------
+function parseInput(raw){ return KioskLinks.parsePostLink(raw) }  // shared with Skeet Receipt and the server (kiosk-links.js)
+
+// ---------- API (paced, retrying, honors rate limits) ----------
+function setNotice(t){const el=$('#pnotice');if(t){el.textContent=t;el.hidden=false}else el.hidden=true}
+async function api(method,params,r){
+  const qs=new URLSearchParams();
+  for(const [k,v] of Object.entries(params)){ if(Array.isArray(v))v.forEach(x=>qs.append(k,x)); else if(v!=null&&v!=='')qs.set(k,v) }
+  for(let attempt=1;;attempt++){
+    if(r.stopped) throw new Error('stopped');
+    const at=Math.max(Date.now(),r.nextStart,r.pauseUntil);
+    r.nextStart=at+CFG.gapMs;
+    const wait=at-Date.now(); if(wait>0) await sleep(wait);
+    if(r.stopped) throw new Error('stopped');
+    const ac=new AbortController(), t=setTimeout(()=>ac.abort(),CFG.timeoutMs);
+    const onAbort=()=>ac.abort(); r.ac.signal.addEventListener('abort',onAbort,{once:true});
+    r.requests++; r.inflightReq=(r.inflightReq||0)+1; r.maxInflight=Math.max(r.maxInflight||0,r.inflightReq);
+    let res;
+    try{ res=await fetch(API+method+'?'+qs.toString(),{signal:ac.signal}) }
+    catch(e){
+      if(r.stopped) throw new Error('stopped');
+      if(attempt<3){ await sleep(1000*attempt); continue }
+      throw new Error('Could not reach Bluesky. Check your connection and try again.');
+    } finally { clearTimeout(t); r.ac.signal.removeEventListener('abort',onAbort); r.inflightReq-- }
+    if(res.ok){ if(Date.now()>=r.pauseUntil) setNotice(''); return await res.json() }
+    if(res.status===429){
+      let sec=parseInt(res.headers.get('retry-after')||'',10);
+      if(!(sec>0)){ const reset=parseInt(res.headers.get('ratelimit-reset')||'',10); if(reset>0) sec=Math.ceil(reset-Date.now()/1000) }
+      const ms=Math.min(Math.max((sec>0?sec*1000:15000),5000),60000);
+      r.pauseUntil=Date.now()+ms; setNotice('Bluesky is rate-limiting requests — waiting '+Math.round(ms/1000)+'s, then continuing…');
+      if(attempt<5) continue;
+      throw new Error('Bluesky kept rate-limiting requests. Try again in a minute.');
+    }
+    if(res.status>=500&&attempt<3){ await sleep(1000*attempt); continue }
+    let msg=''; try{ msg=(await res.json()).message||'' }catch(e){}
+    const err=new Error(msg||('Bluesky returned an error ('+res.status+')')); err.status=res.status; throw err;
+  }
+}
+
+// ---------- nodes ----------
+function extractMedia(e){
+  if(e&&e.$type&&e.$type.indexOf('app.bsky.embed.recordWithMedia')===0) e=e.media;
+  if(!e||!e.$type) return null;
+  const t=e.$type;
+  if(t.indexOf('app.bsky.embed.images')===0&&Array.isArray(e.images)){
+    const im=e.images.filter(x=>safeUrl(x.thumb)).slice(0,4).map(x=>({thumb:x.thumb,full:safeUrl(x.fullsize)||x.thumb,alt:x.alt||''}));
+    return im.length?{type:'images',images:im}:null;
+  }
+  if(t.indexOf('app.bsky.embed.video')===0&&safeUrl(e.thumbnail)) return {type:'video',thumb:e.thumbnail,alt:e.alt||'Video'};
+  if(t.indexOf('app.bsky.embed.external')===0&&e.external){
+    const u=safeUrl(e.external.uri);
+    if(u&&(/^https:\/\/media\.tenor\.com\//.test(u)||/^https:\/\/[^/]*giphy\.com\//.test(u)||/\.gif(\?|$)/i.test(u))) return {type:'gif',uri:u,title:e.external.title||'GIF'};
+  }
+  return null;
+}
+function validDate(...c){ for(const x of c){ const t=Date.parse(x); if(!isNaN(t)) return new Date(t).toISOString() } return '' }
+const postLink=n=>'https://bsky.app/profile/'+encodeURIComponent(n.did||n.h)+'/post/'+encodeURIComponent(n.k);
+function addNode(r,p,parent){
+  const rec=p.record||{}, au=p.author||{}, i=N.length;
+  const n={i,p:parent?parent.i:-1,uri:p.uri,k:String(p.uri).split('/').pop(),h:au.handle||'unknown',did:au.did||'',dn:au.displayName||'',
+    av:safeUrl(au.avatar),d:validDate(rec.createdAt,p.indexedAt),t:typeof rec.text==='string'?rec.text:'',
+    qc:typeof p.quoteCount==='number'?p.quoteCount:-1,media:extractMedia(p.embed),kids:[],cnt:0,dep:parent?parent.dep+1:0,cursor:'',exhausted:false};
+  N.push(n); r.byUri.set(p.uri,n);
+  if(parent){ parent.kids.push(i); for(let a=parent;a;a=a.p>=0?N[a.p]:null) a.cnt++; r.people.add(n.did||n.h); if(n.dep>maxDep) maxDep=n.dep }
+  if(n.qc!==0) r.frontier.push(n);
+  return n;
+}
+const remainingOf=n=>n.qc<0?1:Math.max(0,n.qc-n.kids.length);
+function takeNext(r){
+  let best=-1,bv=-1;
+  for(let j=0;j<r.frontier.length;j++){ const v=remainingOf(r.frontier[j]); if(v>bv){bv=v;best=j} }
+  return best<0?null:r.frontier.splice(best,1)[0];
+}
+const requeue=(r,n)=>{ if(!n.exhausted&&!r.frontier.includes(n)) r.frontier.push(n) };
+function remainingTotal(r){ let s=0; r.frontier.forEach(n=>{s+=remainingOf(n)}); return s }
+
+// ---------- crawl ----------
+async function fetchPage(r,n){
+  const res=await api('app.bsky.feed.getQuotes',{uri:n.uri,limit:100,cursor:n.cursor||undefined},r);
+  if(r!==run) return;                              // a newer trace replaced this one
+  if(r.stopped){ requeue(r,n); return }            // stopped mid-request: keep for resume
+  const posts=Array.isArray(res.posts)?res.posts:[];
+  let truncated=false;
+  for(const p of posts){
+    if(!p||!p.uri||r.byUri.has(p.uri)) continue;
+    if(N.length-1>=r.cap){ truncated=true; break }
+    addNode(r,p,n);
+  }
+  if(truncated){ requeue(r,n); return }            // page re-fetched on resume; dedupe handles repeats
+  if(res.cursor&&posts.length&&res.cursor!==n.cursor){ n.cursor=res.cursor; requeue(r,n) }
+  else { n.exhausted=true; r.hidden+=Math.max(0,n.qc-n.kids.length) }
+}
+async function worker(r){
+  while(!r.stopped){
+    if(N.length-1>=r.cap){ r.capped=true; break }
+    const n=takeNext(r);
+    if(!n){ if(r.busy===0) break; await sleep(60); continue }
+    r.busy++;
+    try{ await fetchPage(r,n); r.errors=0 }
+    catch(e){
+      requeue(r,n);
+      if(!r.stopped){ r.errors++; if(r.errors>=6){ r.failed=e.message||'Request failed'; r.stopped=true; r.ac.abort() } }
+    } finally { r.busy-- }
+  }
+}
+async function startWorkers(r){
+  r.stopped=false; r.failed=''; r.capped=false; r.errors=0; r.ac=new AbortController(); r.done=false;
+  showRunning(); startTick();
+  await Promise.all(Array.from({length:CFG.workers},()=>worker(r)));
+  if(r!==run) return;
+  finalize(r);
+}
+function finalize(r){
+  stopTick(); setNotice('');
+  if(!r.stopped&&r.frontier.length===0) r.done=true;
+  if(!r.stopped&&N.length-1>=r.cap&&r.frontier.length) r.capped=true;
+  renderAll(); showEnd(r);
+}
+
+// ---------- progress / banners ----------
+function startTick(){ stopTick(); tick=setInterval(()=>{ updateProgress(); if(N.length-lastRendered>=500) renderAll() },300) }
+function stopTick(){ if(tick){clearInterval(tick);tick=null} }
+function updateProgress(){
+  if(!run) return;
+  const got=N.length-1, rem=remainingTotal(run);
+  const secs=Math.max(1,(Date.now()-run.started)/1000);
+  $('#ptext').textContent='Tracing… '+fmtN(got)+' quote'+(got===1?'':'s')+' found · '+maxDep+' level'+(maxDep===1?'':'s')+' deep · ~'+fmtN(Math.round(got/secs))+'/s';
+  $('#pfill').style.width=(got+rem>0?Math.min(100,Math.round(got/(got+rem)*100)):0)+'%';
+  renderStats();
+}
+function showRunning(){ $('#progress').hidden=false; $('#capbar').hidden=true; $('#stopBtn').disabled=false; updateProgress() }
+function showEnd(r){
+  $('#progress').hidden=true; $('#capbar').hidden=true;
+  const got=N.length-1, rem=remainingTotal(r);
+  const hid=$('#hiddennote'); hid.hidden=true;
+  const btn=$('#moreBtn');
+  if(r.failed){
+    $('#captext').textContent='Bluesky stopped responding ('+r.failed+'). Showing the '+fmtN(got)+' quotes found so far.';
+    btn.textContent='Resume'; btn.onclick=()=>resume(r); btn.hidden=false; $('#capbar').hidden=false; return;
+  }
+  if(r.stopped){
+    $('#captext').textContent='Stopped at '+fmtN(got)+' quotes'+(rem?' — at least '+fmtN(rem)+' more not loaded yet.':'.');
+    btn.textContent='Resume'; btn.onclick=()=>resume(r); btn.hidden=false; $('#capbar').hidden=false; return;
+  }
+  if(r.capped&&rem>0){
+    const atCeiling=r.cap>=CFG.ceiling;
+    $('#captext').textContent='Showing '+fmtN(got)+' quotes — at least '+fmtN(rem)+' more not loaded yet.'+(atCeiling?' That\'s the limit for one trace in the browser.':'');
+    btn.textContent='Load '+fmtN(CFG.more)+' more'; btn.onclick=()=>loadMore(r); btn.hidden=atCeiling; $('#capbar').hidden=false;
+  } else if(got===0){
+    $('#captext').textContent='No one has quoted this post yet.'; btn.hidden=true; $('#capbar').hidden=false;
+  }
+  if(r.hidden>0){ hid.textContent='At least '+fmtN(r.hidden)+' quote'+(r.hidden===1?'':'s')+' aren\'t visible to logged-out viewers (locked, blocked or deleted), so they — and anything quoted below them — aren\'t included.'; hid.hidden=false }
+}
+function loadMore(r){ r.cap=Math.min(r.cap+CFG.more,CFG.ceiling); startWorkers(r) }
+function resume(r){ if(r.cap<=N.length-1) r.cap=Math.min(N.length-1+CFG.more,CFG.ceiling); startWorkers(r) }
+$('#stopBtn').onclick=()=>{ if(!run) return; run.stopped=true; run.ac.abort(); $('#stopBtn').disabled=true };
+
+// ---------- start ----------
+function showError(msg){ const e=$('#error'); if(msg){e.textContent=msg;e.hidden=false}else e.hidden=true }
+function resetAll(){
+  if(run){ run.stopped=true; run.ac.abort() }
+  stopTick(); N=[]; maxDep=0; lastRendered=0; hashDone=false; hits=null; desc=null;
+  state.open=new Set(); state.q=''; $('#q').value='';
+  $('#result').hidden=true; $('#progress').hidden=true; $('#capbar').hidden=true; $('#hiddennote').hidden=true; setNotice('');
+  $('#tree').innerHTML=''; $('#rootcard').innerHTML=''; $('#trace').classList.remove('on');
+}
+async function startTrace(input){
+  showError('');
+  const parsed=parseInput(input);
+  if(!parsed){ showError('That doesn\'t look like a Bluesky post link. Try something like https://bsky.app/profile/someone.bsky.social/post/3abc…'); return }
+  resetAll();
+  const r=run={ac:new AbortController(),cap:CFG.cap,frontier:[],busy:0,stopped:false,capped:false,done:false,failed:'',errors:0,
+    started:Date.now(),nextStart:0,pauseUntil:0,byUri:new Map(),people:new Set(),requests:0,hidden:0};
+  $('#go').disabled=true;
+  $('#progress').hidden=false; $('#ptext').textContent='Looking up the post…'; $('#pfill').style.width='0'; $('#stopBtn').disabled=false;
+  try{
+    let did=parsed.id;
+    if(!did.startsWith('did:')){
+      try{ did=(await api('com.atproto.identity.resolveHandle',{handle:parsed.id},r)).did }
+      catch(e){ if(e.status===400||e.status===404) throw new Error('Couldn\'t find an account called '+parsed.id+'.'); throw e }
+    }
+    const got=await api('app.bsky.feed.getPosts',{uris:['at://'+did+'/app.bsky.feed.post/'+parsed.rkey]},r);
+    const post=(got.posts||[])[0];
+    if(!post){ throw new Error('Couldn\'t find that post. It may be deleted, or hidden from logged-out viewers.') }
+    if(r!==run) return;
+    addNode(r,post,null);
+    try{ const u=new URL(location.href); u.searchParams.set('post',input.trim()); history.replaceState(null,'',u) }catch(e){}
+    defaultOpen(1); $('#result').hidden=false; renderRoot(); renderAll();
+    if(N[0].qc===0){ finalize(r); return }
+    startWorkers(r);
+  }catch(e){
+    if(r!==run||r.stopped&&e.message==='stopped') return;
+    $('#progress').hidden=true; showError(e.message||'Something went wrong.');
+  } finally { $('#go').disabled=false }
+}
+$('#form').addEventListener('submit',e=>{ e.preventDefault(); startTrace($('#postInput').value) });
+
+// ---------- rendering ----------
+function renderRoot(){
+  const n=N[0]; if(!n) return;
+  $('#rootcard').innerHTML='<p class="rootlabel">Original post</p>'+cardHTML(n,true);
+}
+function defaultOpen(maxd){ state.open=new Set(); N.forEach(n=>{ if(n.kids.length&&n.dep<maxd) state.open.add(n.i) }) }
+function sortedKids(list){
+  const a=list.slice();
+  if(state.sort==='big') a.sort((x,y)=>N[y].cnt-N[x].cnt);
+  else a.sort((x,y)=>N[x].d<N[y].d?-1:N[x].d>N[y].d?1:x-y);
+  return a;
+}
+function computeSearch(){
+  hits=null;desc=null;
+  const q=state.q.trim().toLowerCase(); if(!q) return;
+  hits=new Set();desc=new Set();
+  N.forEach(n=>{ if(n.i>0&&(n.h.toLowerCase().includes(q)||n.dn.toLowerCase().includes(q)||n.t.toLowerCase().includes(q))) hits.add(n.i) });
+  hits.forEach(i=>{ let p=N[i].p; while(p>0){ if(desc.has(p)) break; desc.add(p); p=N[p].p } });
+}
+function hl(t){
+  let s=esc(t); const q=state.q.trim(); if(!q) return s;
+  const re=new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+  return s.replace(re,m=>'<mark>'+m+'</mark>');
+}
+const visible=i=>hits?(hits.has(i)||desc.has(i)):true;
+const dayOf=n=>N[0].d&&n.d?Math.max(1,Math.floor((Date.parse(n.d)-Date.parse(N[0].d))/864e5)+1):1;
+const fmtDate=d=>{ try{ return new Date(d).toLocaleString([],{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) }catch(e){ return d } };
+function mediaHTML(m,link){
+  if(!m) return '';
+  if(m.type==='images') return '<div class="imgs n'+m.images.length+'">'+m.images.map(x=>'<a href="'+esc(x.full)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+esc(x.thumb)+'" alt="'+esc(x.alt)+'"></a>').join('')+'</div>';
+  if(m.type==='video') return '<a class="vid" href="'+esc(link)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+esc(m.thumb)+'" alt="'+esc(m.alt)+'"></a>';
+  if(m.type==='gif') return '<div class="imgs n1"><img loading="lazy" src="'+esc(m.uri)+'" alt="'+esc(m.title)+'"></div>';
+  return '';
+}
+function cardHTML(n,isRoot){
+  const link=postLink(n);
+  const col='hsl('+hue(n.h)+' 55% 38%)';
+  const av=n.av?'<img class="avimg" loading="lazy" src="'+esc(avThumb(n.av))+'" alt="">':'';
+  const txt=n.t?'<p class="txt">'+(isRoot?esc(n.t):hl(n.t))+'</p>':'<p class="txt dim">(image or no text)</p>';
+  const media=n.media?'<div class="media">'+mediaHTML(n.media,link)+'</div>':'';
+  return '<div class="card" data-a="card" data-i="'+n.i+'">'
+    +'<div class="head"><span class="av" style="background-color:'+col+'">'+esc((n.h[0]||'?').toUpperCase())+av+'</span>'
+    +(isRoot?'':'<span class="caret"></span>')
+    +'<span class="handle">@'+(isRoot?esc(n.h):hl(n.h))+'</span>'
+    +(n.dn?'<span class="dn">'+esc(n.dn)+'</span>':'')
+    +'<span class="meta">'+(n.d?(isRoot?esc(fmtDate(n.d)):'Day '+dayOf(n)+' · '+esc(fmtDate(n.d))):'')+'</span>'
+    +(!isRoot&&n.cnt?'<span class="badge" title="'+n.cnt+' quotes below">+'+n.cnt+'</span>':'')+'</div>'
+    +txt+media
+    +'<div class="acts"><a class="open keep" href="'+esc(link)+'" target="_blank" rel="noopener" title="Open on Bluesky">↗ <span class="lbl">Open on Bluesky</span></a>'
+    +(isRoot?'':(n.kids.length?'<button data-a="tog">Fold</button>':'')+'<button data-a="trace">Lineage</button><button data-a="copy">Copy link</button>')
+    +'</div></div>';
+}
+function nodeHTML(i){
+  const n=N[i]; if(!visible(i)) return '';
+  const kids=sortedKids(n.kids).map(nodeHTML).join('');
+  const isOpen=desc?desc.has(i):state.open.has(i);
+  return '<div class="node'+(isOpen?'':' closed')+'" id="n'+i+'" data-i="'+i+'">'
+    +(kids?'<button class="line" data-a="tog" aria-label="Collapse or expand this thread"></button>':'')
+    +cardHTML(n,false)
+    +(kids?'<div class="kids">'+kids+'</div>':'')+'</div>';
+}
+function renderStats(){
+  if(!N.length) return;
+  const q=N.length-1;
+  const dates=N.slice(1).map(n=>Date.parse(n.d)).filter(t=>!isNaN(t));
+  const span=dates.length?Math.max(...dates)-Date.parse(N[0].d||dates[0]):0;
+  const spanTxt=span<36e5?'under an hour':span<864e5?Math.round(span/36e5)+' hours':Math.round(span/864e5)+' days';
+  const cells=[[q,'quotes'],[run?run.people.size:0,'contributors'],[maxDep,'levels deep'],[N[0].kids.length,'direct quotes'],[spanTxt,'time span']];
+  $('#stats').innerHTML=cells.map(([v,l])=>'<div class="stat"><b>'+(typeof v==='number'?fmtN(v):esc(v))+'</b><span>'+l+'</span></div>').join('');
+}
+function renderAll(){
+  if(!N.length) return;
+  computeSearch();
+  document.body.classList.toggle('compact',state.view==='cmp');
+  $('#vExp').setAttribute('aria-pressed',state.view==='exp');
+  $('#vCmp').setAttribute('aria-pressed',state.view==='cmp');
+  $('#depth').max=Math.max(1,maxDep+1);
+  const html=sortedKids(N[0].kids).map(nodeHTML).join('');
+  $('#tree').innerHTML=html||(hits?'<div class="empty">Nothing matches that search.</div>':'');
+  $('#count').textContent=hits?(hits.size+' match'+(hits.size===1?'':'es')):(fmtN(N.length-1)+' quotes in '+N[0].kids.length+' branches. Click a card in compact view, or a thread line, to fold it.');
+  lastRendered=N.length; renderStats();
+  if(!hashDone&&location.hash.length>1){ const k=location.hash.slice(1); const n=N.find(x=>x.i>0&&x.k===k); if(n){ hashDone=true; setTimeout(()=>goTo(n.i),50) } }
+}
+$('#tree').addEventListener('error',e=>{ if(e.target&&e.target.classList&&e.target.classList.contains('avimg')) e.target.remove() },true);
+
+// ---------- interactions ----------
+$('#tree').addEventListener('click',e=>{
+  const act=e.target.closest('[data-a]'); const nodeEl=e.target.closest('.node'); if(!nodeEl) return;
+  if(e.target.closest('a')) return;
+  const i=+nodeEl.dataset.i; const a=act&&act.dataset.a;
+  if(a==='tog'||(a==='card'&&state.view==='cmp')){
+    if(!N[i].kids.length) return;
+    nodeEl.classList.toggle('closed');
+    if(!hits) state.open[nodeEl.classList.contains('closed')?'delete':'add'](i);
+  } else if(a==='trace') showTrace(i);
+  else if(a==='copy'){ const l=location.href.split('#')[0]+'#'+N[i].k; (navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(()=>toast('Link copied'),()=>toast(l)) }
+});
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.x);toast.x=setTimeout(()=>t.classList.remove('on'),2200)}
+function path(i){const a=[];while(i>0){a.unshift(i);i=N[i].p}return a}
+function showTrace(i){
+  const el=$('#trace');
+  el.innerHTML='<b>Lineage:</b> <button data-g="orig">The original post</button>'+path(i).map(x=>' → <button data-g="'+x+'">@'+esc(N[x].h)+'</button>').join('')+'<button class="x" aria-label="Close lineage">✕</button>';
+  el.classList.add('on');
+}
+$('#trace').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.classList.contains('x')) return $('#trace').classList.remove('on');
+  if(b.dataset.g==='orig'){ window.scrollTo({top:0}); return }
+  goTo(+b.dataset.g);
+});
+function goTo(i){
+  if(state.q){ $('#q').value=''; state.q=''; renderAll() }
+  let p=N[i].p; while(p>0){ state.open.add(p); p=N[p].p }
+  let el=$('#n'+i);
+  if(!el||el.closest('.closed')){ renderAll(); el=$('#n'+i) }
+  if(!el) return;
+  let up=el.parentElement; while(up&&up.id!=='tree'){ if(up.classList.contains('node')) up.classList.remove('closed'); up=up.parentElement }
+  const c=el.querySelector('.card'); c.scrollIntoView({block:'center'}); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+}
+let qt; $('#q').addEventListener('input',e=>{clearTimeout(qt);qt=setTimeout(()=>{state.q=e.target.value;renderAll()},180)});
+$('#vExp').onclick=()=>{state.view='exp';renderAll()}; $('#vCmp').onclick=()=>{state.view='cmp';renderAll()};
+$('#exAll').onclick=()=>{state.open=new Set(N.filter(n=>n.kids.length).map(n=>n.i));$('#depth').value=maxDep+1;renderAll()};
+$('#coAll').onclick=()=>{state.open=new Set();$('#depth').value=0;renderAll()};
+$('#depth').oninput=e=>{defaultOpen(+e.target.value);renderAll()};
+$('#sort').onchange=e=>{state.sort=e.target.value;renderAll()};
+
+// dialogs
+const dlg=$('#dlg'); $('#dx').onclick=()=>dlg.close(); dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});
+function openDlg(title,html){$('#dt').textContent=title;$('#dbody').innerHTML=html;dlg.showModal()}
+const label=n=>esc((n.t||'').slice(0,40))||'(no text)';
+$('#deep').onclick=()=>{
+  if(N.length<2) return toast('Nothing to dive into yet');
+  const dn=N.reduce((a,b)=>b.dep>a.dep?b:a); const p=path(dn.i);
+  openDlg('The deepest dive','<p>'+p.length+' quote'+(p.length===1?'':'s')+' in a row, each one quoting the last.</p><ol class="lb chain">'+p.map((x,k)=>'<li style="--d:'+Math.min(k,12)+'"><button data-go="'+x+'">@'+esc(N[x].h)+'</button> <span class="meta">'+label(N[x])+'</span></li>').join('')+'</ol>');
+};
+function lbHTML(tab){
+  const q=N.slice(1);
+  if(tab==='threads'){const a=N[0].kids.map(i=>N[i]).sort((x,y)=>y.cnt-x.cnt).slice(0,12);
+    return '<ol class="lb">'+a.map(n=>'<li><button data-go="'+n.i+'">@'+esc(n.h)+'</button><span class="meta">'+label(n)+'</span><span class="n">'+(n.cnt+1)+'</span></li>').join('')+'</ol>'}
+  if(tab==='people'){const m={};q.forEach(n=>m[n.h]=(m[n.h]||0)+1);const a=Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,12);
+    return '<ol class="lb">'+a.map(([h,c])=>'<li><button data-q="'+esc(h)+'">@'+esc(h)+'</button><span class="n">'+c+' posts</span></li>').join('')+'</ol>'}
+  const ts=q.map(n=>Date.parse(n.d)).filter(t=>!isNaN(t)); if(!ts.length) return '<p class="empty">No dates available.</p>';
+  const lo=Math.min(...ts), hi=Math.max(...ts), span=hi-lo;
+  const unit=span<2*864e5?36e5:span>120*864e5?7*864e5:864e5;
+  const name=unit===36e5?'hour':unit===864e5?'day':'week';
+  const m=new Map(); ts.forEach(t=>{const b=Math.floor((t-lo)/unit); m.set(b,(m.get(b)||0)+1)});
+  const nb=Math.floor(span/unit)+1; const mx=Math.max(...m.values());
+  const bars=[]; for(let b=0;b<nb;b++){ const c=m.get(b)||0; const d=new Date(lo+b*unit);
+    const lab=unit===36e5?d.toLocaleTimeString([],{hour:'numeric'}):d.toLocaleDateString([],{month:'short',day:'numeric'});
+    bars.push('<div style="height:'+Math.max(c?4:1,c/mx*100)+'%" title="'+esc(lab)+'"><b>'+(c||'')+'</b><i>'+esc(lab)+'</i></div>') }
+  return '<p>Quotes per '+name+'.</p><div class="tl" style="margin-bottom:28px">'+bars.join('')+'</div>';
+}
+$('#lead').onclick=()=>{
+  if(N.length<2) return toast('Nothing to rank yet');
+  openDlg('Leaderboards','<div class="tabs">'+[['threads','Top threads'],['people','Top posters'],['time','Timeline']].map(([k,l],i)=>'<button class="k-btn" data-tab="'+k+'" aria-pressed="'+(i===0)+'">'+l+'</button>').join('')+'</div><div id="lbc">'+lbHTML('threads')+'</div>');
+};
+$('#dbody').addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab]');
+  if(t){document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-pressed',b===t));$('#lbc').innerHTML=lbHTML(t.dataset.tab);return}
+  const g=e.target.closest('[data-go]'); if(g){dlg.close();goTo(+g.dataset.go);return}
+  const q=e.target.closest('[data-q]'); if(q){dlg.close();$('#q').value=q.dataset.q;state.q=q.dataset.q;renderAll();scrollTo({top:$('.bar').offsetTop-4})}
+});
+document.addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){ if(e.key==='Escape') document.activeElement.blur(); return }
+  if($('#result').hidden) return;
+  if(e.key==='/'){e.preventDefault();$('#q').focus()}
+  else if(e.key==='e') $('#exAll').click(); else if(e.key==='c') $('#coAll').click();
+});
+
+// ---------- deep link ----------
+(function(){
+  let p=null; try{ p=new URLSearchParams(location.search).get('post') }catch(e){}
+  if(p){ $('#postInput').value=p; startTrace(p) }
+})();
+})();
+</script>
 <script src="/kiosk.js" defer></script>
 </body>
 </html>

@@ -10,7 +10,7 @@ const errors = [];
   async function mk(nodes, opts = {}, tracer = null, viewport = { width: 1000, height: 900 }) {
     const ctx = await browser.newContext({ viewport, colorScheme: 'light' });
     const page = await ctx.newPage();
-    page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (/Content Security Policy|Refused to/.test(m.text())) errors.push('CSP: ' + m.text().slice(0, 160)); });
+    page.on('pageerror', e => errors.push(e.message));
     if (tracer) await page.addInitScript(t => { window.TRACER_TEST = t }, tracer);
     const log = await install(page, nodes, opts);
     return { page, log, ctx };

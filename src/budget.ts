@@ -7,7 +7,7 @@
  *
  * The public AppView sends no rate-limit headers, so the limit can't be read; the budget learns it:
  *  - `ratePerSec` is the CEILING (requests per second). 0 means no pacing at all (the default until
- *    the limits have been measured with `npm run probe -- ... --ramp`), and then nothing adapts.
+ *    a limit has been chosen), and then nothing adapts.
  *  - It starts at `startRatePerSec` (default: the ceiling), HALVES on every penalty, and climbs back
  *    by `recoverStep` every `recoverMs` without one, never above the ceiling or below `minRatePerSec`.
  *  - A penalty also pauses every caller for `ms`, whoever hit the 429.
