@@ -334,6 +334,20 @@ const rc = page => page.locator('#receipt');
     ok('N7 the receipt shows the art with its indentation', lines[0] === '      /\\_/\\' && lines[1] === '     ( o.o )', JSON.stringify(lines.slice(0, 3)));
     await q.page.locator('.receipt-wrap').screenshot({ path: 'rc-spaces.png' });
   }
+
+  // O. space-based art is drawn proportionally and shrunk to fit
+  {
+    const real = ['big', '⊂_ヽ', '     ＼＼   long', '         ＼( ͡° ͜ʖ ͡°)', '              >    ⌒ヽ', '            /      へ＼', '         /        /    ＼＼𝔹𝕦𝕥𝕥𝕤', '         ﾚ    ノ         ヽ_つ', '        /    /', '     /    /|', '    (    (ヽ', '    |    |、＼', '    | 丿 ＼ ⌒)', '    | |        ) /', 'ノ )        Lﾉ', '(_／'].join('\n');
+    const rp = mkPost({ rkey: 'real', text: real });
+    const q = await mk(browser, { posts: { [rp.uri]: rp } }); await q.page.goto(BASE);
+    await R(q.page, 'https://bsky.app/profile/someone.example/post/real'); await q.page.locator('#receipt .name').waitFor(); await q.page.waitForTimeout(500);
+    const info = await q.page.evaluate(() => { const b = document.querySelector('.txtblock'); const ls = [...b.querySelectorAll('.tl')]; return { art: b.classList.contains('art'), n: ls.length, clipped: ls.filter(l => l.scrollWidth > l.clientWidth + 1).length, fam: getComputedStyle(b).fontFamily, w: b.getBoundingClientRect().width, rw: document.querySelector('.rbody').getBoundingClientRect().width }; });
+    ok('O1 art post uses the proportional layout, all 16 lines, none clipped', info.art && info.n === 16 && info.clipped === 0 && /DM Sans/.test(info.fam), JSON.stringify(info));
+    ok('O2 the art fits inside the receipt', info.w <= info.rw - 40 + 1, JSON.stringify(info));
+    await q.page.locator('.receipt-wrap').screenshot({ path: 'rc-art.png' });
+    await q.page.locator('#circText, [data-circle="text"], button:has-text("Post text")').first().click().catch(() => {});
+    ok('O3 normal posts are unaffected (no art class)', await (async () => { const q2 = await mk(browser, { posts }); await q2.page.goto(BASE); await R(q2.page, L1); await q2.page.locator('#receipt .name').waitFor(); return !(await q2.page.evaluate(() => document.querySelector('.txtblock').classList.contains('art'))); })());
+  }
   console.log(out.join('\n')); console.log('JS errors:', errors.length ? errors.join('|') : 'none');
   await browser.close();
 })();

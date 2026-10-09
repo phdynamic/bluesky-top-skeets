@@ -114,6 +114,7 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 .tl.who { font-weight: 500; }
 .txtblock { margin-top: 6px; position: relative; width: fit-content; max-width: 100%; }
 .txtblock.ring { margin: 16px 0 10px; }
+.txtblock.art { font-family: var(--font); }
 .txtblock .circ { left: -18px; right: -18px; top: -14px; bottom: -14px; width: calc(100% + 36px); height: calc(100% + 28px); }
 .line { display: flex; align-items: baseline; gap: 6px; }
 .dots { flex: 1; min-width: 12px; border-bottom: 2px dotted var(--rink); transform: translateY(-3px); }
@@ -415,13 +416,28 @@ function headerInfo(v) {
   var f = fitHeader(m.name || '@' + m.handle);
   return { text: f.text, size: f.size, sub: 'SKEET RECEIPT · KIOSK 04' };
 }
+// Posts that use spaces for layout (ASCII art) are drawn in a proportional font, like Bluesky draws them, and
+// shrunk to fit instead of re-wrapped, so a space is as wide as the author saw it and the lines stay aligned.
+var ART_W = 290, ART_FONT = '"DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
+function artLayout(text) {
+  if (!/(^|\n)[ \t]{2,}\S|\S {3,}\S/.test(text)) return null;
+  var lines = text.replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\t/g, '    ').replace(/\s+$/, ''); });
+  while (lines.length && !lines[lines.length - 1]) lines.pop();
+  measureCtx.font = '400 13px ' + ART_FONT;
+  var widest = Math.max.apply(null, lines.map(function (l) { return measureCtx.measureText(l).width; }));
+  var size = widest > ART_W ? Math.floor(13 * ART_W / widest * 2) / 2 : 13;
+  if (size < 8) return null;   // too wide even when small: fall back to wrapped monospace
+  return { lines: lines, size: size, lh: size >= 13 ? 19 : Math.max(12, Math.round(size * 1.46)), font: '400 ' + size + 'px ' + ART_FONT };
+}
 function view() {
   var m = state.model;
   var hideText = m.labeled || !state.showText || !m.text.trim();
   var hideHandle = m.labeled || !state.showHandle || !m.handle;
+  var art = hideText ? null : artLayout(m.text);
   return {
     handleLines: hideHandle ? [] : wrap('@' + m.handle, COLS, 2),
-    textLines: hideText ? [] : wrap(m.text, COLS, TEXT_LINES)
+    textLines: hideText ? [] : art ? art.lines : wrap(m.text, COLS, TEXT_LINES),
+    art: art
   };
 }
 
@@ -513,7 +529,7 @@ function renderReceipt() {
   if (v.handleLines.length || v.textLines.length) {
     html += '<hr class="rule">';
     html += v.handleLines.map(function (l) { return '<div class="tl who">' + esc(l) + '</div>'; }).join('');
-    if (v.textLines.length) html += '<div class="txtblock' + (state.circled.text ? ' ring' : '') + '">' + v.textLines.map(function (l) { return '<div class="tl">' + (esc(l) || ' ') + '</div>'; }).join('') +
+    if (v.textLines.length) html += '<div class="txtblock' + (v.art ? ' art' : '') + (state.circled.text ? ' ring' : '') + '"' + (v.art ? ' style="font-size:' + v.art.size + 'px;line-height:' + v.art.lh + 'px"' : '') + '>' + v.textLines.map(function (l) { return '<div class="tl">' + (esc(l) || ' ') + '</div>'; }).join('') +
       (state.circled.text ? '<svg class="circ" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="' + circlePath('text', true) + '"/></svg>' : '') + '</div>';
   }
   html += '<hr class="rule">';
@@ -573,8 +589,9 @@ function drawReceipt() {
     v.handleLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: '500 13px ' + MONO, text: l, o: { h: 19 } }); y += 19; });
     if (v.textLines.length) {
       y += state.circled.text ? 16 : 6; var ty = y;
-      v.textLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: '400 13px ' + MONO, text: l, o: { h: 19 } }); y += 19; });
-      if (state.circled.text) { ops.push({ t: 'tcircle', y: ty, lines: v.textLines, font: '400 13px ' + MONO }); y += 10; }
+      var tfont = v.art ? v.art.font : '400 13px ' + MONO, tlh = v.art ? v.art.lh : 19;
+      v.textLines.forEach(function (l) { ops.push({ t: 'text', y: y, font: tfont, text: l, o: { h: tlh } }); y += tlh; });
+      if (state.circled.text) { ops.push({ t: 'tcircle', y: ty, lines: v.textLines, font: tfont, lh: tlh }); y += 10; }
     }
   }
   rule();
@@ -645,7 +662,7 @@ function drawReceipt() {
       }
     } else if (op.t === 'tcircle') {
       g.font = op.font; g.textAlign = 'left';
-      var tw = Math.max.apply(null, op.lines.map(function (l) { return g.measureText(l).width; })), th = op.lines.length * 19;
+      var tw = Math.max.apply(null, op.lines.map(function (l) { return g.measureText(l).width; })), th = op.lines.length * op.lh;
       var tcx = L + tw / 2, tcy = op.y + th / 2, tbx = (tw / 2 + 18) * 0.96, tby = (th / 2 + 14) * 0.925;
       g.save(); g.strokeStyle = RED_INK; g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
       scribble(m.hash, 'text', true).forEach(function (p, i) { var px = tcx + p[0] * tbx, py = tcy + p[1] * tby; if (i) g.lineTo(px, py); else g.moveTo(px, py); });
@@ -812,7 +829,7 @@ $('note').addEventListener('input', function () {
   if (state.model) renderReceipt();
 });
 if (document.fonts && document.fonts.load) {      // re-measure the note and header once their fonts are ready
-  Promise.all([document.fonts.load(NOTE_FONT), document.fonts.load('800 22px "DM Sans"')]).then(function () { if (state.model) renderReceipt(); });
+  Promise.all([document.fonts.load(NOTE_FONT), document.fonts.load('800 22px "DM Sans"'), document.fonts.load('400 13px "DM Sans"')]).then(function () { if (state.model) renderReceipt(); });
 }
 $('receipt').addEventListener('animationend', function () { $('receipt').classList.remove('printing'); });
 
