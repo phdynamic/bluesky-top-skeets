@@ -172,6 +172,8 @@ const errors = [];
     const { page: ph } = await mk(buildTree(400, 11), {}, { gapMs: 1 }, { width: 390, height: 800 });
     await go(ph); await ph.waitForFunction(() => document.querySelectorAll('#tree .node').length >= 399, null, { timeout: 20000 });
     await ph.screenshot({ path: 'tr-phone.png' });
+    const hrefs = await ph.evaluate(() => [...document.querySelectorAll('#tree a[href*="bsky.app/profile"], #rootcard a[href*="bsky.app/profile"]')].map(a => a.href));
+    ok('J5 post links never contain an encoded DID (bsky.app crashes on it)', hrefs.length > 0 && hrefs.every(h => !/%3A/i.test(h)), hrefs[0]);
     ok('J4 phone width: no horizontal overflow', await ph.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
   }
   console.log(out.join('\n'));

@@ -326,7 +326,8 @@ function extractMedia(e){
   return null;
 }
 function validDate(...c){ for(const x of c){ const t=Date.parse(x); if(!isNaN(t)) return new Date(t).toISOString() } return '' }
-const postLink=n=>'https://bsky.app/profile/'+encodeURIComponent(n.did||n.h)+'/post/'+encodeURIComponent(n.k);
+// bsky.app crashes on an encoded DID (did%3Aplc%3A…), so use the handle, or the DID with its colons as they are
+const postLink=n=>'https://bsky.app/profile/'+(n.h&&n.h!=='unknown'&&n.h!=='handle.invalid'?encodeURIComponent(n.h):String(n.did||'').replace(/[^A-Za-z0-9:._-]/g,''))+'/post/'+encodeURIComponent(n.k);
 function addNode(r,p,parent){
   const rec=p.record||{}, au=p.author||{}, i=N.length;
   const n={i,p:parent?parent.i:-1,uri:p.uri,k:String(p.uri).split('/').pop(),h:au.handle||'unknown',did:au.did||'',dn:au.displayName||'',
