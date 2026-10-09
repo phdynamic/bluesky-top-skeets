@@ -7,6 +7,14 @@ function required(name: string): string {
   return val;
 }
 
+function numEnv(name: string, def: number, min: number): number {
+  const v = parseFloat(process.env[name] ?? '');
+  return Number.isFinite(v) && v >= min ? v : def;
+}
+function intEnv(name: string, def: number, min: number): number {
+  return Math.floor(numEnv(name, def, min));
+}
+
 export const config = {
   port: parseInt(process.env.PORT ?? '3000', 10),
   feedgenHostname: required('FEEDGEN_HOSTNAME'),
@@ -20,6 +28,14 @@ export const config = {
   trustedProxyHops: Math.max(0, parseInt(process.env.TRUSTED_PROXY_HOPS ?? '1', 10) || 0),
   // Saved quote-post games are built but switched off until this is "true".
   gamesEnabled: process.env.GAMES_ENABLED === 'true',
+  games: {
+    sizeCap: intEnv('GAMES_SIZE_CAP', 5000, 1),
+    refreshCooldownHours: numEnv('GAMES_REFRESH_COOLDOWN_HOURS', 6, 0),
+    crawlGapMs: intEnv('GAMES_CRAWL_GAP_MS', 250, 0),
+    maxCreatesPerIpPerHour: intEnv('GAMES_MAX_CREATES_PER_IP_PER_HOUR', 3, 1),
+    maxCreatesPerDay: intEnv('GAMES_MAX_CREATES_PER_DAY', 100, 1),
+    maxQueued: intEnv('GAMES_MAX_QUEUED', 20, 1),
+  },
   // Where takedown and removal requests go (shown on the policy page for saved games).
   takedownContact: process.env.TAKEDOWN_CONTACT ?? 'phdynamic@icloud.com',
   userAgent: 'ProfessorKiosk/1.0 (+https://professorkiosk.wtf; feed generator and quote tools)',

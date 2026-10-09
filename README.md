@@ -76,6 +76,18 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 - **Takedown contact.** `TAKEDOWN_CONTACT` (default `phdynamic@icloud.com`) is where removal and takedown requests are sent; it is shown on the policy page for saved games once those are built.
 - **Tests.** `npm test` builds and runs the unit tests in `test/` (link parsing, client address, request budget, probe). `npm run test:browser` runs the browser suites in `test/browser/` (Tracer, Tracer viewer, Skeet Receipt, Top Skeets form, footer) against a static copy of `public/`; it needs a Chromium (`CHROME_PATH` if it is not found automatically) and a dev install (`npm install --include=dev`).
 
+## Saved games (built, switched off)
+
+A server-side half of "save a quote post game" is built behind `GAMES_ENABLED` (off by default). With the flag off there are no `/api/games` routes, no database file, no worker, and the SQLite module is never loaded. There is no page for it yet (the Save button and the saved-game page are later stages).
+
+When on, it keeps a SQLite file at `${DATA_DIR}/games.sqlite` and runs one crawl at a time on the server (the browser's trace is never trusted). Settings are in `.env.example` (`GAMES_SIZE_CAP`, `GAMES_REFRESH_COOLDOWN_HOURS`, `GAMES_CRAWL_GAP_MS`, creation limits).
+
+- `POST /api/games {post, start?}` finds or creates a game (`queued`, `exists`, or `is_quote` when the post quotes another and `start` is not given).
+- `GET /api/games/:id/status`, `POST /api/games/:id/refresh` (cooldown enforced here), `GET /api/games/:id[/v/:n]/data.json` (the stored tree for the viewer, gzipped, with an ETag).
+- Posts never change, so a version is every node added at or before it and old versions stay fixed. A deleted, removed or label-hidden post is wiped (address, author, text, date) from every version but keeps its place so replies stay attached; only a one-way hash of the address is kept so a refresh cannot add it back. A post is wiped only after two misses at least a day apart, never from an empty batch alone, and never because Bluesky errored.
+- Unknown, hidden and deleted games all answer the same 404. Every response carries `X-Robots-Tag: noindex`.
+- Not built yet: the Save button and saved-game page, reports, the admin page, the weekly sweep, and sign-in removal.
+
 ---
 
 ## Prerequisites

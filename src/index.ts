@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { config } from './config';
 import { clientIp, hashIp } from './clientip';
+import { startGames } from './games';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
@@ -79,6 +80,9 @@ app.use(wellKnownRouter);
 
 // Feed skeleton (public, no auth required)
 app.use(feedSkeletonRouter);
+
+// Saved quote-post games: built but off unless GAMES_ENABLED=true (then it mounts /api/games and starts a worker).
+const games = startGames(app);
 
 // POST /api/register — authenticate as user and publish feed
 app.post('/api/register', rateLimitMiddleware, async (req, res) => {
@@ -357,7 +361,8 @@ const server = app.listen(config.port, () => {
 process.on('SIGTERM', () => {
   console.log('[shutdown] SIGTERM received — stopping scheduler and closing server');
   stopScheduler();
-  server.close(() => process.exit(0));
+  const closeAll = () => server.close(() => process.exit(0));
+  if (games) games.stop().then(closeAll, closeAll); else closeAll();
   // Force exit if keep-alive connections linger past Railway's grace period
   setTimeout(() => process.exit(0), 10_000).unref();
 });
