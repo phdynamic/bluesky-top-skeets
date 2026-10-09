@@ -120,3 +120,33 @@ test('policy page and admin page: only with the flag, the contact is escaped, th
     assert.strictEqual(ok.status, 200); assert.deepStrictEqual(Object.keys(await ok.json()).sort(), ['open', 'reports']);
   } finally { await on.stop(); }
 });
+
+test('sign in: off unless configured; with a loopback address it is on, the account page and saved-page links appear, and the policy text says so', async () => {
+  const none = boot({ GAMES_ENABLED: 'true' });
+  try {
+    await none.ready;
+    const api = await fetch(none.base + '/api/me'); assert.match(api.headers.get('content-type'), /html/, 'no sign-in routes unless configured');
+    assert.strictEqual((await fetch(none.base + '/oauth/client-metadata.json')).headers.get('content-type').includes('json'), false);
+    const saved = await (await fetch(none.base + '/g/abcdefghij')).text(); assert.ok(!/data-signin/.test(saved));
+    assert.match(await (await fetch(none.base + '/g/about')).text(), /not available on this site yet/);
+    const acct = await fetch(none.base + '/g/account'); assert.strictEqual(acct.status, 200); assert.match(acct.headers.get('content-security-policy'), /default-src 'none'/);
+  } finally { await none.stop(); }
+  const bad = boot({ GAMES_ENABLED: 'true', OAUTH_PUBLIC_URL: 'https://example.test' });   // public address but no key
+  try {
+    await bad.ready;
+    assert.match((await fetch(bad.base + '/api/me')).headers.get('content-type'), /html/, 'a bad setting leaves sign-in off, and the site still runs');
+  } finally { await bad.stop(); }
+  const on = boot({ GAMES_ENABLED: 'true', OAUTH_PUBLIC_URL: 'http://127.0.0.1:3000' });
+  try {
+    await on.ready;
+    const me = await fetch(on.base + '/api/me'); assert.deepStrictEqual(await me.json(), { signedIn: false });
+    const meta = await (await fetch(on.base + '/oauth/client-metadata.json')).json();
+    assert.match(meta.client_id, /^http:\/\/localhost\?redirect_uri=/); assert.strictEqual(meta.scope, 'atproto');
+    const saved = await (await fetch(on.base + '/g/abcdefghij')).text(); assert.match(saved, /data-signin="1"/);
+    const about = await (await fetch(on.base + '/g/about')).text(); assert.match(about, /href="\/g\/account"/); assert.ok(!/not available on this site yet/.test(about));
+    const page = await (await fetch(on.base + '/g/account')).text();
+    assert.match(page, /What this asks for/); assert.match(page, /atproto/); assert.ok(!/<script>(?!<)/.test(page.replace(/<script src=[^>]*><\/script>/g, '')), 'no inline scripts');
+    const start = await fetch(on.base + '/api/auth/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"handle":"nope nope"}' });
+    assert.strictEqual(start.status, 400);
+  } finally { await on.stop(); }
+});

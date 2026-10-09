@@ -3,7 +3,7 @@ import type express from 'express';
 import { config } from '../config';
 import { appviewBudget } from '../budget';
 
-export interface RunningGames { stop(): Promise<void> }
+export interface RunningGames { stop(): Promise<void>; signinEnabled: boolean }
 
 /**
  * Saved quote-post games. Everything here is off unless GAMES_ENABLED=true: with the flag unset this
@@ -22,6 +22,8 @@ export function startGames(app: express.Express): RunningGames | null {
   const { createGamesRouter } = require('./api') as typeof import('./api');
   const { createAdminRouter } = require('./admin') as typeof import('./admin');
   const { GamesSweeper } = require('./sweep') as typeof import('./sweep');
+  const { createAccountRouter } = require('./auth/routes') as typeof import('./auth/routes');
+  const { SessionStore } = require('./auth/sessions') as typeof import('./auth/sessions');
 
   const db = new GamesDb(path.join(config.dataDir, 'games.sqlite'));
   const client = (gapMs: number, maxAttempts: number, priority: 'user' | 'background' = 'user') => new AppViewClient({
@@ -53,6 +55,28 @@ export function startGames(app: express.Express): RunningGames | null {
     app.use('/api/admin', createAdminRouter({ db, secret: config.games.adminSecret, makeLookupClient, trustedProxyHops: config.trustedProxyHops }));
     console.log('[games] admin tools are ON at /admin');
   }
+  // Sign in with Bluesky: only when configured. A bad setting is reported once and the feature stays off.
+  let signinEnabled = false;
+  if (config.games.oauthPublicUrl) {
+    try {
+      const oauth = require('./auth/oauth') as typeof import('./auth/oauth');
+      const cfg = { publicUrl: config.games.oauthPublicUrl, privateKeyJwk: config.games.oauthPrivateKeyJwk || undefined };
+      oauth.checkOAuthConfig(cfg);
+      const ready = oauth.createOAuthProvider(cfg);
+      ready.catch(e => console.error('[games] sign-in could not start:', e instanceof Error ? e.message : String(e)));
+      const provider: import('./auth/provider').AuthProvider = {
+        start: async (h, s) => (await ready).start(h, s),
+        finish: async p => (await ready).finish(p),
+        clientMetadata: async () => (await ready).clientMetadata(),
+        jwks: async () => (await ready).jwks(),
+      };
+      app.use(createAccountRouter({ db, provider, sessions: new SessionStore(), publicUrl: cfg.publicUrl, trustedProxyHops: config.trustedProxyHops }));
+      signinEnabled = true;
+      console.log(`[games] sign in with Bluesky is ON (${cfg.publicUrl})`);
+    } catch (e) {
+      console.error('[games] sign in with Bluesky is OFF:', e instanceof Error ? e.message : String(e));
+    }
+  }
   const sweeper = new GamesSweeper({
     db, queue, sweepIntervalMs: config.games.sweepDays * 86_400_000, reportRetentionMs: config.games.reportRetentionDays * 86_400_000,
     log: msg => console.log(msg),
@@ -60,5 +84,5 @@ export function startGames(app: express.Express): RunningGames | null {
   queue.start();
   sweeper.start();
   console.log(`[games] saved games are ON (cap ${config.games.sizeCap} quotes, refresh every ${config.games.refreshCooldownHours} h)`);
-  return { stop: async () => { sweeper.stop(); await queue.stop(); db.close(); } };
+  return { signinEnabled, stop: async () => { sweeper.stop(); await queue.stop(); db.close(); } };
 }

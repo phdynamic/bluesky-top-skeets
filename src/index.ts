@@ -351,14 +351,16 @@ app.get('/tracer', (_req, res) => {
 if (config.gamesEnabled) {
   const quietHeaders = { 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' };
   // The explanation and takedown page (before /g/:id so "about" is never read as a game id).
-  app.get('/g/about', (_req, res) => { res.set(quietHeaders).type('html').send(renderAboutPage(config.takedownContact)); });
+  app.get('/g/about', (_req, res) => { res.set(quietHeaders).type('html').send(renderAboutPage(config.takedownContact, !!games?.signinEnabled)); });
   // The admin page exists only when an admin secret is set.
   if (config.games.adminSecret) {
     app.get('/admin', (_req, res) => { res.set({ ...quietHeaders, 'Cache-Control': 'no-store' }); res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')); });
   }
+  // Sign in to remove your own posts, or to control a game you started (the page says if sign-in is not set up).
+  app.get('/g/account', (_req, res) => { res.set({ ...quietHeaders, 'Cache-Control': 'no-store' }); res.sendFile(path.join(__dirname, '..', 'public', 'g-account.html')); });
   app.get(['/g/:id', '/g/:id/v/:n'], (req, res) => {
     res.set({ 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
-    res.type('html').send(renderTracerPage({ mode: 'saved', gameId: req.params.id, version: req.params.n ? parseInt(req.params.n, 10) : undefined }));
+    res.type('html').send(renderTracerPage({ mode: 'saved', gameId: req.params.id, version: req.params.n ? parseInt(req.params.n, 10) : undefined, signin: !!games?.signinEnabled }));
   });
 }
 app.get('/receipt', (_req, res) => {

@@ -80,6 +80,7 @@ function renderVersions(){
 }
 
 // ---------- report and re-check ----------
+if(document.body.dataset.signin==='1') $('#signinLinks').hidden=false;
 let currentVersion=null;
 const rdlg=$('#reportDlg');
 function openReport(pos){

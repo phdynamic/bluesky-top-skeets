@@ -57,6 +57,7 @@ h1,h2,h3,p,ul,ol{margin:0}
       <tr><td>The game and its versions (when each was captured, counts)</td><td>So links and versions work</td><td>The game is deleted</td></tr>
       <tr><td>A one-way scrambled form of each post's address, even after the post itself is wiped</td><td>So a refresh does not put a removed post back</td><td>The game is deleted</td></tr>
       <tr><td>The accounts of people who asked to be kept out (account ID only)</td><td>So refreshes never put them back</td><td>Indefinitely, because it protects them</td></tr>
+      <tr><td>If you sign in to remove your posts or manage a game you started: a short sign-in session (your account ID and an expiry), kept in the server's memory only. The temporary Bluesky access is discarded the moment your account is confirmed</td><td>So you can use the removal and owner tools</td><td>One hour, then gone</td></tr>
       <tr><td>Reports: the reason, your note, the game and the card (never who sent it)</td><td>So they can be acted on</td><td>Until resolved, then 30 days</td></tr>
     </tbody>
   </table>
@@ -72,7 +73,7 @@ h1,h2,h3,p,ul,ol{margin:0}
   <p>If someone deletes a post on Bluesky, its text is wiped from every version of every saved game. The card stays in place as "This post was deleted" so replies below it stay attached. This happens when a game is refreshed, when anyone presses "Check for deleted posts", and in a slow background check of every game roughly once a week. A post is only wiped after it has been missing on two checks at least a day apart, so a Bluesky hiccup cannot wipe anything by mistake.</p>
 
   <h2>Taking yourself out</h2>
-  <p>The simplest way is to delete the post on Bluesky; it will be wiped as described above. If you want a post or your whole presence removed without waiting, or you want to be kept out of future saved games, send a removal request using the <b>Report</b> link on any saved game (choose "Remove my post") or write to the address below. Removal requests are handled by hand: the account is wiped from the game, or from every game, and kept out of future ones. Signing in with Bluesky to do this yourself is planned but not available yet.</p>
+  <p>The simplest way is to delete the post on Bluesky; it will be wiped as described above. If you want a post or your whole presence removed without waiting, or you want to be kept out of future saved games, send a removal request using the <b>Report</b> link on any saved game (choose "Remove my post") or write to the address below. Removal requests are handled by hand: the account is wiped from the game, or from every game, and kept out of future ones. {{SIGNIN_SENTENCE}}</p>
 
   <h2>Reporting a game or a card</h2>
   <p>Every saved game has a <b>Report</b> link, and every card has a Report button. Reasons include personal information, harassment, content that should be labeled, wrong or misleading, and removal requests. A report stores only the reason, your note, the game and the card. It never stores who you are.</p>

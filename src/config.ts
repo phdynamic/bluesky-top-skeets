@@ -40,6 +40,9 @@ export const config = {
     recheckCooldownMinutes: numEnv('GAMES_RECHECK_COOLDOWN_MINUTES', 60, 0),
     // Admin tools are off unless a secret is set. Keep it long and random, and only in the environment.
     adminSecret: process.env.ADMIN_SECRET ?? '',
+    // Sign in with Bluesky (for removing your own posts and owner controls). Off unless OAUTH_PUBLIC_URL is set.
+    oauthPublicUrl: (process.env.OAUTH_PUBLIC_URL ?? '').trim().replace(/\/+$/, ''),
+    oauthPrivateKeyJwk: (process.env.OAUTH_PRIVATE_KEY_JWK ?? '').trim(),
   },
   // Where takedown and removal requests go (shown on the policy page for saved games).
   takedownContact: process.env.TAKEDOWN_CONTACT ?? 'phdynamic@icloud.com',

@@ -359,6 +359,11 @@ export class GamesDb {
       `UPDATE node SET state = 'removed_by_author', uri = NULL, did = NULL, handle = NULL, display_name = NULL, text = NULL, created_at = NULL,
          exhausted = 1, cursor = '', missing_checks = 0, last_missing_at = 0 WHERE state = 'live' AND did = ?${where}`).run(...args).changes;
   }
+  /** Active games whose original post was written by this account (read from the stored root address). */
+  gamesStartedBy(did: string): GameRow[] {
+    const prefix = `at://${did}/`;
+    return this.db.prepare("SELECT * FROM game WHERE status = 'active' AND substr(root_uri, 1, ?) = ? ORDER BY created_at DESC").all(prefix.length, prefix) as GameRow[];
+  }
   gamesWithAccount(did: string): Array<{ game_id: string; posts: number }> {
     return this.db.prepare("SELECT game_id, COUNT(*) posts FROM node WHERE did = ? AND state = 'live' GROUP BY game_id").all(did) as Array<{ game_id: string; posts: number }>;
   }
