@@ -20,7 +20,8 @@ Work through the steps in order. Each says what to do, why, and how to know it w
     npm test                  # server tests: should end with "fail 0"
     npm run test:browser      # needs Chrome; every line should start with "ok"
 
-If Chrome is not found, set `CHROME_PATH` to the Chrome program's location and run it again.
+If it says it can't find a browser, install Chrome, Brave or Edge, or run `npx playwright-core install chromium` and try again, or point `CHROME_PATH` at the browser program (the message shows the exact line to use for your system).
+This step is a safety net, not a launch requirement: the server tests are the important ones, and step 3 is the real check.
 
 ## 3. Try the whole thing on your own computer, with the real Bluesky
 

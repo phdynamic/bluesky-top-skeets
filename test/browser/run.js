@@ -6,7 +6,14 @@ const path = require('path');
 const http = require('http');
 const { CHROME } = require('./env');
 
-if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH to a Chrome/Chromium executable.'); process.exit(2); }
+if (!CHROME) {
+  console.error(`No Chrome, Brave, Edge or Chromium found. Either install one, or point CHROME_PATH at its program, for example:
+  macOS:    CHROME_PATH="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" npm run test:browser
+  Linux:    CHROME_PATH=/usr/bin/chromium npm run test:browser
+  Windows (PowerShell):  $env:CHROME_PATH="C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"; npm run test:browser
+Or let Playwright fetch one:  npx playwright-core install chromium   (then run the tests again)`);
+  process.exit(2);
+}
 const only = process.argv.slice(2);
 const SUITES = ['tracer', 'viewer', 'saved', 'account', 'receipt', 'feeds', 'footer'].filter(n => !only.length || only.includes(n));
 
