@@ -309,6 +309,31 @@ const rc = page => page.locator('#receipt');
     ok('M9 loop on a 300-char post stays on the receipt (no sideways scroll)', !(await q.page.evaluate(() => document.documentElement.scrollWidth > innerWidth)));
     await q.page.waitForTimeout(2200); await q.page.locator('.receipt-wrap').screenshot({ path: 'rc-textcircle-dom.png' });
   }
+
+  // N. leading spaces and spacing inside post text
+  {
+    const art = '      /\\_/\\\n     ( o.o )\n      > ^ <\n\n    four then a long sentence that has to wrap onto another line here\nplain  double  spaces\n' + ' '.repeat(40) + 'far';
+    const ap = mkPost({ rkey: 'art', text: art });
+    const q = await mk(browser, { posts: { [ap.uri]: ap } }); await q.page.goto(BASE);
+    const w = await q.page.evaluate(() => ({
+      a: window.__receipt.wrap('    indented line', 34, 300),
+      b: window.__receipt.wrap('a   b', 34, 300),
+      c: window.__receipt.wrap('    one two three four five six seven eight nine ten', 34, 300),
+      d: window.__receipt.wrap(' '.repeat(40) + 'far', 34, 300),
+      e: window.__receipt.wrap('plain text wraps as before when it is long enough to need two lines', 34, 300),
+      f: window.__receipt.wrap('x\n\n   \ny', 34, 300),
+    }));
+    ok('N1 leading spaces are kept', w.a.length === 1 && w.a[0] === '    indented line', JSON.stringify(w.a));
+    ok('N2 a run of spaces between words is kept', w.b[0] === 'a   b', JSON.stringify(w.b));
+    ok('N3 wrapped lines keep the indent and none starts with the break spaces', w.c.length > 1 && w.c.every(l => /^ {4}\S/.test(l)) && w.c.every(l => l.length <= 34), JSON.stringify(w.c));
+    ok('N4 a huge indent is capped and the text is not lost', w.d.length === 1 && w.d[0].endsWith('far') && w.d[0].length <= 34, JSON.stringify(w.d));
+    ok('N5 plain text wraps as before', w.e.every(l => !/^ | $/.test(l) && l.length <= 34) && w.e.join(' ') === 'plain text wraps as before when it is long enough to need two lines', JSON.stringify(w.e));
+    ok('N6 blank and space-only lines become empty lines', JSON.stringify(w.f) === JSON.stringify(['x', '', '', 'y']), JSON.stringify(w.f));
+    await R(q.page, 'https://bsky.app/profile/someone.example/post/art'); await q.page.locator('#receipt .name').waitFor();
+    const lines = await q.page.evaluate(() => [...document.querySelectorAll('.txtblock .tl')].map(l => l.textContent));
+    ok('N7 the receipt shows the art with its indentation', lines[0] === '      /\\_/\\' && lines[1] === '     ( o.o )', JSON.stringify(lines.slice(0, 3)));
+    await q.page.locator('.receipt-wrap').screenshot({ path: 'rc-spaces.png' });
+  }
   console.log(out.join('\n')); console.log('JS errors:', errors.length ? errors.join('|') : 'none');
   await browser.close();
 })();

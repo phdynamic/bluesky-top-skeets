@@ -357,23 +357,32 @@ function gw(g) {
     (cp >= 0x1f300 && cp <= 0x1faff) || (cp >= 0x20000 && cp <= 0x3fffd))) || g.length > 2 && /‍|️/.test(g) ? 2 : 1;
 }
 function wrap(text, cols, maxLines) {
-  var lines = [], cur = '', w = 0;
+  var lines = [];
   var paras = text.replace(/\r/g, '').split('\n');
   for (var p = 0; p < paras.length; p++) {
-    var words = paras[p].split(/\s+/).filter(Boolean);
-    if (!words.length) { if (p > 0 && p < paras.length) lines.push(''); continue; }
-    for (var i = 0; i < words.length; i++) {
-      var gs = graphemes(words[i]), ww = gs.reduce(function (a, g) { return a + gw(g); }, 0);
-      if (cur && w + 1 + ww <= cols) { cur += ' ' + words[i]; w += 1 + ww; continue; }
-      if (cur) { lines.push(cur); cur = ''; w = 0; }
-      if (ww <= cols) { cur = words[i]; w = ww; continue; }
+    var para = paras[p].replace(/\t/g, '    ');
+    var lead = para.match(/^\s*/)[0].length, rest = para.slice(lead);
+    if (!rest) { if (p > 0 && p < paras.length) lines.push(''); continue; }
+    // Leading spaces are kept (capped so some room is always left for text) and repeated on wrapped lines.
+    var indent = Math.min(lead, Math.max(0, cols - 10)), pad = new Array(indent + 1).join(' ');
+    var cur = pad, w = indent, started = false, gap = '';
+    var tokens = rest.split(/(\s+)/);
+    for (var t = 0; t < tokens.length; t++) {
+      var tok = tokens[t];
+      if (!tok) continue;
+      if (/^\s+$/.test(tok)) { gap = tok.replace(/\s/g, ' '); continue; }   // a run of spaces is kept as typed unless it falls at a line break
+      var gs = graphemes(tok), ww = gs.reduce(function (a, g) { return a + gw(g); }, 0);
+      if (started && w + gap.length + ww <= cols) { cur += gap + tok; w += gap.length + ww; gap = ''; continue; }
+      if (started) { lines.push(cur); cur = pad; w = indent; }
+      gap = ''; started = true;
+      if (w + ww <= cols) { cur += tok; w += ww; continue; }
       for (var k = 0; k < gs.length; k++) {   // hard-break a very long word
         var gwid = gw(gs[k]);
-        if (w + gwid > cols) { lines.push(cur); cur = ''; w = 0; }
+        if (w + gwid > cols) { lines.push(cur); cur = pad; w = indent; }
         cur += gs[k]; w += gwid;
       }
     }
-    if (cur) { lines.push(cur); cur = ''; w = 0; }
+    if (started) lines.push(cur);
   }
   while (lines.length && lines[lines.length - 1] === '') lines.pop();
   if (lines.length > maxLines) {
