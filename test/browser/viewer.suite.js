@@ -9,7 +9,7 @@ const errors = [];
 async function open(browser, viewport = { width: 1000, height: 900 }) {
   const ctx = await browser.newContext({ viewport, colorScheme: 'light' }); const page = await ctx.newPage();
   const outside = [], fonts = [];
-  page.on('pageerror', e => errors.push(e.message));
+  page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (/Content Security Policy|Refused to/.test(m.text())) errors.push('CSP: ' + m.text().slice(0, 160)); });
   page.on('request', r => { const u = new URL(r.url()); if (u.hostname === 'localhost' || /^data:/.test(r.url())) return; if (/fonts\.(googleapis|gstatic)\.com/.test(u.hostname)) fonts.push(r.url()); else outside.push(r.url()); });
   await page.route(/fonts\.(googleapis|gstatic)/, r => r.abort());
   await page.route('**/tracer-live.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.TracerViewer.init({mode:'saved'});" }));
@@ -37,7 +37,7 @@ const build = () => {
   {
     const { page, outside, fonts } = await open(browser);
     await page.waitForTimeout(600);
-    out.push('NOTE: the page still asks Google Fonts for its typefaces (' + fonts.length + ' request). A strict saved-game policy will need the fonts self-hosted (stage 3).');
+    ok('V0 the page asks no one for fonts any more (they are self-hosted)', fonts.length === 0, String(fonts.length));
     ok('V1 saved mode loads with no request leaving localhost (no Bluesky, no CDN, no footer avatar lookup)', outside.length === 0, outside.join(',') || 'none');
     ok('V2 mode flag is on the page', (await page.evaluate(() => document.body.dataset.mode)) === 'saved' && (await page.evaluate(() => TracerViewer.mode())) === 'saved');
     const ids = await page.evaluate(build);

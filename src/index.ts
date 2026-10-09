@@ -3,6 +3,8 @@ import path from 'path';
 import { config } from './config';
 import { clientIp, hashIp } from './clientip';
 import { startGames } from './games';
+import { renderTracerPage } from './pages';
+import { SAVED_CSP, LIVE_CSP } from './csp';
 import { wellKnownRouter } from './well-known';
 import { feedSkeletonRouter } from './feed-skeleton';
 import { registerUserFeed, unregisterUserFeed } from './register';
@@ -328,6 +330,7 @@ app.get('/health', (_req, res) => {
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    if (filePath.endsWith('.woff2')) res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
   },
 }));
 // The feed generator UI lives at /feeds; the root is the landing page.
@@ -337,8 +340,20 @@ app.get('/feeds', (_req, res) => {
 });
 app.get('/tracer', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.sendFile(path.join(__dirname, '..', 'public', 'tracer.html'));
+  res.set('Content-Security-Policy', LIVE_CSP);
+  if (!config.gamesEnabled) { res.sendFile(path.join(__dirname, '..', 'public', 'tracer.html')); return; }
+  res.type('html').send(renderTracerPage({ mode: 'live', gamesEnabled: true, sizeCap: config.games.sizeCap }));
 });
+
+// Saved games open in the same Tracer page, in saved mode. Every /g/ address gets the page (the page
+// itself says "This game isn't available." for anything unknown, hidden or deleted, so the address
+// reveals nothing). Only when the feature is on.
+if (config.gamesEnabled) {
+  app.get(['/g/:id', '/g/:id/v/:n'], (req, res) => {
+    res.set({ 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
+    res.type('html').send(renderTracerPage({ mode: 'saved', gameId: req.params.id, version: req.params.n ? parseInt(req.params.n, 10) : undefined }));
+  });
+}
 app.get('/receipt', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'receipt.html'));

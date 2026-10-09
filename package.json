@@ -1,7 +1,7 @@
 {
   "name": "top-skeets",
   "version": "1.0.0",
-  "description": "Bluesky Feed Generator — your posts ranked by likes",
+  "description": "Bluesky Feed Generator \u2014 your posts ranked by likes",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "probe": "node dist/probe.js",
     "test": "tsc && node --test test/*.test.js",
-    "test:browser": "node test/browser/run.js"
+    "test:browser": "tsc && node test/browser/run.js"
   },
   "dependencies": {
     "@atproto/api": "^0.13.0",

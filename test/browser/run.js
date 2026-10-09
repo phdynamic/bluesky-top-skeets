@@ -8,7 +8,7 @@ const { CHROME } = require('./env');
 
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH to a Chrome/Chromium executable.'); process.exit(2); }
 const only = process.argv.slice(2);
-const SUITES = ['tracer', 'viewer', 'receipt', 'feeds', 'footer'].filter(n => !only.length || only.includes(n));
+const SUITES = ['tracer', 'viewer', 'saved', 'receipt', 'feeds', 'footer'].filter(n => !only.length || only.includes(n));
 
 function waitForServer(tries = 40) {
   return new Promise((resolve, reject) => {

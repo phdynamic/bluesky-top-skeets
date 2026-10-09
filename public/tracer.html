@@ -6,9 +6,9 @@
 <meta name="robots" content="noindex" />
 <title>Quote Post Game Tracer</title>
 <meta name="description" content="Paste the post that started a quote post game and watch every quote of it unfold as a browsable tree." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<link rel="preload" href="/fonts/dm-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/dm-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
 <script src="/kiosk-theme-init.js"></script>
 <link rel="stylesheet" href="/kiosk.css" />
 <style>
@@ -97,6 +97,21 @@ mark{background:var(--hit);color:inherit;border-radius:3px;padding:0 2px}
 .vid{position:relative;display:block;max-width:520px;border-radius:12px;overflow:hidden;text-decoration:none;border:2px solid var(--line)}
 .vid img{width:100%;max-height:340px;object-fit:cover;display:block;background:var(--surface2)}
 .vid::after{content:"\25B6  Watch on Bluesky";position:absolute;left:10px;bottom:10px;background:var(--navy);color:#fff;font-weight:700;font-size:13px;padding:4px 12px;border-radius:999px}
+/* live and saved modes share one page */
+body[data-mode="saved"] .live-only{display:none!important}
+body:not([data-mode="saved"]) .saved-only{display:none!important}
+.snap-line{font-weight:700;font-size:16px}
+.snap-warn{margin-top:8px;padding:8px 12px;border:2px dashed var(--line);border-radius:10px;background:var(--tint-yellow);font-size:14px;font-weight:600}
+.snap-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.snap-row label{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
+.snap-row select{font:inherit;font-size:13px;border:2px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);padding:7px 12px;max-width:100%}
+.snap-note{font-size:13px;color:var(--ink2);font-weight:500}
+#snapStatus{font-size:16px}
+.save-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+#saveDlg .db p{margin:0 0 10px}
+#saveDlg .chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+#saveDlg .errbox{margin:10px 0 0}
+#savebar small{display:block;color:var(--ink2);margin-top:2px}
 /* tombstone: a post that is gone, kept in place so its replies stay attached */
 .card.tomb{background:var(--surface2);border-style:dashed;box-shadow:none}
 .card.tomb .handle{font-weight:600;font-style:italic;color:var(--ink2)}
@@ -167,15 +182,20 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
 
 <header class="k-hero">
   <div class="k-wrap" style="padding-bottom:64px">
-    <div>
+    <div class="live-only">
       <span class="k-tag navy">Level 1 · Tool 02</span>
       <h1>Quote Post Game Tracer</h1>
       <p>Paste a link to the post that started a quote post game and watch every quote of it unfold as a browsable tree.</p>
     </div>
+    <div class="saved-only">
+      <span class="k-tag navy">Level 1 · Tool 02 · Saved copy</span>
+      <h1>Saved game</h1>
+      <p>A saved copy of a quote post game, as it looked when it was captured. Browse it, fold it, search it, trace any quote back to the original.</p>
+    </div>
   </div>
 </header>
 
-<div class="tpanel">
+<div class="tpanel live-only">
   <div class="tform-card">
     <label class="fl" for="postInput">Post link</label>
     <form class="tform" id="form">
@@ -184,6 +204,26 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
     </form>
     <p class="hint"><b>Public posts only.</b> Only quotes visible to logged-out Bluesky viewers can be traced. Want an example? <a href="/tracer?post=https%3A%2F%2Fbsky.app%2Fprofile%2Fprofessorkiosk.wtf%2Fpost%2F3mx6fzdyx3k2s">Try this quote post game</a>.</p>
     <div class="errbox" id="error" hidden></div>
+  </div>
+</div>
+
+<div class="tpanel saved-only">
+  <div class="tform-card" id="snapCard">
+    <div id="snapLoading" aria-live="polite"><b id="snapStatus">Loading…</b><div class="pbar" id="snapBar" hidden><i id="snapFill"></i></div></div>
+    <div id="snapReady" hidden>
+      <p class="snap-line" id="snapLine"></p>
+      <p class="snap-warn" id="snapWarn" hidden></p>
+      <div class="snap-row">
+        <label for="versionPick">Version</label>
+        <select id="versionPick"></select>
+        <button class="k-btn" id="refreshBtn" type="button">Refresh</button>
+        <span class="snap-note" id="refreshNote" aria-live="polite"></span>
+      </div>
+      <p class="hint" id="snapLatest" hidden></p>
+      <p class="hint" id="snapExists" hidden></p>
+    </div>
+    <p class="hint"><b>What this stores.</b> A saved copy keeps the text, handle and post time of public quote posts, and which post each one quotes. It does not keep images, avatars, likes or anything private. If someone deletes a post, its text is wiped from every saved copy. We don't keep a record of who saved or refreshed a game. <a href="/tracer">Trace a post live &rarr;</a></p>
+    <div class="errbox" id="snapError" hidden role="alert"></div>
   </div>
 </div>
 
@@ -196,6 +236,10 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
 
   <section class="panel" id="capbar" hidden>
     <div class="row"><span id="captext"></span><button class="k-btn primary" id="moreBtn" type="button"></button></div>
+  </section>
+
+  <section class="panel live-only" id="savebar" hidden>
+    <div class="row"><span>Want to come back to this one? Save it and keep the link; you can refresh it later. <small id="saveCapNote"></small></span><button class="k-btn primary" id="saveBtn" type="button">Save this game</button></div>
   </section>
 
   <p class="note" id="hiddennote" hidden></p>
@@ -234,9 +278,24 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
 <div class="toast" id="toast" role="status"></div>
 <dialog id="dlg"><div class="dh"><h2 id="dt"></h2><button class="k-btn" id="dx" aria-label="Close">✕</button></div><div class="db" id="dbody"></div></dialog>
 
+<dialog id="saveDlg" class="live-only" aria-labelledby="saveDt">
+  <div class="dh"><h2 id="saveDt">Save this game?</h2><button class="k-btn" id="saveX" type="button" aria-label="Close">✕</button></div>
+  <div class="db">
+    <p><b>What this stores.</b> A saved copy keeps the text, handle and post time of public quote posts, and which post each one quotes. It does not keep images, avatars, likes or anything private. If someone deletes a post, its text is wiped from every saved copy. We don't keep a record of who saved or refreshed a game.</p>
+    <p class="hint" id="saveCap"></p>
+    <div id="saveChoice" hidden>
+      <p><b>This post quotes another post.</b> Start from this one, or from the original?</p>
+      <div class="chips"><button class="k-btn" id="saveThis" type="button">This post</button><button class="k-btn" id="saveOrig" type="button">The original</button></div>
+    </div>
+    <p class="errbox" id="saveMsg" hidden role="alert"></p>
+    <div class="save-actions"><button class="k-btn" id="saveCancel" type="button">Cancel</button><button class="k-btn primary" id="saveGo" type="button">Save this game</button></div>
+  </div>
+</dialog>
+
 <script src="/kiosk-links.js"></script>
 <script src="/tracer-viewer.js"></script>
 <script src="/tracer-live.js"></script>
+<script src="/tracer-saved.js"></script>
 <script src="/kiosk.js" defer></script>
 </body>
 </html>

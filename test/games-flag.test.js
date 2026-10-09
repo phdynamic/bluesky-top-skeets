@@ -53,3 +53,35 @@ test('flag on: the routes exist, the database is created, and an unknown game is
     assert.strictEqual(bad.status, 400);
   } finally { await s.stop(); }
 });
+
+test('pages: flag off leaves /tracer as it was and /g/ is just the normal site; flag on adds the Save button data and saved pages', async () => {
+  const off = boot({});
+  try {
+    await off.ready;
+    const t = await fetch(off.base + '/tracer'); const th = await t.text();
+    assert.match(t.headers.get('content-security-policy'), /script-src 'self'/);
+    assert.ok(/<body>/.test(th), 'the body carries no games attributes with the flag off');
+    const g = await fetch(off.base + '/g/abcdefghij'); const gh = await g.text();
+    assert.ok(!/data-mode="saved"/.test(gh) && !(g.headers.get('content-security-policy')), 'not a saved page');
+    const f = await fetch(off.base + '/fonts/dm-sans-latin-400-normal.woff2');
+    assert.strictEqual(f.status, 200); assert.match(f.headers.get('cache-control'), /max-age=2592000/);
+    assert.strictEqual((await fetch(off.base + '/fonts/fonts.css')).status, 200);
+  } finally { await off.stop(); }
+  const on = boot({ GAMES_ENABLED: 'true' });
+  try {
+    await on.ready;
+    const t = await fetch(on.base + '/tracer'); const th = await t.text();
+    assert.match(th, /<body data-mode="live" data-games="1" data-cap="5000">/);
+    const g = await fetch(on.base + '/g/abcdefghij/v/3'); const gh = await g.text();
+    assert.match(gh, /<body data-mode="saved" data-game="abcdefghij" data-version="3">/);
+    const csp = g.headers.get('content-security-policy');
+    assert.match(csp, /default-src 'none'/); assert.match(csp, /connect-src 'self'/); assert.match(csp, /img-src 'self' data:/); assert.match(csp, /script-src 'self'/);
+    assert.strictEqual(g.headers.get('x-robots-tag'), 'noindex, nofollow'); assert.strictEqual(g.headers.get('referrer-policy'), 'no-referrer');
+    // anything that is not a well-formed id reaches the page as an empty id, never as raw text
+    const evil = await (await fetch(on.base + '/g/' + encodeURIComponent('"><script>alert(1)</script>'))).text();
+    assert.match(evil, /data-game=""/); assert.ok(!/<script>alert\(1\)/.test(evil));
+    const badV = await (await fetch(on.base + '/g/abcdefghij/v/9999999999')).text();
+    assert.ok(!/data-version=/.test(badV));
+    assert.ok(!/<script>(?!<)/.test(th.replace(/<script src=[^>]*><\/script>/g, '')), 'the page has no inline scripts, so the policy is enforceable');
+  } finally { await on.stop(); }
+});

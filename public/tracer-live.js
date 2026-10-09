@@ -2,6 +2,7 @@
 // viewer (tracer-viewer.js). Everything that talks to Bluesky is here; the viewer never does.
 (function(){
 'use strict';
+if(document.body.dataset.mode==='saved') return;   // a saved game's page has no crawler and calls nobody
 // Test hooks only; production uses the defaults.
 const CFG=Object.assign({cap:2000,more:2000,ceiling:20000,gapMs:120,workers:4,timeoutMs:15000},window.TRACER_TEST||{});
 const API='https://public.api.bsky.app/xrpc/';
@@ -14,6 +15,7 @@ const fmtN=n=>Number(n).toLocaleString();
 // ---------- state ----------
 let run=null;        // current crawl
 let tick=null;
+let lastInput='';    // the link that was traced, sent to the server only if the visitor chooses to save
 
 // ---------- input parsing ----------
 function parseInput(raw){ return KioskLinks.parsePostLink(raw) }  // shared with Skeet Receipt and the server (kiosk-links.js)
@@ -147,9 +149,10 @@ function updateProgress(){
   $('#pfill').style.width=(got+rem>0?Math.min(100,Math.round(got/(got+rem)*100)):0)+'%';
   V.renderStats();
 }
-function showRunning(){ $('#progress').hidden=false; $('#capbar').hidden=true; $('#stopBtn').disabled=false; updateProgress() }
+function showRunning(){ hideSaveBar(); $('#progress').hidden=false; $('#capbar').hidden=true; $('#stopBtn').disabled=false; updateProgress() }
 function showEnd(r){
   $('#progress').hidden=true; $('#capbar').hidden=true;
+  updateSaveBar();
   const got=V.count()-1, rem=remainingTotal(r);
   const hid=$('#hiddennote'); hid.hidden=true;
   const btn=$('#moreBtn');
@@ -178,14 +181,14 @@ $('#stopBtn').onclick=()=>{ if(!run) return; run.stopped=true; run.ac.abort(); $
 function showError(msg){ const e=$('#error'); if(msg){e.textContent=msg;e.hidden=false}else e.hidden=true }
 function resetAll(){
   if(run){ run.stopped=true; run.ac.abort() }
-  stopTick(); V.reset();
+  stopTick(); V.reset(); hideSaveBar();
   $('#progress').hidden=true; $('#capbar').hidden=true; $('#hiddennote').hidden=true; setNotice('');
 }
 async function startTrace(input){
   showError('');
   const parsed=parseInput(input);
   if(!parsed){ showError('That doesn\'t look like a Bluesky post link. Try something like https://bsky.app/profile/someone.bsky.social/post/3abc…'); return }
-  resetAll();
+  resetAll(); lastInput=String(input).trim();
   const r=run={ac:new AbortController(),cap:CFG.cap,frontier:[],busy:0,stopped:false,capped:false,done:false,failed:'',errors:0,
     started:Date.now(),nextStart:0,pauseUntil:0,byUri:new Map(),requests:0,hidden:0};
   $('#go').disabled=true;
@@ -210,6 +213,42 @@ async function startTrace(input){
     $('#progress').hidden=true; showError(e.message||'Something went wrong.');
   } finally { $('#go').disabled=false }
 }
+// ---------- saving (only when the server has the feature switched on) ----------
+const gamesOn=document.body.dataset.games==='1';
+const sizeCap=parseInt(document.body.dataset.cap||'5000',10);
+function hideSaveBar(){ const b=$('#savebar'); if(b) b.hidden=true }
+function updateSaveBar(){
+  const b=$('#savebar'); if(!b||!gamesOn) return;
+  $('#saveCapNote').textContent='Saving keeps up to '+fmtN(sizeCap)+' quotes.';
+  b.hidden=V.count()<=1;
+}
+if(gamesOn){
+  const dlg=$('#saveDlg');
+  const msg=t=>{ const m=$('#saveMsg'); if(t){m.textContent=t;m.hidden=false}else m.hidden=true };
+  const busy=b=>{ $('#saveGo').disabled=b; $('#saveThis').disabled=b; $('#saveOrig').disabled=b; $('#saveGo').textContent=b?'Saving…':'Save this game' };
+  async function doSave(start){
+    msg(''); busy(true);
+    try{
+      const body={post:lastInput}; if(start) body.start=start;
+      const res=await fetch('/api/games',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+      const j=await res.json().catch(()=>({}));
+      if(res.ok&&(j.status==='queued'||j.status==='exists')){
+        if(j.status==='exists'){ try{ sessionStorage.setItem('kiosk-saved-note','exists') }catch(e){} }
+        location.href='/g/'+j.id; return;
+      }
+      if(res.ok&&j.status==='is_quote'){ $('#saveChoice').hidden=false; $('#saveGo').hidden=true; return }
+      msg(j.message||'Something went wrong. Try again in a minute.');
+    }catch(e){ msg('Couldn\'t reach the server. Try again in a minute.') }
+    finally{ busy(false) }
+  }
+  $('#saveBtn').onclick=()=>{ msg(''); $('#saveChoice').hidden=true; $('#saveGo').hidden=false; $('#saveCap').textContent='Saving keeps up to '+fmtN(sizeCap)+' quotes. Saving a game sends this post\'s link to our server, which fetches the quotes itself.'; dlg.showModal() };
+  $('#saveGo').onclick=()=>doSave(null);
+  $('#saveThis').onclick=()=>doSave('this');
+  $('#saveOrig').onclick=()=>doSave('original');
+  $('#saveCancel').onclick=()=>dlg.close(); $('#saveX').onclick=()=>dlg.close();
+  dlg.addEventListener('click',e=>{ if(e.target===dlg) dlg.close() });
+}
+
 $('#form').addEventListener('submit',e=>{ e.preventDefault(); startTrace($('#postInput').value) });
 
 // ---------- deep link ----------
