@@ -18,8 +18,8 @@ async function setup() {
     const game = crawler.createGame(root), job = db.createJob(game.id, 'create', 1);
     return { game, job, crawler, client };
   };
-  ctx.refresh = async (game, cap = 5000, clientOpts) => {
-    const client = mkClient(clientOpts), crawler = new GameCrawler({ db, appview: client, sizeCap: cap });
+  ctx.refresh = async (game, cap = 5000, clientOpts, crawlerOpts = {}) => {
+    const client = mkClient(clientOpts), crawler = new GameCrawler({ db, appview: client, sizeCap: cap, ...crawlerOpts });
     const job = db.createJob(game.id, 'refresh', db.nextVersionNumber(game.id));
     return { job, crawler, client, outcome: await crawler.run(job) };
   };
@@ -172,7 +172,7 @@ test('refresh adds a version, leaves older ones identical, and only reopens post
   } finally { await x.done(); }
 });
 
-test('a deleted post is wiped from every version, but only on the second miss a day apart; replies stay attached', async () => {
+test('a deleted post is wiped from every version, but only on the second miss an hour apart; replies stay attached', async () => {
   const x = await setup();
   try {
     x.world.tree('root', SMALL);
@@ -182,9 +182,9 @@ test('a deleted post is wiped from every version, but only on the second miss a 
     await x.refresh(game);                                   // first miss
     const c1 = () => x.db.getNodeByUri(game.id, x.world.uri('c1'));
     assert.strictEqual(c1().state, 'live'); assert.strictEqual(c1().missing_checks, 1);
-    x.clock.t += 3600_000; await x.refresh(game);            // an hour later: not counted again
+    x.clock.t += 30 * 60_000; await x.refresh(game);         // half an hour later: not counted again
     assert.strictEqual(c1().state, 'live'); assert.strictEqual(c1().missing_checks, 1);
-    x.clock.t += 25 * 3600_000; await x.refresh(game);       // a day later: second miss
+    x.clock.t += 31 * 60_000; await x.refresh(game);         // over an hour after the first: second miss
     const gone = c1();
     assert.strictEqual(gone.state, 'deleted');
     assert.deepStrictEqual([gone.uri, gone.did, gone.handle, gone.text, gone.created_at], [null, null, null, null, null]);
@@ -221,13 +221,13 @@ test('an empty batch is believed when a known-live post still answers: strikes a
     x.world.post('root'); for (let i = 0; i < 30; i++) x.world.quote('root', 'k' + String(i).padStart(2, '0'));
     const { game, job, crawler } = await x.create('root');
     await crawler.run(job);
-    x.world.failNext(1, { blank: true });                    // the first batch of 25 comes back empty
+    x.world.passNext(1); x.world.failNext(1, { blank: true });   // the control answers, then the first batch of 25 comes back empty
     await x.refresh(game);
     const rows = x.db.nodesForVersion(game.id, 1);
     assert.ok(rows.every(r => r.state === 'live'));
     assert.strictEqual(rows.filter(r => r.missing_checks === 1).length, 25, 'strike recorded for the posts that did not answer');
     // a day later the same thing again: still no wipe, because the batch was empty
-    x.clock.t += 25 * 3600_000; x.world.failNext(1, { blank: true });
+    x.clock.t += 25 * 3600_000; x.world.passNext(1); x.world.failNext(1, { blank: true });
     await x.refresh(game);
     assert.ok(x.db.nodesForVersion(game.id, 1).every(r => r.state === 'live'), 'an empty batch alone never wipes');
     // a day after that Bluesky answers normally and the posts are back: strikes clear
@@ -242,7 +242,7 @@ test('a tiny game with nothing else to test Bluesky against does not trust an em
     x.world.tree('root', { a: {}, b: {} });
     const { game, job, crawler } = await x.create('root');
     await crawler.run(job);
-    x.world.failNext(1, { blank: true });
+    x.world.passNext(1); x.world.failNext(1, { blank: true });
     await assert.rejects(x.refresh(game), BskyUnavailable);
     assert.ok(x.db.nodesForVersion(game.id, 1).every(r => r.missing_checks === 0));
   } finally { await x.done(); }
@@ -307,4 +307,56 @@ test('quotedPostUri finds the post a post quotes (plain and with media), and ign
 test('every label we hide is still a label @atproto/api defines', () => {
   const { LABELS } = require('@atproto/api');
   for (const l of HIDE_LABELS) assert.ok(l in LABELS, l);
+});
+
+test('control checks: no misses are recorded unless Bluesky answers for known-live posts at the start AND the end of the run', async () => {
+  const x = await setup();
+  try {
+    x.world.tree('root', SMALL);
+    const { game, job, crawler } = await x.create('root');
+    await crawler.run(job);
+    const noStrikes = () => assert.ok(x.db.nodesForVersion(game.id, 1).every(r => r.missing_checks === 0 && r.state === 'live'));
+    x.world.remove('b');
+    // 1. the control at the start is blank: stop, count nothing
+    x.world.failNext(1, { blank: true });
+    await assert.rejects(x.refresh(game), BskyUnavailable); noStrikes();
+    // 2. the start control and the batch are fine but the control at the end is blank: the miss is not recorded
+    x.world.passNext(2); x.world.failNext(1, { blank: true });
+    await assert.rejects(x.refresh(game), BskyUnavailable); noStrikes();
+    // 3. all fine: control, batch, control (three getPosts calls for a small game) and the miss is recorded
+    x.world.clearLog();
+    await x.refresh(game);
+    assert.strictEqual(x.world.count('app.bsky.feed.getPosts'), 3);
+    assert.strictEqual(x.db.getNodeByUri(game.id, x.world.uri('b')).missing_checks, 1);
+  } finally { await x.done(); }
+});
+
+test('a game with nothing deleted needs only the start control (no extra request at the end)', async () => {
+  const x = await setup();
+  try {
+    x.world.tree('root', SMALL);
+    const { game, job, crawler } = await x.create('root'); await crawler.run(job);
+    x.world.clearLog(); await x.refresh(game);
+    assert.strictEqual(x.world.count('app.bsky.feed.getPosts'), 2, 'one control and one batch');
+  } finally { await x.done(); }
+});
+
+test('the spacing between two misses is configurable, and an optional stable post is used as a control', async () => {
+  const x = await setup();
+  try {
+    x.world.tree('root', SMALL); x.world.post('stable');
+    const { game, job, crawler } = await x.create('root'); await crawler.run(job);
+    x.world.remove('c1');
+    const opts = { wipeSpacingMs: 24 * 3600_000, healthPost: x.world.uri('stable') };
+    x.world.clearLog();
+    await x.refresh(game, 5000, undefined, opts);
+    assert.ok([].concat(x.world.calls('app.bsky.feed.getPosts')[0].uris).includes(x.world.uri('stable')), 'the configured post is asked about first');
+    x.clock.t += 2 * 3600_000; await x.refresh(game, 5000, undefined, opts);
+    assert.strictEqual(x.db.getNodeByUri(game.id, x.world.uri('c1')).state, 'live', 'two hours is not enough when the spacing is a day');
+    x.clock.t += 23 * 3600_000; await x.refresh(game, 5000, undefined, opts);
+    assert.strictEqual(x.db.getNodeByUri(game.id, x.world.uri('c1')).state, 'deleted');
+    // the stable post itself going missing does not stop checks while other control posts answer
+    x.world.remove('stable'); x.world.remove('b'); x.clock.t += 2 * 3600_000;
+    await assert.doesNotReject(x.refresh(game, 5000, undefined, opts));
+  } finally { await x.done(); }
 });

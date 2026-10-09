@@ -38,6 +38,10 @@ export const config = {
     sweepDays: numEnv('GAMES_SWEEP_DAYS', 7, 0.001),
     reportRetentionDays: numEnv('GAMES_REPORT_RETENTION_DAYS', 30, 0),
     recheckCooldownMinutes: numEnv('GAMES_RECHECK_COOLDOWN_MINUTES', 60, 0),
+    // A post is wiped after two misses at least this many hours apart (and only when Bluesky answers for posts known to be alive).
+    wipeSpacingHours: numEnv('GAMES_WIPE_SPACING_HOURS', 1, 0),
+    // Optional: the address of one stable public post, used as an extra "is Bluesky answering?" control.
+    healthPost: (process.env.GAMES_HEALTH_POST ?? '').trim(),
     // Admin tools are off unless a secret is set. Keep it long and random, and only in the environment.
     adminSecret: process.env.ADMIN_SECRET ?? '',
     // Sign in with Bluesky (for removing your own posts and owner controls). Off unless OAUTH_PUBLIC_URL is set.

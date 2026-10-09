@@ -54,11 +54,13 @@ function tickCooldown(){
 }
 function renderBanner(d){
   const v=d.version, quotes=Math.max(0,v.nodeCount-1);
-  $('#snapLine').textContent='Version '+v.n+', captured '+when(v.capturedAt)+'. '+fmtN(quotes)+' quote'+(quotes===1?'':'s')+', '+v.maxDepth+' level'+(v.maxDepth===1?'':'s')+' deep. Public posts only. Some posts may be missing.';
+  const gone=d.nodes.slice(1).filter(n=>n.tomb).length;   // deleted, removed or hidden posts kept as placeholders
+  $('#snapLine').textContent='Version '+v.n+', captured '+when(v.capturedAt)+'. '+fmtN(quotes)+' quote'+(quotes===1?'':'s')+(gone?' ('+fmtN(gone)+' deleted or removed)':'')+', '+v.maxDepth+' level'+(v.maxDepth===1?'':'s')+' deep. Public posts only. Some posts may be missing.';
   const warn=$('#snapWarn'), bits=[];
   if(v.status==='partial'){
     bits.push(v.partialReason==='size cap reached'?'This snapshot stopped at '+fmtN(quotes)+' quotes. Refresh later to keep going.':'This snapshot is incomplete ('+(v.partialReason||'it stopped early')+'). Refresh to try again.');
   }
+  if(d.nodes[0]&&d.nodes[0].tomb) bits.push('The original post was deleted, removed or hidden. Its replies are kept below.');
   if(v.missing>0) bits.push('At least '+fmtN(v.missing)+' more quote'+(v.missing===1?' is':'s are')+' counted by Bluesky but not in this copy (deleted, hidden, or not visible to logged-out viewers).');
   warn.textContent=bits.join(' '); warn.hidden=bits.length===0;
 }

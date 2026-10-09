@@ -11,6 +11,8 @@ export interface QueueOptions {
   maxRetries?: number;
   retryDelayMs?: number;
   idleMs?: number;
+  wipeSpacingMs?: number;
+  healthPost?: string;
   log?: (msg: string) => void;
 }
 
@@ -20,7 +22,7 @@ export interface QueueOptions {
  * it keeps what it found as a partial version. A restart puts interrupted jobs back and carries on.
  */
 export class GamesQueue {
-  private readonly o: Required<Omit<QueueOptions, 'log'>> & { log: (m: string) => void };
+  private readonly o: Required<Omit<QueueOptions, 'log' | 'wipeSpacingMs' | 'healthPost'>> & { wipeSpacingMs?: number; healthPost?: string } & { log: (m: string) => void };
   private running = false;
   private loopPromise: Promise<void> | null = null;
   private wake: (() => void) | null = null;
@@ -70,7 +72,7 @@ export class GamesQueue {
   private async runOne(job: JobRow): Promise<void> {
     const db = this.o.db;
     db.markJobStarted(job.id);
-    const crawler = new GameCrawler({ db, appview: this.o.makeAppView(job.kind), sizeCap: this.o.sizeCap, shouldStop: () => !this.running });
+    const crawler = new GameCrawler({ db, appview: this.o.makeAppView(job.kind), sizeCap: this.o.sizeCap, wipeSpacingMs: this.o.wipeSpacingMs, healthPost: this.o.healthPost, shouldStop: () => !this.running });
     try {
       const outcome = await crawler.run(job);
       this.notBefore.delete(job.id);

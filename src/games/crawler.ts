@@ -2,13 +2,17 @@ import { GamesDb, GameRow, JobRow, NodeRow, NodeState } from './db';
 import { AppViewClient, BskyUnavailable, NotFound, PostView } from './appview';
 import { hasHideLabel } from './labels';
 
-/** A post is wiped only after it has been missing on this many checks, at least a day apart. */
+/** A post is wiped only after it has been missing on this many checks, spaced apart (see wipeSpacingMs). */
 export const WIPE_AFTER_MISSES = 2;
 
 export interface CrawlerOptions {
   db: GamesDb;
   appview: AppViewClient;
   sizeCap: number;
+  /** Least time between two misses of the same post for them to count as two (default one hour). */
+  wipeSpacingMs?: number;
+  /** Optional address of a stable public post used as an extra control when checking that Bluesky is answering. */
+  healthPost?: string;
   /** Return true to stop as soon as it is safe (the progress made so far is kept). */
   shouldStop?: () => boolean;
 }
@@ -40,9 +44,11 @@ export class GameCrawler {
   private readonly appview: AppViewClient;
   private readonly sizeCap: number;
   private readonly shouldStop: () => boolean;
+  private readonly wipeSpacingMs: number;
+  private readonly healthPost: string;
 
   constructor(o: CrawlerOptions) {
-    this.db = o.db; this.appview = o.appview; this.sizeCap = o.sizeCap; this.shouldStop = o.shouldStop ?? (() => false);
+    this.db = o.db; this.appview = o.appview; this.sizeCap = o.sizeCap; this.wipeSpacingMs = o.wipeSpacingMs ?? 3600_000; this.healthPost = o.healthPost ?? ''; this.shouldStop = o.shouldStop ?? (() => false);
   }
 
   /** Which state a fetched post should be stored in: its text is kept only when it is live. */
@@ -124,12 +130,32 @@ export class GameCrawler {
     return got.some(p => p.uri === probe.uri);
   }
 
+  /** Posts to ask about as a control: an optional configured stable post, then up to three known to be alive. */
+  private controlUris(gameId: string): string[] {
+    const uris = this.db.controlNodes(gameId, 3).map(n => n.uri!).filter(Boolean);
+    return this.healthPost ? [this.healthPost, ...uris] : uris;
+  }
+  /** True when at least one control post answers (or there is nothing to test against). */
+  private async controlsAnswer(uris: string[]): Promise<boolean> {
+    if (uris.length === 0) return true;
+    return (await this.appview.getPosts(uris.slice(0, 25))).length > 0;
+  }
+
+  /**
+   * Re-checks every live post. Anything that changed for the better or worse that Bluesky stated plainly (a label,
+   * a suppressed author, a new count) is applied at once. A post that simply did not come back only earns a "miss",
+   * and misses are held until the end of the run and recorded only if Bluesky is still answering for posts known to
+   * be alive, having answered at the start too. So an outage or a half-working Bluesky can never produce a wipe.
+   */
   private async recheckAll(job: JobRow): Promise<void> {
+    const controls = this.controlUris(job.game_id);
+    if (!(await this.controlsAnswer(controls))) throw new BskyUnavailable('Bluesky did not answer for posts known to be alive');
+    const missed: Array<{ id: number; emptyBatch: boolean }> = [];
     let after = 0;
     for (;;) {
       if (this.shouldStop()) throw new JobStopped();
       const batch = this.db.liveNodesAfter(job.game_id, after, 25);
-      if (batch.length === 0) return;
+      if (batch.length === 0) break;
       after = batch[batch.length - 1].id;
       const before = this.appview.requests;
       const posts = await this.appview.getPosts(batch.map(n => n.uri!));
@@ -140,11 +166,7 @@ export class GameCrawler {
       this.db.tx(() => {
         for (const n of batch) {
           const p = byUri.get(n.uri!);
-          if (!p) {
-            // Strikes are counted, but nothing is wiped on the strength of an empty batch alone.
-            if (this.db.noteMissing(n.id, WIPE_AFTER_MISSES) === 'wiped-due' && !emptyBatch) this.db.tombstone(n.id, 'deleted');
-            continue;
-          }
+          if (!p) { missed.push({ id: n.id, emptyBatch }); continue; }
           this.db.clearMissing(n.id);
           const state = this.classify(job.game_id, p);
           if (state !== 'live') { this.db.tombstone(n.id, state); continue; }
@@ -153,6 +175,14 @@ export class GameCrawler {
         this.db.addJobProgress(job.id, this.appview.requests - before, 0);
       });
     }
+    if (missed.length === 0) return;
+    if (!(await this.controlsAnswer(controls))) throw new BskyUnavailable('Bluesky stopped answering for posts known to be alive during the check');
+    this.db.tx(() => {
+      for (const m of missed) {
+        // Misses are counted, but nothing is wiped on the strength of an empty batch alone.
+        if (this.db.noteMissing(m.id, WIPE_AFTER_MISSES, this.wipeSpacingMs) === 'wiped-due' && !m.emptyBatch) this.db.tombstone(m.id, 'deleted');
+      }
+    });
   }
 
   async runRefresh(job: JobRow): Promise<CrawlOutcome> {

@@ -284,11 +284,10 @@ export class GamesDb {
       `SELECT n.* FROM node n WHERE n.game_id = ? AND n.state = 'live' AND n.quote_count >
          (SELECT COUNT(*) FROM node k WHERE k.parent_id = n.id)`).all(gameId) as NodeRow[];
   }
-  noteMissing(id: number, wipeAt: number): 'counted' | 'wiped-due' | 'ignored' {
+  noteMissing(id: number, wipeAt: number, spacingMs: number = 3600_000): 'counted' | 'wiped-due' | 'ignored' {
     const n = this.getNode(id);
     if (!n || n.state !== 'live') return 'ignored';
-    const DAY = 24 * 3600 * 1000;
-    if (n.last_missing_at && this.now() - n.last_missing_at < DAY) return 'ignored';   // at most one strike a day
+    if (n.last_missing_at && this.now() - n.last_missing_at < spacingMs) return 'ignored';   // strikes are spaced out
     const checks = n.missing_checks + 1;
     this.db.prepare('UPDATE node SET missing_checks = ?, last_missing_at = ? WHERE id = ?').run(checks, this.now(), id);
     return checks >= wipeAt ? 'wiped-due' : 'counted';
@@ -313,6 +312,13 @@ export class GamesDb {
     const root = this.db.prepare('SELECT id FROM node WHERE game_id = ? ORDER BY ord LIMIT 1').get(gameId) as { id: number } | undefined;
     if (!root) return 0;
     return (this.db.prepare('SELECT COUNT(*) c FROM node WHERE parent_id = ? AND v_added <= ?').get(root.id, n) as { c: number }).c;
+  }
+  /** Up to `limit` live posts to ask Bluesky about as a control: from other games first, then from this one. */
+  controlNodes(gameId: string, limit: number): NodeRow[] {
+    const others = this.db.prepare("SELECT * FROM node WHERE game_id != ? AND state = 'live' AND uri IS NOT NULL AND missing_checks = 0 ORDER BY id DESC LIMIT ?").all(gameId, limit) as NodeRow[];
+    if (others.length >= limit) return others;
+    const own = this.db.prepare("SELECT * FROM node WHERE game_id = ? AND state = 'live' AND uri IS NOT NULL AND missing_checks = 0 ORDER BY ord ASC LIMIT ?").all(gameId, limit - others.length) as NodeRow[];
+    return others.concat(own);
   }
   /** A live node from some other game, used to tell "Bluesky is down" from "these posts are gone". */
   otherGameLiveNode(gameId: string): NodeRow | undefined {

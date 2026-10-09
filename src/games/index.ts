@@ -25,13 +25,16 @@ export function startGames(app: express.Express): RunningGames | null {
   const { createAccountRouter } = require('./auth/routes') as typeof import('./auth/routes');
   const { SessionStore } = require('./auth/sessions') as typeof import('./auth/sessions');
 
-  const db = new GamesDb(path.join(config.dataDir, 'games.sqlite'));
+  const dbFile = path.join(config.dataDir, 'games.sqlite');
+  const db = new GamesDb(dbFile);
+  console.log(`[games] database: ${dbFile}`);
   const client = (gapMs: number, maxAttempts: number, priority: 'user' | 'background' = 'user') => new AppViewClient({
     baseUrl: config.appviewUrl, budget: appviewBudget, userAgent: config.userAgent, gapMs, maxAttempts, priority,
   });
   const makeLookupClient = () => client(0, 3);
   const queue = new GamesQueue({
     db, sizeCap: config.games.sizeCap, log: msg => console.log(msg),
+    wipeSpacingMs: config.games.wipeSpacingHours * 3600_000, healthPost: config.games.healthPost,
     makeAppView: kind => client(config.games.crawlGapMs, 6, kind === 'recheck' ? 'background' : 'user'),
   });
   const limits = new GamesLimits({

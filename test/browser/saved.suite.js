@@ -143,6 +143,7 @@ async function page(browser, o = {}) {
     ok('E39 resolving a report removes it from the open list', true);
     await B.p.goto(gameUrl); await B.p.locator('#snapReady').waitFor({ state: 'visible' }); await B.p.locator('#tree .card').first().waitFor();
     ok('E40 the wiped card now shows as a placeholder on the saved page', (await B.p.locator('#tree .card.tomb').count()) >= 1);
+    ok('E40b the banner counts it as deleted or removed', /\(1 deleted or removed\)/.test(await B.p.locator('#snapLine').innerText()), await B.p.locator('#snapLine').innerText());
     await AD.p.click('[data-tab=lookup]'); await AD.p.fill('#q', id); await AD.p.click('#find');
     await AD.p.locator('#found .card').waitFor();
     ok('E41 look up a game by id and see its counts', /Game /.test(await AD.p.locator('#found').innerText()) && /live,/.test(await AD.p.locator('#found').innerText()));

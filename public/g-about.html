@@ -70,7 +70,7 @@ h1,h2,h3,p,ul,ol{margin:0}
   </ul>
 
   <h2>When a post is deleted</h2>
-  <p>If someone deletes a post on Bluesky, its text is wiped from every version of every saved game. The card stays in place as "This post was deleted" so replies below it stay attached. This happens when a game is refreshed, when anyone presses "Check for deleted posts", and in a slow background check of every game roughly once a week. A post is only wiped after it has been missing on two checks at least a day apart, so a Bluesky hiccup cannot wipe anything by mistake.</p>
+  <p>If someone deletes a post on Bluesky, its text is wiped from every version of every saved game. The card stays in place as "This post was deleted" so replies below it stay attached. This happens when a game is refreshed, when anyone presses "Check for deleted posts", and in a slow background check of every game roughly once a week. A post is only wiped after it has been missing on two checks at least {{WIPE_SPACING}} apart, and only when Bluesky was answering normally for posts known to be alive both when the check started and when it finished, so a Bluesky hiccup cannot wipe anything by mistake.</p>
 
   <h2>Taking yourself out</h2>
   <p>The simplest way is to delete the post on Bluesky; it will be wiped as described above. If you want a post or your whole presence removed without waiting, or you want to be kept out of future saved games, send a removal request using the <b>Report</b> link on any saved game (choose "Remove my post") or write to the address below. Removal requests are handled by hand: the account is wiped from the game, or from every game, and kept out of future ones. {{SIGNIN_SENTENCE}}</p>

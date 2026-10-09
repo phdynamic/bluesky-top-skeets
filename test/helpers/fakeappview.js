@@ -55,6 +55,8 @@ class World {
   clearLog() { this.log.length = 0; }
   /** the next `n` calls answer with this behaviour: {status, headers} or {blank: true} for an empty getPosts */
   failNext(n, behaviour) { for (let i = 0; i < n; i++) this.failures.push(behaviour); }
+  /** let the next `n` calls through normally (to place a failure later in a sequence) */
+  passNext(n) { for (let i = 0; i < n; i++) this.failures.push({ pass: true }); }
   failAlways(behaviour) { this.always = behaviour; }
   heal() { this.always = null; this.failures.length = 0; }
 }
@@ -68,7 +70,7 @@ function serve(world) {
     world.log.push({ method, params });
     const send = (code, body, headers = {}) => { res.writeHead(code, { 'content-type': 'application/json', ...headers }); res.end(JSON.stringify(body)); };
     const f = world.failures.shift() || world.always;
-    if (f && !(f.blank && method !== 'app.bsky.feed.getPosts')) {
+    if (f && !f.pass && !(f.blank && method !== 'app.bsky.feed.getPosts')) {
       if (f.blank) return send(200, { posts: [] });
       return send(f.status, { error: 'Fail', message: 'fail ' + f.status }, f.headers || {});
     }

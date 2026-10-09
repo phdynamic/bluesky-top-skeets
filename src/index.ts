@@ -351,7 +351,7 @@ app.get('/tracer', (_req, res) => {
 if (config.gamesEnabled) {
   const quietHeaders = { 'Cache-Control': 'no-cache', 'Content-Security-Policy': SAVED_CSP, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' };
   // The explanation and takedown page (before /g/:id so "about" is never read as a game id).
-  app.get('/g/about', (_req, res) => { res.set(quietHeaders).type('html').send(renderAboutPage(config.takedownContact, !!games?.signinEnabled)); });
+  app.get('/g/about', (_req, res) => { res.set(quietHeaders).type('html').send(renderAboutPage(config.takedownContact, !!games?.signinEnabled, config.games.wipeSpacingHours)); });
   // The admin page exists only when an admin secret is set.
   if (config.games.adminSecret) {
     app.get('/admin', (_req, res) => { res.set({ ...quietHeaders, 'Cache-Control': 'no-store' }); res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')); });

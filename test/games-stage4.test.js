@@ -70,7 +70,7 @@ test('report rate limit', async () => {
   } finally { await x.done(); }
 });
 
-test('"check for deleted posts": rate limited, and a deleted post is wiped only on the second miss a day apart', async () => {
+test('"check for deleted posts": rate limited, and a deleted post is wiped only on the second miss, over an hour after the first', async () => {
   const x = await setup();
   try {
     x.world.tree('root', SMALL); const id = await x.create('root');
@@ -82,9 +82,7 @@ test('"check for deleted posts": rate limited, and a deleted post is wiped only 
     const c1 = () => x.db.getNodeByUri(id, x.world.uri('c1'));
     assert.strictEqual(c1().state, 'live'); assert.strictEqual(c1().missing_checks, 1);
     assert.strictEqual(x.db.latestVersion(id).n, 1, 'a re-check never writes a version');
-    x.clock.t += 2 * 3600_000; r = await x.req('POST', `/${id}/recheck`); assert.strictEqual(r.status, 202); await x.waitIdle(id);
-    assert.strictEqual(c1().state, 'live', 'same day: no second strike');
-    x.clock.t += 25 * 3600_000; r = await x.req('POST', `/${id}/recheck`); assert.strictEqual(r.status, 202); await x.waitIdle(id);
+    x.clock.t += 61 * 60_000; r = await x.req('POST', `/${id}/recheck`); assert.strictEqual(r.status, 202); await x.waitIdle(id);
     assert.strictEqual(c1().state, 'deleted');
     assert.ok(x.kinds.includes('recheck'));
     const st = (await x.req('GET', `/${id}/status`)).json; assert.ok(st.lastCheckedAt);

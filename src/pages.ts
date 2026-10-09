@@ -42,10 +42,11 @@ export function renderTracerPage(o: TracerPageOptions): string {
 const escapeHtml = (t: string) => t.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 
 /** The "how saved games work" page, with the takedown address written in (escaped). */
-export function renderAboutPage(takedownContact: string, signinEnabled = false): string {
+export function renderAboutPage(takedownContact: string, signinEnabled = false, wipeSpacingHours = 1): string {
+  const spacing = wipeSpacingHours >= 24 ? (wipeSpacingHours === 24 ? 'a day' : `${Math.round(wipeSpacingHours / 24)} days`) : wipeSpacingHours <= 1 ? 'an hour' : `${Math.round(wipeSpacingHours)} hours`;
   const file = path.join(__dirname, '..', 'public', 'g-about.html');
   const signin = signinEnabled
     ? 'You can also do it yourself: open <a href="/g/account">Remove my posts</a>, sign in with Bluesky (this only confirms which account is yours; it cannot post, follow or read anything), and choose one game or every game. Your posts are wiped from the game and you are kept out of future saves.'
     : 'Signing in with Bluesky to do this yourself is not available on this site yet.';
-  return fs.readFileSync(file, 'utf8').split('{{TAKEDOWN_CONTACT}}').join(escapeHtml(takedownContact)).split('{{SIGNIN_SENTENCE}}').join(signin);
+  return fs.readFileSync(file, 'utf8').split('{{TAKEDOWN_CONTACT}}').join(escapeHtml(takedownContact)).split('{{SIGNIN_SENTENCE}}').join(signin).split('{{WIPE_SPACING}}').join(spacing);
 }

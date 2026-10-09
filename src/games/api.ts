@@ -198,7 +198,7 @@ export function createGamesRouter(o: GamesApiOptions): express.Router {
     const lim = limits.recheck(ipKey(req)); if (!lim.ok) return limited(res, lim.retryAfterSec);
     db.createJob(game.id, 'recheck', 0);
     queue.kick();
-    res.status(202).json({ status: 'queued', message: 'Checking for deleted posts. Wiped posts disappear from the copy once they have been missing on two checks a day apart.' });
+    res.status(202).json({ status: 'queued', message: 'Checking for deleted posts. Wiped posts disappear from the copy once they have been missing on two separate checks.' });
   });
 
   // ---- the stored tree, for the viewer
