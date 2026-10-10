@@ -33,6 +33,9 @@ main.k-main { padding: 32px 0 0; }
 .card ul, .card ol { padding-left: 22px; display: grid; gap: 6px; }
 .card a { font-weight: 700; text-underline-offset: 3px; }
 .card strong { font-weight: 800; }
+.card figure { margin: 0; display: grid; gap: 8px; }
+.card video { width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; border: 3px solid var(--line); border-radius: 12px; display: block; }
+.card figcaption { font-size: 14px; color: var(--ink2); }
 .msg { padding: 18px 20px; font-weight: 700; }
 @media (max-width: 480px) { .card { padding: 18px 16px 20px; } .card h2 { font-size: 23px; } }
 </style>
@@ -125,6 +128,8 @@ function parse(src) {
     var h = line.match(/^##\s+(.+)$/);
     if (h) { flush(); cur = { title: h[1].trim(), blocks: [] }; sections.push(cur); return; }
     if (!line.trim()) { flush(); return; }
+    var vid = line.match(/^!\[([^\]]*)\]\(([^)\s]+\.(?:mp4|webm))\)$/i);
+    if (vid) { flush(); target().push({ t: 'video', caption: vid[1], src: vid[2] }); return; }
     var ul = line.match(/^-\s+(.*)$/), ol = line.match(/^\d+\.\s+(.*)$/);
     if (ul || ol) {
       var kind = ul ? 'ul' : 'ol';
@@ -157,6 +162,14 @@ function render(doc) {
     var h2 = document.createElement('h2'); h2.id = id + '-h'; h2.textContent = s.title; card.appendChild(h2);
     var body = document.createElement('div'); body.className = 'body';
     s.blocks.forEach(function (b) {
+      if (b.t === 'video') {
+        var src = safeHref(b.src); if (!src) return;
+        var fig = document.createElement('figure'), v = document.createElement('video');
+        v.controls = true; v.preload = 'metadata'; v.setAttribute('playsinline', ''); v.src = src; v.poster = src.replace(/\.(mp4|webm)$/i, '.jpg'); v.setAttribute('aria-label', b.caption);
+        fig.appendChild(v);
+        if (b.caption) { var cap = document.createElement('figcaption'); cap.textContent = b.caption; fig.appendChild(cap); }
+        body.appendChild(fig); return;
+      }
       var el = document.createElement(b.t === 'p' ? 'p' : b.t);
       if (b.t === 'p') inline(el, b.text); else b.items.forEach(function (it) { var item = document.createElement('li'); inline(item, it); el.appendChild(item); });
       body.appendChild(el);
