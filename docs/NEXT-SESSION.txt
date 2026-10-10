@@ -2,4 +2,4 @@ NEXT SESSION
 
 Last commit when these docs were created: e89d28b (2026-10-10).
 Nothing pending is recorded in the repo.
-Live checks owed: see TESTING-OWED.md (empty at creation).
+Live checks owed: see TESTING-OWED.md.
