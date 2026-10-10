@@ -540,15 +540,14 @@ function renderGuided(c) {
     if (!cur) focusId = 'subject';
   } else if (S.step === 2) {
     c.appendChild(h('h2', { text: 'Branches' }));
-    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Think big, small and obscure. ' }), sel.id === 0 ? 'Add what goes with “' + root.t + '”, then tap a branch to add sub-branches under it, as many levels as you like. You still see the subject here.' : 'Adding under “' + sel.t + '”. Tap a name above to go back up.'));
-    c.appendChild(crumbs('Adding to: ', sel, false));
-    c.appendChild(inputRow('sub-input', sel.id === 0 ? 'Add an association…' : 'Add under “' + sel.t + '”…', 'Add', function (v) { addNode(sel.id, v); focusId = 'sub-input'; render(); save(); }));
-    c.appendChild(chipList(kidsOf(sel.id), { remove: true, mark: false, pick: function (n) { S.sel = n.id; focusId = 'sub-input'; render(); save(); } }));
+    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Think big things, small things and obscure things ' }), 'that go with “' + root.t + '”. These are your main branches; three to eight is plenty. You will go further out from each one in the next step.'));
+    c.appendChild(inputRow('sub-input', 'Add a main branch…', 'Add', function (v) { addNode(0, v); focusId = 'sub-input'; render(); save(); }));
+    c.appendChild(chipList(kidsOf(0), { remove: true, mark: false, pick: function (n) { S.sel = n.id; setStep(3); } }));
     c.appendChild(h('div', { class: 'next' }, h('button', { class: 'k-btn primary', type: 'button', id: 'to3', text: 'Next: forget the subject →', disabled: kidsOf(0).length ? null : 'disabled', on: { click: function () { setStep(3); } } })));
   } else if (S.step === 3) {
     var first = kidsOf(0);
     c.appendChild(h('h2', { text: 'Break it down' }));
-    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Forget “' + root.t + '”.' }), ' Pick any branch and think about it in its own right: one last round of “what does this make you think of?”'));
+    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Forget “' + root.t + '”.' }), ' Pick a main branch and think about it in its own right: what does it make you think of? Go as far out as you like, and add new main branches whenever one occurs to you.'));
     if (first.length) c.appendChild(chipList(first, { mark: true }));
     if (sel.id !== 0) {
       c.appendChild(crumbs('Working on: ', sel, true));
@@ -556,7 +555,9 @@ function renderGuided(c) {
       var kids = kidsOf(sel.id);
       if (kids.length) c.appendChild(chipList(kids, { remove: true, mark: true }));
       c.appendChild(h('p', { class: 'hint', text: 'Tap any bubble in the web to go deeper from there.' }));
-    } else c.appendChild(h('p', { class: 'hint', text: 'Add a branch in step 2 first.' }));
+    } else c.appendChild(h('p', { class: 'hint', text: 'Add a main branch in step 2 first.' }));
+    c.appendChild(h('h3', { text: 'Another main branch' }));
+    c.appendChild(inputRow('main-input', 'A new main branch…', 'Add', function (v) { var n = addNode(0, v); if (n) S.sel = n.id; focusId = 'kid-input'; render(); save(); }));
     var dt = h('details', { class: 'pr', open: 'open' }, h('summary', { text: 'Ways to think about words' }));
     var ul = h('ul', { class: 'prompts' }); PROMPTS.forEach(function (p) { ul.appendChild(h('li', {}, h('b', { text: p[0] + '. ' }), p[1])); });
     dt.appendChild(ul); c.appendChild(dt);

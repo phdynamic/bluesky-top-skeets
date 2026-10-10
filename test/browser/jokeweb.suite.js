@@ -193,28 +193,27 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
     ok('H8 Fit brings the whole board back into view', fit.sc <= 1 && fit.sw <= fit.fw, JSON.stringify(fit));
     await page.close();
   }
-  // K. sub-branches before forgetting the subject; Tidy up only in Free mode
+  // K. step 2 is main branches only; step 3 is where you free-associate (and can add more main branches); Tidy up only in Free mode
   {
     const { page } = await mk(browser); await page.goto(BASE);
     await page.fill('#subject', 'Strikes'); await page.press('#subject', 'Enter');
     for (const t of ['Walk out', 'Picket']) { await page.fill('#sub-input', t); await page.press('#sub-input', 'Enter'); }
-    await page.locator('.chips .chip button[data-chip]').first().click();
-    ok('K1 step 2: tapping a branch lets you add sub-branches while the subject is still visible', /Adding to:\s*Strikes\s*›\s*Walk out/.test(await page.locator('#controls .crumbs').innerText()) && await page.locator('#frame .nd.dim').count() === 0);
-    for (const t of ['Flounce out', 'Conga']) { await page.fill('#sub-input', t); await page.press('#sub-input', 'Enter'); }
-    ok('K2 the sub-branches are in the web under that branch', await nds(page).count() === 5);
-    await page.locator('.chips .chip button[data-chip]').first().click();
-    ok('K3 you can go a level deeper again', /Strikes\s*›\s*Walk out\s*›\s*Flounce out/.test(await page.locator('#controls .crumbs').innerText()));
-    await page.locator('#controls .crumbs button', { hasText: 'Strikes' }).click();
-    ok('K4 tapping a name above goes back up to add more top-level branches', /Adding to:\s*Strikes$/.test((await page.locator('#controls .crumbs').innerText()).trim()));
-    ok('K5 Tidy up is not shown in Guided mode', await page.locator('#tidy').count() === 0);
-    await page.click('#to3');
-    ok('K6 step 3 forgets the subject (dimmed, left out of the path) for one more round', await page.locator('#frame .nd.dim').count() === 1 && /Working on:/.test(await page.locator('#controls .crumbs').innerText()) && !/Strikes/.test(await page.locator('#controls .crumbs').innerText()));
-    await page.fill('#kid-input', 'One last idea'); await page.press('#kid-input', 'Enter');
-    ok('K7 the last round adds under the selected branch', await nds(page).count() === 6);
+    ok('K1 step 2 only adds main branches: no trail, no sub-branch input, subject visible', await page.locator('#controls .crumbs').count() === 0 && await page.locator('#kid-input').count() === 0 && await page.locator('#frame .nd.dim').count() === 0 && await nds(page).count() === 3);
+    await page.locator('.chips .chip button[data-chip]').nth(1).click();
+    ok('K2 tapping a main branch goes to step 3 with that branch selected', /Break it down/.test(await page.locator('[aria-current="step"]').innerText()) && /Working on:\s*Picket/.test(await page.locator('#controls .crumbs').innerText()));
+    ok('K3 step 3 forgets the subject: dimmed and left out of the trail', await page.locator('#frame .nd.dim').count() === 1 && !/Strikes/.test(await page.locator('#controls .crumbs').innerText()));
+    await page.fill('#kid-input', 'Flounce'); await page.press('#kid-input', 'Enter');
+    await page.locator('.chips .chip button[data-chip]').last().click();
+    await page.fill('#kid-input', 'Deeper'); await page.press('#kid-input', 'Enter');
+    ok('K4 step 3 goes as deep as you like', await nds(page).count() === 5 && /Picket\s*›\s*Flounce/.test(await page.locator('#controls .crumbs').innerText()));
+    await page.fill('#main-input', 'Scab'); await page.press('#main-input', 'Enter');
+    const top = await page.evaluate(() => window.__jokeweb.state().nodes.filter(n => n.p === 0).map(n => n.t));
+    ok('K5 a new main branch can be added in step 3, and it becomes the one you work on', top.join() === 'Walk out,Picket,Scab' && /Working on:\s*Scab/.test(await page.locator('#controls .crumbs').innerText()) && await page.locator('#frame .nd.dim').count() === 1);
+    ok('K6 Tidy up is not shown in Guided mode', await page.locator('#tidy').count() === 0);
     await page.click('#mode-free');
-    ok('K8 Tidy up appears in Free mode', await page.locator('#tidy').count() === 1);
+    ok('K7 Tidy up appears in Free mode', await page.locator('#tidy').count() === 1);
     await page.click('#mode-guided');
-    ok('K9 and disappears again in Guided mode', await page.locator('#tidy').count() === 0);
+    ok('K8 and disappears again in Guided mode', await page.locator('#tidy').count() === 0);
     await page.close();
   }
   // L. Apply it back: only the subject and the chosen idea stand out
