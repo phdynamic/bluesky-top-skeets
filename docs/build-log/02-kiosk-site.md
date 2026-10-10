@@ -38,3 +38,7 @@
 ## 2026-10-10 · Receipt Help fact checks filed
 - changed: `TESTING-OWED.md` lists by-hand checks for each claim in the Skeet Receipt Help dialog, plus the space-art layout
 - live-tested: no
+
+## 2026-10-10 · remaining Help fact checks filed
+- changed: `TESTING-OWED.md` now has by-hand checks for the Help dialogs of Top Skeets, the Tracer and the Imagine Flagons Saga (all six tool pages covered)
+- live-tested: no

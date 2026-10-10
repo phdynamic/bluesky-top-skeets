@@ -66,3 +66,37 @@ Source: the Help text in `public/receipt.html`. The automated suite covers these
 - Runs in the browser. How: Network tab while printing. Expect: requests only to Bluesky's public API (and the footer avatar lookup).
 - Space-heavy posts (not a Help claim, from the decision "proportional font for space art"). How: print a post that uses leading spaces for ASCII art, such as the one by demandavoider.bsky.social (3lztjwjvmqc22), and compare with Bluesky. Expect: spacing looks the same as in Bluesky; check with the Japanese fonts on your own machine.
 
+## Top Skeets (feed generator): claims in its Help dialog (live site, real account)
+Source: the Help text in `public/feeds.html` (kept word for word from the older pop-up). Needs a real Bluesky account and an app password.
+- Create. How: enter a handle and app password, pick Top Skeets, add a name, description and an icon image (non-square), Generate. Expect: a feed link; the icon is cropped square; the feed appears on Bluesky under your name. Try an account on a non-bsky.social server if you have one.
+- Four feeds. How: create each type with and without "Include replies". Expect: up to four feeds per account, each with its own link.
+- Share and fill. How: open the link in Bluesky right after creating; close the page during the progress bar. Expect: the feed fills in on its own, and the progress bar closed early does no harm.
+- Update timing. How: post something new and watch both feed types. Expect: My Skeets shows it within about 15 minutes, Top Skeets within about an hour; like-count re-ranking happens about once a day (compare against a post with new likes).
+- Rename. How: re-submit with the same account and a new name or description; then again with a new icon, and once with no icon. Expect: the feed link never changes; the new icon replaces the old; leaving it empty keeps the current one.
+- Unpublish. How: enter credentials, pick the feed type (and the replies box), click Unpublish. Expect: the feed disappears from Bluesky and from the site; the other feeds stay.
+- App password never stored. How: check the Railway logs and data directory after a registration. Expect: no password anywhere.
+
+## Quote Post Game Tracer: claims in its Help dialog (live site, real Bluesky)
+Source: the Help text in `public/tracer.html`.
+- Trace. How: paste the post that started a quote post game (try the example on the page) and press Trace. Expect: the tree fills in as quotes are found; you can browse while it loads.
+- Most-quoted branches first. How: watch the order in which branches grow on a big game. Expect: the biggest branches are filled first.
+- Stop, resume, load more. How: press Stop partway, then Resume; on a game over 2,000 quotes press "Load more". Expect: it keeps what it has and continues; "Load more" adds about 2,000 at a time, up to 20,000.
+- Rate limits. How: trace a very large game. Expect: if Bluesky slows down it waits and picks up again, and offers Resume if it stops.
+- Missing quotes. How: trace a game that has locked, blocked or deleted posts. Expect: a message says how many are missing, and what was quoted under them is absent.
+- Explore. How: search a name and a phrase; fold and open branches; change depth; trace a quote back to the original. Expect: each does what Help says.
+- Card links. How: click the link on a card, including an author with an unusual handle. Expect: it opens that post on Bluesky without an error (links use the handle, not an encoded ID).
+- Nothing stored. How: Network tab during a trace. Expect: requests only to Bluesky's public API and the footer avatar lookup.
+
+## The Imagine Flagons Saga: claims in its Help dialog (live site, real Bluesky)
+Source: the Help text in `public/imagine-flagons.html`.
+- Live trace. How: open the page. Expect: a progress bar, then the whole tree; how long it takes is not recorded yet (note it here).
+- Size. How: read the post count. Expect: well over a thousand posts (the page text says more than a thousand people took part).
+- Search. How: search a band name, a word and a handle. Expect: matching cards stay and the rest fold away.
+- Expanded and Compact. How: toggle them. Expect: Expanded shows full posts with pictures; Compact is a short overview.
+- Depth, Expand all, Collapse all, thread lines. How: use each. Expect: depth opens that many levels; the buttons do what they say; clicking a thread line folds that branch.
+- Order. How: switch between oldest first and biggest branch. Expect: the tree reorders.
+- Random band, Deepest dive, Leaderboards. How: use each. Expect: each jumps to something sensible.
+- Shortcuts. How: press `/`, `e`, `c`, `r` (not while typing in the search box). Expect: search focus, expand all, collapse all, a random band.
+- Failure. How: block Bluesky in the browser (offline) and reload. Expect: "Try again", or the part that did load.
+- Nothing stored. How: Network tab. Expect: requests only to Bluesky's public API and the footer avatar lookup.
+
