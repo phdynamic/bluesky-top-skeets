@@ -34,3 +34,7 @@
 ## 2026-10-10 · Joke-Web Maker Help fact checks filed
 - changed: `TESTING-OWED.md` lists by-hand checks for each claim in the Joke-Web Maker Help dialog
 - live-tested: no
+
+## 2026-10-10 · Receipt Help fact checks filed
+- changed: `TESTING-OWED.md` lists by-hand checks for each claim in the Skeet Receipt Help dialog, plus the space-art layout
+- live-tested: no

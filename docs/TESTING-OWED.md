@@ -51,3 +51,18 @@ Source: the Help text in `public/jokeweb.html`. The automated suite covers these
 - Send from Mashup. How: send a mashup while a web exists. Expect: a new web starts at once, and "Swap with previous web" brings the old one back (also checked under Mashup).
 - Help itself. How: open Help on a phone. Expect: it fits the screen and scrolls inside; Esc and the close button work.
 
+## Skeet Receipt: claims in its Help dialog (live site, real browser, desktop and phone)
+Source: the Help text in `public/receipt.html`. The automated suite covers these with a mocked Bluesky; these are the by-hand confirmations.
+- Links from any client. How: paste a post link copied from the share menu of bsky.app, then one from another Bluesky app or community server, then an `at://` address. Expect: all print a receipt.
+- Numbers. How: compare a receipt with the post in Bluesky. Expect: likes, reposts, quotes and replies match, and total touches is their sum.
+- Include post text / handle. How: untick each. Expect: the text or the handle disappears; the numbers stay.
+- Paid with. How: pick another preset, then print another post. Expect: the choice shows on the receipt, and resets to VIBES for the next post.
+- Handwritten note. How: type 80 characters, then try more. Expect: it stops at 80 and is written across the receipt in handwriting.
+- Red circles. How: circle each number, then the whole post text. Expect: red loops appear on screen and in the saved image.
+- Share it. How: Share or save image, Copy image, Copy alt text (on a phone and a computer). Expect: an image file or share sheet; the image on the clipboard (the button is hidden where the browser can't do it); alt text on the clipboard.
+- Content labels. How: print a receipt for a post with a content label. Expect: its text is hidden and a note says why.
+- Order number. How: print the same post twice and on two devices. Expect: the same order number each time.
+- Long posts. How: print a post of close to 300 characters. Expect: all of it, on a longer receipt.
+- Runs in the browser. How: Network tab while printing. Expect: requests only to Bluesky's public API (and the footer avatar lookup).
+- Space-heavy posts (not a Help claim, from the decision "proportional font for space art"). How: print a post that uses leading spaces for ASCII art, such as the one by demandavoider.bsky.social (3lztjwjvmqc22), and compare with Bluesky. Expect: spacing looks the same as in Bluesky; check with the Japanese fonts on your own machine.
+
