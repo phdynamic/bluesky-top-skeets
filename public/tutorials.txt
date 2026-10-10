@@ -1,0 +1,147 @@
+;; The text of the Bluesky Tutorials page (/tutorials). Edit this file and the page restyles itself.
+;; Lines starting with ;; are notes and never show up on the page.
+;; Format:
+;;   Lines before the first ## heading are the introduction at the top of the page.
+;;   ## Heading           starts a new category card
+;;   A blank line         separates paragraphs
+;;   - text               a bulleted list (one line per item)
+;;   1. text              a numbered list
+;;   **bold**  *italic*  [link text](https://example.com)  [a page on this site](/feeds)
+;; Keep links to https:// addresses or to pages on this site that start with /.
+
+This is a guide to the technical side of Bluesky for people who want to post jokes and be found doing it. It began as my Twitter Tutorials moment and has been rewritten for Bluesky: what the words mean, how replies and quotes work, how to set up your profile and your feeds, and what to do when something goes wrong.
+
+## The language
+
+Bluesky has its own argot, and it overlaps with Twitter's only in part. These are the terms you will see most.
+
+- **skeet:** a post (some people dislike the word, so read the room)
+- **repost:** a retweet
+- **quote:** a repost with your own text added (QP is short for quote post)
+- **TL:** timeline
+- **moots:** mutuals, people you follow who follow you back
+- **OP:** original poster
+- **feed:** a stream of posts. Following is the people you follow, and custom feeds are built by anyone
+- **starter pack:** a bundle of accounts and feeds you can follow in one tap
+- **list:** a collection of accounts someone has gathered
+- **DM:** direct message
+- **subskeet:** a post about someone who goes unnamed
+- **ratio:** when the replies beat the likes. It is not a compliment
+- **quote post game:** a post that people keep quoting, each adding to the last
+
+A few holdovers from Twitter still work here: af (as fuck), rn (right now), idgaf (I don't give a fuck) and ffs (for fuck's sake).
+
+## Replies and quote posts
+
+Reply guy-ing is its own art. A reply that adds the perfect second line to someone's joke is a compliment to the shitposter, and the people who do it well tend to collect followers of their own. Be funny, add something the original didn't have, and let the joke you're answering keep its spotlight.
+
+Reply threads can also be a source of great humor and interest. Quote post games are the best example: one post, then a long chain of people quoting it and adding a twist. Want to see a whole game at once? The [Quote Post Game Tracer](/tracer) takes the post that started it and draws the entire tree, every quote and every branch, searchable. It works on any public post.
+
+A caution on quote posts. Quoting someone to mock them is common, and it often goes badly: the person can detach your quote, and the crowd you send their way may not be kind. Think before you quote. Subskeets deserve the same caution. They are not always very nice, and a post about someone who can read it is still a post about them.
+
+## Do's and don'ts
+
+1. Follow accounts you like
+2. Repost what you like
+3. Post regularly
+4. Don't be a dick
+5. Find a starter pack or a feed full of people you like
+6. Enter contests for practice
+7. Make connections
+8. DON'T BE A DICK
+9. Have fun with it
+10. Laugh always
+
+A few more rules worth keeping. Write alt text. Change the default avatar. Be clever, not stupid, in your replies. Don't pretend you don't care about numbers, because nobody will believe you. And don't be creepy.
+
+## Your profile
+
+Put a link in your bio so people can find your posts. The best link to use is a feed of your own (see Feeds below), since it shows your best work without anyone having to search for it. To add it, open your profile, tap Edit Profile, tap the Description box, paste the link and tap Save. To copy a link, tap and hold it until a menu pops up and choose Copy (on a computer, right-click it).
+
+Pin your best post to your profile so new visitors see it first. Tap the three dots on the post and choose Pin to your profile. Change it whenever you have something better.
+
+To find an older post of your own, open your profile, tap the triple dots button and choose Search posts. You can put a phrase in quotes, or add since: and until: with a date (2024-01-01, for example) to narrow it down.
+
+Your handle can be a domain you own. Mine is professorkiosk.wtf. If you own a domain it costs nothing to use it, and it shows people the account is yours. Blue checks exist on Bluesky now too, but they come from trusted organizations, not from a purchase. Neither a check nor a domain is a reason to follow, or not follow, someone.
+
+## Feeds
+
+Custom feeds are one of the best parts of Bluesky. Pin a few to your home screen: one for friends, one for a topic, one for jokes. Starter packs are the quickest way to find people. Ask around and someone will send you one.
+
+You can make your own feeds, and you should. [SkyFeed](https://skyfeed.app) is a builder that assembles a custom feed from rules, such as the accounts on a list, words in a post or a minimum number of likes, with no code. It is the best place to start if you want a feed for a topic or a group of friends.
+
+For a feed of your own posts, use my [feed maker](/feeds). **Top Skeets** ranks your posts by likes, so anyone can scroll through your greatest hits (it is Bluesky's answer to Favstar). **My Skeets** shows your newest posts first. Each comes with or without replies. Pick a name, a description and an icon, share the link in your bio, and the feed keeps itself up to date.
+
+## Cleaning up your timeline
+
+Want the people you follow without all the reposts? Open Settings and find Following Feed Preferences. You can switch off reposts there, and replies and quote posts too.
+
+To silence a word or phrase, use Muted Words & Tags in Settings. You can mute it for a set time or for good, and you can skip people you follow. It works well for spoilers and for whatever everyone is fighting about this week.
+
+You can also mute or block accounts, hide a reply on your own post, and detach your post from someone's quote. Use all of them. Nobody is owed your attention.
+
+## Growing an audience
+
+Three dependable ways to gain followers:
+
+1. Repost people with good posts
+2. Follow people whose posts you like after reposting several of theirs
+3. Post something every day so your name and avatar are out there
+
+Follow trains and follow-for-follow lists turn up here too. They bring you followers who never read you, and a few followers who laugh are worth more than a crowd that scrolls past.
+
+Stuck for something to post? The [Joke-Web Maker](/jokeweb) walks you through free association, and the [Mashup Machine](/mashup) smashes random topics together. Neither writes the joke for you, but both get you started.
+
+## Hashtags
+
+A word on hashtags. Bluesky supports them and they work in search, but on joke Bluesky they read as clutter. They suit games and irony. Dropped into a joke, they will cost you reposts. That attitude is summed up in these three skeets.
+
+Things that just don't go together: skeets and hashtags.
+
+If skeets were meant to contain hashtags, then why did Bluesky make them so annoying?
+
+Skeets captioning photos are just glorified hashtags.
+
+## Contests
+
+Contests are a good way to get exposure on joke Bluesky. They come and go, so ask around to see what's current.
+
+[ContestDashboard.live](https://contestdashboard.live) is a tool for running them: it collects replies as entries, checks who followed the rules, and lets judges pick favorites. Read a contest's rules before you enter, because entries that ignore them get tossed. Most contests take entries as replies to the contest post. If the host allows older posts, you can quote yours or paste its link. Ask first, and keep the number of entries reasonable.
+
+## Images and alt text
+
+You can attach up to four images to a post. A single image mostly keeps its shape in the feed, but a group gets cropped into a grid, so check how yours looks before you post it.
+
+Add alt text. Tap the ALT button on your image, describe what's there (and the joke, if the joke is in the picture) and save. People who use screen readers will thank you, and funny alt text has become a genre of its own.
+
+[Skeet Receipt](/receipt) makes a receipt of any public post's numbers, and it writes the alt text for the image too. No sign-in, and it all runs in your browser.
+
+## Direct messages
+
+Direct messages on Bluesky are private chats. Open someone's profile and tap the message button, or tap the chat icon in the app to see your conversations. You decide who can message you: everyone, only people you follow, or no one. Look for the chat settings in Settings and set them. A lot of unwanted messages stop right there.
+
+Don't DM someone until you've built some rapport through replies and reposts, and don't send strangers your work. If someone doesn't answer, let it go.
+
+To send a post in a chat, tap the share arrow under it and choose Send via Direct Message. Make sure it's okay to share your own posts in a chat before you start, and keep the number reasonable. It's not rude to put your work out there, but don't inundate people with it.
+
+## Tools and accounts
+
+Bluesky works on your phone and in a browser. If you want a column layout like TweetDeck's, third-party clients such as deck.blue do that. Third-party tools may ask for an app password: make one in Settings, never give out your real password, and delete it when you're done.
+
+You can switch between accounts in the app without logging out, so one phone can handle a personal account and a joke account.
+
+## When people can't find your posts
+
+On Twitter, "ghost banning" meant your posts quietly dropped out of search. As far as anyone can tell, Bluesky doesn't have a secret setting like that. There are, however, ordinary reasons people can't see your posts: someone has blocked or muted you, a moderation label has hidden a post, you've limited your replies, search hasn't caught up yet, or the author asked not to be shown to people who are logged out.
+
+Spam rules still apply. Posting the same link over and over, mass-following, or sending the same reply to dozens of people can get an account labeled or limited. I suspect the same goes for contest entries, so mix it up a bit.
+
+If something seems wrong, open your profile in a logged-out browser window, ask a friend to search for you, and check your account for a moderation label. You can appeal a moderation decision in the app.
+
+## Closing thoughts
+
+A few thoughts on aesthetics. Joke Bluesky, like joke Twitter before it, prefers clean, unadorned text. Typos and a pile of emoji will get you fewer reposts. Alt text is the exception: be as ornate there as you like.
+
+Your numbers will go up and down for reasons that have nothing to do with you. Keep posting anyway. It's only Bluesky.
+
+There are issues I haven't covered here, so ask around, and ask me. Thanks for reading this guide, and I hope to see you out there!

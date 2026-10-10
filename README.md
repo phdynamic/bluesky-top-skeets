@@ -82,6 +82,10 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 
 `/mashup` is a browser-only page that spins a random topic or mashes two or three together. The topics live in `public/topics.js` (about 600 in 20 categories; edit freely, `*` marks a spicy one). Each category sits on a small map, and the Distance dial picks topics by how far apart their categories are; the Weirdness dial adds odd pairings and a third topic. Visitors can add their own topics, lock a card while re-rolling, keep a history and favorites, and send a result to the Joke-Web Maker (`/jokeweb#subject=...&branches=A|B`). Everything is saved in the browser only (`localStorage`, key `pk-mashup-v1`).
 
+## Bluesky Tutorials
+
+`/tutorials` is a page of tips for using Bluesky. All of its text lives in `public/tutorials.txt`: edit that file and the page restyles itself. The file's first lines explain the tiny format (`## Heading` starts a card, a blank line separates paragraphs, `- ` makes a bulleted list, `1. ` a numbered list, plus `**bold**`, `*italic*` and `[link](https://...)`). Lines that start with `;;` are notes and never show.
+
 ## Prerequisites
 
 - Node.js 20 (see `.nvmrc`)

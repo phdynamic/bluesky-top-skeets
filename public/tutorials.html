@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bluesky Tutorials</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="description" content="How to do the technical stuff on Bluesky: the language, replies and quotes, your profile, feeds, contests, images, messages and more." />
+<link rel="preload" href="/fonts/dm-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/dm-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<script>
+  // Apply the theme before first paint to avoid a light flash
+  (function() {
+    var saved = null;
+    try { saved = localStorage.getItem('theme'); } catch (e) {}
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+</script>
+<link rel="stylesheet" href="/kiosk.css" />
+<style>
+:root { --hero: var(--sky); }
+h1, h2, p, ul, ol { margin: 0; }
+main.k-main { padding: 32px 0 0; }
+.col { max-width: 780px; margin: 0 auto; display: grid; gap: 26px; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.toc a { display: inline-block; text-decoration: none; font-weight: 700; font-size: 13px; padding: 8px 12px; min-height: 36px; border: 2px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); box-shadow: var(--hard-sm); }
+.toc a:hover { transform: translate(-1px, -1px); }
+.card { padding: 22px 24px 24px; scroll-margin-top: 16px; }
+.card h2 { font-size: 26px; line-height: 1.15; font-weight: 800; letter-spacing: -.01em; margin-bottom: 12px; text-wrap: balance; }
+.card .body { display: grid; gap: 14px; font-size: 16px; line-height: 1.6; max-width: 66ch; }
+.card ul, .card ol { padding-left: 22px; display: grid; gap: 6px; }
+.card a { font-weight: 700; text-underline-offset: 3px; }
+.card strong { font-weight: 800; }
+.msg { padding: 18px 20px; font-weight: 700; }
+@media (max-width: 480px) { .card { padding: 18px 16px 20px; } .card h2 { font-size: 23px; } }
+</style>
+</head>
+<body>
+
+<div class="k-top">
+  <a class="k-btn" href="/">&larr; Professor Kiosk</a>
+  <div class="right">
+    <button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
+  </div>
+</div>
+
+<header class="k-hero">
+  <div class="k-wrap">
+    <div>
+      <span class="k-tag navy">Level 1 &middot; Guide 07</span>
+      <h1>Bluesky Tutorials</h1>
+      <p id="intro">How to do the technical stuff on Bluesky.</p>
+    </div>
+  </div>
+</header>
+
+<main class="k-main">
+  <div class="k-wrap">
+    <div class="col">
+      <nav aria-label="Sections"><ul class="toc" id="toc"></ul></nav>
+      <div id="cards" aria-live="polite"><div class="k-panel msg">Loading the tutorials…</div></div>
+    </div>
+  </div>
+</main>
+
+<footer class="k-foot">
+  <div class="k-wrap">
+    <strong>Thank you for using Professor Kiosk.<br />Please take your receipt.</strong>
+    <div class="links">
+      <a class="by" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener"><img class="footer-avatar" data-pk-avatar src="" alt="" hidden />Made by @professorkiosk.wtf</a>
+      <a class="kofi" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">&#9749; Support these projects on Ko-fi</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+'use strict';
+function $(id) { return document.getElementById(id); }
+
+// ---- night mode (shared 'theme' key) ----
+function applyThemeLabel() { $('themeToggle').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️ Day mode' : '🌙 Night mode'; }
+$('themeToggle').addEventListener('click', function () {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (dark) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', 'dark');
+  try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (e) {}
+  applyThemeLabel();
+});
+applyThemeLabel();
+
+// ---- the text lives in /tutorials.txt; this turns it into cards ----
+var COLORS = ['var(--coral)', 'var(--teal)', 'var(--purple)', 'var(--yellow)', 'var(--sky)', 'var(--pink)'];
+
+// Only https links and links to pages on this site are allowed.
+function safeHref(u) { return /^https:\/\//i.test(u) || /^\/(?!\/)/.test(u) ? u : null; }
+
+// **bold**, *italic* and [text](link), built as DOM nodes so nothing in the text can inject markup.
+function inline(parent, text) {
+  var re = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*/g, last = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+    if (m[1] !== undefined) {
+      var href = safeHref(m[2]);
+      if (href) { var a = document.createElement('a'); a.href = href; if (/^https:/i.test(href)) { a.target = '_blank'; a.rel = 'noopener'; } inline(a, m[1]); parent.appendChild(a); }
+      else parent.appendChild(document.createTextNode(m[1]));
+    } else if (m[3] !== undefined) { var b = document.createElement('strong'); b.textContent = m[3]; parent.appendChild(b); }
+    else { var i = document.createElement('em'); i.textContent = m[4]; parent.appendChild(i); }
+    last = re.lastIndex;
+  }
+  if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+}
+
+function parse(src) {
+  var intro = [], sections = [], cur = null, para = [], list = null;
+  function target() { return cur ? cur.blocks : intro; }
+  function flush() {
+    if (para.length) { target().push({ t: 'p', text: para.join(' ') }); para = []; }
+    if (list) { target().push(list); list = null; }
+  }
+  src.replace(/\r/g, '').split('\n').forEach(function (raw) {
+    var line = raw.replace(/\s+$/, '');
+    if (/^;;/.test(line)) return;
+    var h = line.match(/^##\s+(.+)$/);
+    if (h) { flush(); cur = { title: h[1].trim(), blocks: [] }; sections.push(cur); return; }
+    if (!line.trim()) { flush(); return; }
+    var ul = line.match(/^-\s+(.*)$/), ol = line.match(/^\d+\.\s+(.*)$/);
+    if (ul || ol) {
+      var kind = ul ? 'ul' : 'ol';
+      if (para.length) { target().push({ t: 'p', text: para.join(' ') }); para = []; }
+      if (list && list.t !== kind) flush();
+      if (!list) list = { t: kind, items: [] };
+      list.items.push((ul || ol)[1]); return;
+    }
+    if (list) flush();
+    para.push(line.trim());
+  });
+  flush();
+  return { intro: intro, sections: sections };
+}
+
+function slug(s) { return s.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'; }
+
+function render(doc) {
+  var intro = $('intro'); intro.textContent = '';
+  var first = true;
+  doc.intro.forEach(function (b) { if (b.t === 'p') { if (!first) intro.appendChild(document.createElement('br')); inline(intro, b.text); first = false; } });
+  var toc = $('toc'), cards = $('cards'); toc.textContent = ''; cards.textContent = '';
+  var stack = document.createElement('div'); stack.style.display = 'grid'; stack.style.gap = '26px';
+  var used = {};
+  doc.sections.forEach(function (s, n) {
+    var id = slug(s.title); if (used[id]) id += '-' + (n + 1); used[id] = true;
+    var li = document.createElement('li'), a = document.createElement('a'); a.href = '#' + id; a.textContent = s.title; li.appendChild(a); toc.appendChild(li);
+    var card = document.createElement('section'); card.className = 'k-panel card'; card.id = id; card.style.setProperty('--accent', COLORS[n % COLORS.length]);
+    card.setAttribute('aria-labelledby', id + '-h');
+    var h2 = document.createElement('h2'); h2.id = id + '-h'; h2.textContent = s.title; card.appendChild(h2);
+    var body = document.createElement('div'); body.className = 'body';
+    s.blocks.forEach(function (b) {
+      var el = document.createElement(b.t === 'p' ? 'p' : b.t);
+      if (b.t === 'p') inline(el, b.text); else b.items.forEach(function (it) { var item = document.createElement('li'); inline(item, it); el.appendChild(item); });
+      body.appendChild(el);
+    });
+    card.appendChild(body); stack.appendChild(card);
+  });
+  cards.appendChild(stack);
+  if (!doc.sections.length) { var m = document.createElement('div'); m.className = 'k-panel msg'; m.textContent = 'There is nothing here yet.'; cards.appendChild(m); }
+  if (location.hash.length > 1) { var t = document.getElementById(decodeURIComponent(location.hash.slice(1))); if (t) t.scrollIntoView(); }
+}
+
+function failed() { var c = $('cards'); c.textContent = ''; var m = document.createElement('div'); m.className = 'k-panel msg'; m.textContent = 'The tutorials could not be loaded. Try reloading the page.'; c.appendChild(m); }
+
+fetch('/tutorials.txt', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.text(); }).then(function (t) { render(parse(t)); }).catch(failed);
+window.__tutorials = { parse: parse, slug: slug };
+})();
+</script>
+<script src="/kiosk.js" defer></script>
+</body>
+</html>

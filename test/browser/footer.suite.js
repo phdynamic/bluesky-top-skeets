@@ -3,7 +3,7 @@ const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42
 (async()=>{
  const b=await chromium.launch({executablePath:require('./env').CHROME});
  const errs=[]; const html={};
- for (const [scheme,w] of [['light',1000],['dark',390]]) for (const pg of ['/','/feeds','/tracer','/imagine-flagons','/receipt','/jokeweb','/mashup']) {
+ for (const [scheme,w] of [['light',1000],['dark',390]]) for (const pg of ['/','/feeds','/tracer','/imagine-flagons','/receipt','/jokeweb','/mashup','/tutorials']) {
   const c=await b.newContext({viewport:{width:w,height:800},colorScheme:scheme}); const p=await c.newPage();
   p.on('pageerror',e=>errs.push(pg+': '+e.message));
   await p.route(/fonts\.(googleapis|gstatic)/,r=>r.abort());

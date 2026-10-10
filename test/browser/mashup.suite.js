@@ -121,7 +121,7 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   await page.setViewportSize({ width: 1280, height: 900 }); await page.goto(BASE); await page.waitForSelector('#cards .card'); await page.screenshot({ path: 'mu-desktop.png', fullPage: true });
   await page.goto('http://localhost:3988/');
   const nums = await page.evaluate(() => [...document.querySelectorAll('.tool .num')].map(n => n.textContent));
-  ok('G4 hub numbers are unique and run 01 to 10', nums.join(',') === '01,02,03,04,05,06,07,08,09,10', nums.join(','));
+  ok('G4 hub numbers are unique and run 01 to 11', nums.join(',') === '01,02,03,04,05,06,07,08,09,10,11', nums.join(','));
   ok('G5 the hub has a Mashup Machine card linking to /mashup', await page.locator('a[href="/mashup"]').count() === 1);
   // H. layout: favorites full width below controls and history; old long histories are trimmed
   {

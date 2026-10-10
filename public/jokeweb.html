@@ -544,7 +544,7 @@ function renderControls() {
       h('button', { class: 'k-btn' + (confirmReset ? ' coral' : ''), type: 'button', id: 'reset', text: confirmReset ? 'Really start over?' : 'Start over', on: { click: startOver } }))));
   if (guided) renderGuided(c); else renderFree(c);
   renderIdeas(c);
-  if (focusId) { var f = $(focusId); if (f) f.focus(); focusId = null; }
+  if (focusId) { var f = $(focusId); if (f) f.focus({ preventScroll: true }); focusId = null; }
 }
 function startOver() {
   if (!confirmReset) { confirmReset = true; clearTimeout(resetTimer); resetTimer = setTimeout(function () { confirmReset = false; renderControls(); }, 4000); renderControls(); return; }

@@ -337,6 +337,10 @@ app.get('/tracer', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tracer.html'));
 });
 
+app.get('/tutorials', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, '..', 'public', 'tutorials.html'));
+});
 app.get('/mashup', (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'mashup.html'));
