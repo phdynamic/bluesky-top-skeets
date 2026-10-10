@@ -21,3 +21,17 @@ Source for the first group: `public/tutorials.txt`, written 2026-10-10 from web 
 - deck.blue. How: open it. Expect: still a working multi-column Bluesky client.
 - SkyFeed steps. How: follow the seven written steps and the video at skyfeed.app. Expect: they still match the current screens (app password, Feed Builder, Create Feed, Single User, Publish Feed).
 - SkyFeed description. How: read skyfeed.app. Expect: it still builds feeds from rules (lists, words, like counts) with no code.
+
+## Mashup Machine: claims in its Help dialog (live site, real browser)
+Source: the Help text in `public/mashup.html`. The automated suite covers these with a seeded random generator and mocks; these are the by-hand confirmations.
+- Randomize and Mashup. How: switch modes and press Spin several times. Expect: Randomize gives one card; Mashup gives two; each card shows its category.
+- Third topic. How: Mashup, drag Weirdness to the top, spin 5 times. Expect: three cards every time near the top; mostly two at low Weirdness.
+- Spin key. How: click an empty part of the page, press Space. Expect: a spin. Typing a space in the "My topics" box must not spin.
+- Distance. How: spin about 10 times with Distance at the far left, then far right. Expect: left pairs topics from the same category (two foods, two TV shows); right pairs far-apart categories (for example Food with History & mythology). Help's examples are illustrations, not guaranteed results.
+- Odd pairings. How: Distance low, Weirdness about 70 to 80, spin about 15 times. Expect: some pairs from unrelated categories (for example Animals with Law & government), even though Distance is low.
+- Spicy and My topics switches. How: turn Spicy off and spin about 30 times; add a topic of your own, then turn "Include my topics" off. Expect: no topic marked with `*` in `public/topics.js` appears; your topic shows up sometimes when on, never when off.
+- Lock. How: lock one card and spin. Expect: the locked card stays, the others change.
+- Favorite and History. How: spin 10 times, star one result, reload the page. Expect: History shows only the last 8; the favorite is still listed after the reload.
+- Send to Joke-Web Maker. How: click it with a Joke-Web already started. Expect: a new web whose subject is the mashup and whose branches are the topics, and the earlier web one tap away ("Swap with previous web").
+- Saved on this device only. How: use the browser's Network tab while spinning; open the page in a second browser. Expect: no requests except the footer avatar lookup to Bluesky; your topics, history and favorites do not appear in the second browser.
+

@@ -26,3 +26,7 @@
 ## 2026-10-10 · Tutorials fact checks filed
 - changed: `TESTING-OWED.md` lists the Bluesky-app and outside-tool facts in `tutorials.txt` that were never checked in the app
 - live-tested: no
+
+## 2026-10-10 · Mashup Help fact checks filed
+- changed: `TESTING-OWED.md` lists by-hand checks for each claim in the Mashup Machine Help dialog
+- live-tested: no
