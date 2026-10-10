@@ -22,3 +22,7 @@
 - changed: `src/budget.ts` header no longer mentions "game crawls"; README no longer cites the removed probe
 - note: comment and docs only, no code change
 - live-tested: n/a
+
+## 2026-10-10 · Tutorials fact checks filed
+- changed: `TESTING-OWED.md` lists the Bluesky-app and outside-tool facts in `tutorials.txt` that were never checked in the app
+- live-tested: no
