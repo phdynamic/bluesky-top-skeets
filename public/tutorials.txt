@@ -84,7 +84,7 @@ Here is how I made a feed of my own posts in SkyFeed, start to finish. The video
 6. Click Publish Feed. You can add an image and a description if you like.
 7. Click the newly created link, then copy its address and paste it into your bio.
 
-For a feed of your own posts, use my [feed maker](/feeds). **Top Skeets** ranks your posts by likes, so anyone can scroll through your greatest hits (it is Bluesky's answer to Favstar). **My Skeets** shows your newest posts first. Each comes with or without replies. Pick a name, a description and an icon, share the link in your bio, and the feed keeps itself up to date.
+If that's too technical or complicated to bother with, then you can try [my feed maker, Top Skeets](/feeds). **Top Skeets** ranks your posts by likes, so anyone can scroll through your greatest hits (it is Bluesky's answer to Favstar). **My Skeets** shows your newest posts first. Each comes with or without replies. Pick a name, a description and an icon, share the link in your bio, and the feed keeps itself up to date.
 
 ## Cleaning up your timeline
 
