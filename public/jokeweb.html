@@ -123,6 +123,14 @@ html[data-theme="dark"] .dcount.over { color: #fca5a5; }
 
 <main class="k-main">
   <div class="k-wrap">
+    <section class="panel" id="incoming" hidden style="margin-bottom: 24px" aria-label="Topic from the Mashup Machine">
+      <h2 id="inc-title">Start a new web?</h2>
+      <p class="hint" id="inc-text"></p>
+      <div class="row">
+        <button class="k-btn primary" id="inc-new" type="button">Start a new web with this</button>
+        <button class="k-btn" id="inc-keep" type="button">Keep my web</button>
+      </div>
+    </section>
     <div class="layout" id="layout">
 
       <section class="panel" id="controls" aria-label="Build your web"></section>
@@ -657,6 +665,29 @@ $('draft').value = S.draft;
 updateDraft();
 render();
 if (document.fonts && document.fonts.load) document.fonts.load('700 20px Caveat').then(function () { renderWeb(); });
+
+// A topic sent from the Mashup Machine arrives in the address after the #: subject=...&branches=A|B
+function incomingTopic() {
+  var m = location.hash.match(/^#(.+)$/); if (!m) return null;
+  var p; try { p = new URLSearchParams(m[1]); } catch (e) { return null; }
+  var subject = clean(p.get('subject'), MAX_TEXT); if (!subject) return null;
+  return { subject: subject, branches: (p.get('branches') || '').split('|').map(function (b) { return clean(b, MAX_TEXT); }).filter(Boolean).slice(0, 6) };
+}
+function applyIncoming(inc) {
+  var draft = S.draft; S = fresh(); S.draft = draft; S.nodes[0].t = inc.subject;
+  inc.branches.forEach(function (b) { addNode(0, b); });
+  var first = kidsOf(0)[0]; S.step = first ? 3 : 2; S.sel = first ? first.id : 0;
+  userZoomed = false; clearHold(); render(); save();
+}
+(function () {
+  var inc = incomingTopic(); if (!inc) return;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  if (!S.nodes[0].t && S.nodes.length === 1) { applyIncoming(inc); return; }
+  $('inc-text').textContent = 'You already have a web going. Start a new one with “' + inc.subject + '”' + (inc.branches.length ? ' and its ' + inc.branches.length + ' topics as branches' : '') + '? Your current web is replaced, your draft post stays.';
+  $('incoming').hidden = false;
+  $('inc-new').onclick = function () { $('incoming').hidden = true; applyIncoming(inc); };
+  $('inc-keep').onclick = function () { $('incoming').hidden = true; };
+})();
 window.__jokeweb = { state: function () { return S; }, outline: outline, glen: glen };
 })();
 </script>

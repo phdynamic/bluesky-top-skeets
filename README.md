@@ -78,6 +78,10 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 
 `/jokeweb` is a browser-only page (no server calls, no sign-in) for free-associating ideas for a post: a guided mode (subject, branches, break it down, apply it back) and a free board where bubbles can be dragged. It has a draft box with a 300-character counter, saves the web as a PNG, copies it as an outline, and remembers your work in the browser (`localStorage`, key `pk-jokeweb-v1`).
 
+## Mashup Machine
+
+`/mashup` is a browser-only page that spins a random topic or mashes two or three together. The topics live in `public/topics.js` (about 600 in 20 categories; edit freely, `*` marks a spicy one). Each category sits on a small map, and the Distance dial picks topics by how far apart their categories are; the Weirdness dial adds odd pairings and a third topic. Visitors can add their own topics, lock a card while re-rolling, keep a history and favourites, and send a result to the Joke-Web Maker (`/jokeweb#subject=...&branches=A|B`). Everything is saved in the browser only (`localStorage`, key `pk-mashup-v1`).
+
 ## Prerequisites
 
 - Node.js 20 (see `.nvmrc`)

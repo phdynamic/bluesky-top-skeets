@@ -1,6 +1,6 @@
 const http=require('http'),fs=require('fs'),path=require('path');
 const root=path.join(__dirname,'..','..','public');
-const map={'/':'index.html','/feeds':'feeds.html','/tracer':'tracer.html','/imagine-flagons':'imagine-flagons.html','/receipt':'receipt.html','/jokeweb':'jokeweb.html'};
+const map={'/':'index.html','/feeds':'feeds.html','/tracer':'tracer.html','/imagine-flagons':'imagine-flagons.html','/receipt':'receipt.html','/jokeweb':'jokeweb.html','/mashup':'mashup.html'};
 const types={'.html':'text/html','.css':'text/css','.js':'text/javascript','.png':'image/png','.woff2':'font/woff2'};
 http.createServer((q,r)=>{const u=q.url.split('?')[0];
  const f=map[u]||u.slice(1);const p=path.join(root,f);

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mashup Machine</title>
+<meta name="description" content="Spin a random topic, or smash two or three together. Turn the dials to make them closer or further apart, and weirder." />
+<link rel="preload" href="/fonts/dm-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/dm-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<script>
+  // Apply the theme before first paint to avoid a light flash
+  (function() {
+    var saved = null;
+    try { saved = localStorage.getItem('theme'); } catch (e) {}
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+</script>
+<link rel="stylesheet" href="/kiosk.css" />
+<style>
+:root { --hero: var(--pink); }
+h1, h2, h3, p, ul, ol { margin: 0; }
+button, input { font: inherit; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+main.k-main { padding: 32px 0 0; }
+.panel { background: var(--surface); border: 3px solid var(--line); border-radius: 20px; box-shadow: 5px 5px 0 var(--shadow-c); padding: 18px; min-width: 0; }
+.panel h2 { font-size: 21px; font-weight: 800; margin-bottom: 10px; }
+.hint { font-size: 14px; color: var(--ink2); margin: 6px 0 10px; }
+.stack { display: grid; gap: 24px; }
+.below { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); margin-top: 24px; }
+@media (min-width: 900px) { .below { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+
+/* the stage */
+.stage { padding: 22px 18px 18px; }
+.cards { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; justify-content: center; }
+.card { position: relative; flex: 1 1 240px; max-width: 360px; min-width: 0; background: var(--surface); border: 3px solid var(--navy); border-radius: 18px; box-shadow: 5px 5px 0 var(--navy); overflow: hidden; display: flex; flex-direction: column; }
+html[data-theme="dark"] .card { border-color: var(--line); box-shadow: 5px 5px 0 var(--shadow-c); }
+.card .band { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px 8px 14px; background: var(--c, var(--yellow)); color: var(--navy); border-bottom: 3px solid var(--navy); }
+html[data-theme="dark"] .card .band { border-color: var(--line); }
+.card .tag { font: 500 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.card .lock { min-width: 44px; min-height: 44px; margin: -8px -4px -8px 0; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--navy); border-radius: 12px; }
+.card .lock[aria-pressed="true"] { background: var(--navy); color: var(--yellow); }
+.card .big { flex: 1; display: grid; place-items: center; text-align: center; padding: 26px 16px; min-height: 130px; font-size: clamp(24px, 4.2vw, 34px); line-height: 1.12; font-weight: 800; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.card.spinning .big { filter: blur(.6px); opacity: .85; }
+.cross { align-self: center; font-size: 40px; font-weight: 800; line-height: 1; }
+@media (max-width: 640px) { .cards { flex-direction: column; align-items: stretch; } .card { max-width: none; flex-basis: auto; } .cross { font-size: 30px; } }
+.empty { text-align: center; padding: 40px 10px; font-weight: 700; color: var(--ink2); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+.actions .k-btn, .row .k-btn { min-height: 48px; font-size: 15px; }
+.actions .spin { font-size: 18px; padding: 12px 28px; min-height: 56px; }
+.actions a.k-btn { text-decoration: none; }
+.status { text-align: center; min-height: 22px; margin-top: 10px; font-size: 14px; font-weight: 700; }
+
+/* controls */
+.seg { display: inline-flex; border: 2px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); margin-bottom: 14px; }
+.seg button { border: 0; background: none; padding: 8px 18px; min-height: 44px; font-weight: 700; font-size: 15px; cursor: pointer; color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--navy); color: var(--yellow); }
+.dial { margin: 12px 0 18px; }
+.dial label { display: flex; justify-content: space-between; gap: 10px; font-weight: 800; font-size: 15px; margin-bottom: 4px; flex-wrap: wrap; }
+.dial label span { font-weight: 700; color: var(--ink2); font-size: 14px; }
+.dial input[type=range] { width: 100%; min-height: 36px; accent-color: var(--navy); }
+html[data-theme="dark"] .dial input[type=range] { accent-color: var(--yellow); }
+.dial .ends { display: flex; justify-content: space-between; font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink2); }
+.opt { display: flex; align-items: center; gap: 12px; min-height: 44px; font-weight: 700; cursor: pointer; }
+.opt input { width: 24px; height: 24px; accent-color: var(--navy); flex: none; }
+html[data-theme="dark"] .opt input { accent-color: var(--yellow); }
+.opt small { display: block; font-weight: 400; font-size: 14px; color: var(--ink2); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.row input[type=text] { flex: 1 1 160px; min-width: 0; min-height: 48px; border: 2px solid var(--line); border-radius: 14px; padding: 0 12px; background: var(--surface); color: var(--ink); font: 400 15px var(--font); }
+h3.sub { font-size: 16px; font-weight: 800; margin: 18px 0 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.chip { display: inline-flex; align-items: center; border: 2px solid var(--line); border-radius: 999px; background: var(--tint-yellow); max-width: 100%; }
+.chip span { padding: 0 4px 0 12px; font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip button { border: 0; background: none; color: inherit; cursor: pointer; min-width: 40px; min-height: 40px; font-size: 16px; }
+
+/* lists */
+.list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.list li { border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--surface2); display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.list li b { font-weight: 700; overflow-wrap: anywhere; min-width: 0; flex: 1 1 160px; }
+.list .k-btn { min-height: 40px; padding: 6px 12px; font-size: 13px; }
+.list .acts { display: flex; gap: 8px; }
+@media (max-width: 480px) { .panel { padding: 14px; } }
+@media (prefers-reduced-motion: reduce) { .card.spinning .big { filter: none; } }
+</style>
+</head>
+<body>
+
+<div class="k-top">
+  <a class="k-btn" href="/">&larr; Professor Kiosk</a>
+  <div class="right">
+    <button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
+  </div>
+</div>
+
+<header class="k-hero">
+  <div class="k-wrap">
+    <div>
+      <span class="k-tag navy">Level 1 &middot; Tool 06</span>
+      <h1>Mashup Machine</h1>
+      <p>Spin a random topic, or smash two or three together. Turn the dials to make them closer, further apart, or weirder.</p>
+    </div>
+  </div>
+</header>
+
+<main class="k-main">
+  <div class="k-wrap">
+    <section class="panel stage" aria-label="Your topics">
+      <div class="cards" id="cards" aria-live="polite"></div>
+      <div class="actions">
+        <button class="k-btn primary spin" id="spin" type="button">🎲 Spin <span class="sr">(or press Space)</span></button>
+        <button class="k-btn" id="copy" type="button">Copy</button>
+        <a class="k-btn" id="send" href="/jokeweb" >Send to Joke-Web Maker</a>
+        <button class="k-btn" id="fav" type="button" aria-pressed="false">☆ Favourite</button>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <div class="below">
+      <div class="stack">
+        <section class="panel" aria-labelledby="ctl">
+          <h2 id="ctl">Controls</h2>
+          <div class="seg" role="group" aria-label="Mode">
+            <button type="button" id="m-rand" aria-pressed="false">Randomize</button>
+            <button type="button" id="m-mash" aria-pressed="true">Mashup</button>
+          </div>
+          <div id="dials">
+            <div class="dial">
+              <label for="dist">Distance <span id="distw"></span></label>
+              <input type="range" id="dist" min="0" max="100" step="1" value="50">
+              <div class="ends"><span>Close</span><span>Far apart</span></div>
+            </div>
+            <div class="dial">
+              <label for="weird">Weirdness <span id="weirdw"></span></label>
+              <input type="range" id="weird" min="0" max="100" step="1" value="30">
+              <div class="ends"><span>Normal</span><span>Weird</span></div>
+            </div>
+            <p class="hint">Weirder adds odd pairings (which can override Distance) and, near the top, a third topic.</p>
+          </div>
+          <label class="opt"><input type="checkbox" id="spicy" checked /><span>Spicy topics<small>Mild innuendo, drinking and awkward dating. Turn off to keep it tamer.</small></span></label>
+          <label class="opt"><input type="checkbox" id="mine" checked /><span>Include my topics<small>Your own topics join the pool.</small></span></label>
+          <h3 class="sub">My topics</h3>
+          <div class="row">
+            <label class="sr" for="own">Add a topic</label>
+            <input type="text" id="own" maxlength="40" placeholder="Add your own topic…" autocomplete="off" />
+            <button class="k-btn primary" id="own-add" type="button">Add</button>
+          </div>
+          <ul class="chips" id="ownlist"></ul>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="panel" aria-labelledby="hist">
+          <h2 id="hist">History</h2>
+          <ul class="list" id="histlist"></ul>
+        </section>
+        <section class="panel" aria-labelledby="favs">
+          <h2 id="favs">Favourites</h2>
+          <ul class="list" id="favlist"></ul>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="k-foot">
+  <div class="k-wrap">
+    <strong>Thank you for using Professor Kiosk.<br />Please take your receipt.</strong>
+    <div class="links">
+      <a class="by" href="https://bsky.app/profile/professorkiosk.wtf" target="_blank" rel="noopener"><img class="footer-avatar" data-pk-avatar src="" alt="" hidden />Made by @professorkiosk.wtf</a>
+      <a class="kofi" href="https://ko-fi.com/professorkiosk" target="_blank" rel="noopener">&#9749; Support these projects on Ko-fi</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/topics.js"></script>
+<script>
+(function () {
+'use strict';
+var KEY = 'pk-mashup-v1', MAX_OWN = 100, MAX_HIST = 20, MAX_FAV = 50, MAX_TEXT = 40;
+var SIGN = ' × ';
+function $(id) { return document.getElementById(id); }
+
+// ---------- theme (shared 'theme' key) ----------
+function applyThemeLabel() { $('themeToggle').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️ Day mode' : '🌙 Night mode'; }
+$('themeToggle').addEventListener('click', function () {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (dark) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', 'dark');
+  try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (e) {}
+  applyThemeLabel();
+});
+applyThemeLabel();
+
+// ---------- data ----------
+var DATA = window.MASHUP_TOPICS, CATS = {}, POOL = [], ODD = {};
+var COLORS = { coral: 'var(--coral)', yellow: 'var(--yellow)', teal: 'var(--teal)', purple: 'var(--purple)', pink: 'var(--pink)', sky: 'var(--sky)' };
+DATA.cats.forEach(function (c) {
+  CATS[c.id] = { id: c.id, name: c.name, x: c.x, y: c.y, color: COLORS[c.tint] || COLORS.yellow };
+  c.t.split('|').forEach(function (s) { POOL.push({ text: s.replace(/\*$/, ''), cat: c.id, spicy: /\*$/.test(s) }); });
+});
+CATS.yours = { id: 'yours', name: 'Yours', x: 5, y: 5, color: COLORS.yellow };
+DATA.odd.forEach(function (p) { (ODD[p[0]] = ODD[p[0]] || {})[p[1]] = true; (ODD[p[1]] = ODD[p[1]] || {})[p[0]] = true; });
+function cdist(a, b) { var p = CATS[a], q = CATS[b]; return Math.sqrt(Math.pow(p.x - q.x, 2) + Math.pow(p.y - q.y, 2)); }
+
+// ---------- state ----------
+var S = { mode: 'mashup', dist: 50, weird: 30, spicy: true, mine: true, own: [], cards: [], history: [], favs: [] };
+function clean(s, n) { return String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); }
+function cleanCard(c) { return c && typeof c.text === 'string' && CATS[c.cat] ? { text: clean(c.text, MAX_TEXT), cat: c.cat } : null; }
+function cleanResult(r) { var cs = r && Array.isArray(r.cards) ? r.cards.map(cleanCard).filter(Boolean).slice(0, 3) : []; return cs.length ? { cards: cs } : null; }
+function load() {
+  var raw = null; try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+  if (!raw) return;
+  try {
+    var d = JSON.parse(raw);
+    S.mode = d.mode === 'randomize' ? 'randomize' : 'mashup';
+    S.dist = Math.max(0, Math.min(100, +d.dist || 0)); S.weird = Math.max(0, Math.min(100, +d.weird || 0));
+    S.spicy = d.spicy !== false; S.mine = d.mine !== false;
+    S.own = (Array.isArray(d.own) ? d.own : []).map(function (x) { return clean(x, MAX_TEXT); }).filter(Boolean).slice(0, MAX_OWN);
+    S.cards = (Array.isArray(d.cards) ? d.cards : []).map(cleanCard).filter(Boolean).slice(0, 3);
+    S.history = (Array.isArray(d.history) ? d.history : []).map(cleanResult).filter(Boolean).slice(0, MAX_HIST);
+    S.favs = (Array.isArray(d.favs) ? d.favs : []).map(cleanResult).filter(Boolean).slice(0, MAX_FAV);
+  } catch (e) {}
+}
+var saveTimer = null;
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 150); }
+function flush() { try { localStorage.setItem(KEY, JSON.stringify({ mode: S.mode, dist: S.dist, weird: S.weird, spicy: S.spicy, mine: S.mine, own: S.own, cards: S.cards.map(function (c) { return { text: c.text, cat: c.cat }; }), history: S.history, favs: S.favs })); } catch (e) {} }
+window.addEventListener('pagehide', flush);
+
+// ---------- random ----------
+var seeded = null;
+function rand() { return seeded ? seeded() : Math.random(); }
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function activePool() {
+  var p = POOL.filter(function (t) { return S.spicy || !t.spicy; });
+  if (S.mine) S.own.forEach(function (t) { p.push({ text: t, cat: 'yours', spicy: false }); });
+  return p;
+}
+function wpick(list, wf) {
+  var w = list.map(wf), sum = w.reduce(function (a, b) { return a + b; }, 0);
+  if (!(sum > 0)) return list[Math.floor(rand() * list.length)];
+  var r = rand() * sum;
+  for (var i = 0; i < list.length; i++) { r -= w[i]; if (r <= 0) return list[i]; }
+  return list[list.length - 1];
+}
+function lower(t) { return t.text.toLowerCase(); }
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+function reach(cat, pool) { var m = 0; pool.forEach(function (t) { m = Math.max(m, cdist(cat, t.cat)); }); return m || 1; }
+// the topic that goes with the first one, according to Distance and Weirdness
+function partner(a, used, pool) {
+  var left = pool.filter(function (t) { return used.indexOf(lower(t)) < 0; });
+  if (!left.length) return null;
+  if (S.weird >= 35 && ODD[a.cat]) {
+    var p = clamp((S.weird - 30) / 70, 0, 1) * 0.85;
+    if (rand() < p) { var odd = left.filter(function (t) { return ODD[a.cat][t.cat]; }); if (odd.length) return odd[Math.floor(rand() * odd.length)]; }
+  }
+  var dmax = reach(a.cat, left), target = S.dist / 100 * dmax, sigma = 0.08 * dmax + 0.25;
+  return wpick(left, function (t) { return Math.exp(-Math.pow((cdist(a.cat, t.cat) - target) / sigma, 2)) + 0.0005; });
+}
+// a third topic, far from both
+function third(a, b, used, pool) {
+  var left = pool.filter(function (t) { return used.indexOf(lower(t)) < 0; });
+  if (!left.length) return null;
+  var dmax = Math.max(reach(a.cat, left), reach(b.cat, left)), target = Math.max(S.dist, 50) / 100 * dmax, sigma = 0.15 * dmax + 0.4;
+  return wpick(left, function (t) { var m = (cdist(a.cat, t.cat) + cdist(b.cat, t.cat)) / 2; return Math.exp(-Math.pow((m - target) / sigma, 2)) + 0.0005; });
+}
+function roll() {
+  var pool = activePool(); if (!pool.length) return [];
+  var n = S.mode === 'randomize' ? 1 : 2 + ((S.weird >= 65 && rand() < clamp((S.weird - 60) / 35, 0, 1)) ? 1 : 0);
+  var cur = S.cards, last = -1;
+  cur.forEach(function (c, i) { if (c.locked && i < n + 2) last = i; });
+  n = Math.max(n, last + 1);
+  if (S.mode === 'randomize') n = 1;
+  var out = [], used = [];
+  for (var i = 0; i < n; i++) if (cur[i] && cur[i].locked && S.mode !== 'randomize') { out[i] = cur[i]; used.push(lower(cur[i])); }
+  for (var j = 0; j < n; j++) {
+    if (out[j]) continue;
+    var placed = out.filter(Boolean), t;
+    if (S.mode === 'randomize' || !placed.length) { var left = pool.filter(function (x) { return used.indexOf(lower(x)) < 0; }); t = left[Math.floor(rand() * left.length)] || pool[0]; }
+    else if (placed.length === 1) t = partner(placed[0], used, pool);
+    else t = third(placed[0], placed[1], used, pool);
+    if (!t) continue;
+    out[j] = { text: t.text, cat: t.cat, locked: false }; used.push(lower(t));
+  }
+  return out.filter(Boolean);
+}
+
+// ---------- screen ----------
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function h(tag, attrs) {
+  var e = document.createElement(tag);
+  for (var k in (attrs || {})) { if (attrs[k] == null) continue; if (k === 'text') e.textContent = attrs[k]; else if (k === 'class') e.className = attrs[k]; else if (k === 'on') { for (var ev in attrs.on) e.addEventListener(ev, attrs.on[ev]); } else e.setAttribute(k, attrs[k]); }
+  for (var i = 2; i < arguments.length; i++) if (arguments[i]) e.appendChild(arguments[i]);
+  return e;
+}
+function resultText(cards) { return cards.map(function (c) { return c.text; }).join(SIGN); }
+function key(cards) { return cards.map(function (c) { return c.text.toLowerCase(); }).join('|'); }
+function renderCards() {
+  var box = $('cards'); box.textContent = '';
+  if (!S.cards.length) { box.appendChild(h('div', { class: 'empty', text: 'Press Spin to get a topic.' })); }
+  S.cards.forEach(function (c, i) {
+    if (i > 0) box.appendChild(h('div', { class: 'cross', 'aria-hidden': 'true', text: '×' }));
+    var cat = CATS[c.cat];
+    var band = h('div', { class: 'band' }, h('span', { class: 'tag', text: cat.name }));
+    if (S.mode === 'mashup') band.appendChild(h('button', { class: 'lock', type: 'button', 'aria-pressed': String(!!c.locked), 'aria-label': (c.locked ? 'Unlock ' : 'Lock ') + c.text, text: c.locked ? '🔒' : '🔓', on: { click: function () { c.locked = !c.locked; renderCards(); } } }));
+    box.appendChild(h('article', { class: 'card', 'data-i': i, style: '--c:' + cat.color }, band, h('div', { class: 'big', text: c.text })));
+  });
+  var any = S.cards.length > 0;
+  $('copy').disabled = !any; $('fav').disabled = !any;
+  var link = '/jokeweb';
+  if (any) {
+    link += '#subject=' + encodeURIComponent(resultText(S.cards).slice(0, MAX_TEXT));
+    if (S.cards.length > 1) link += '&branches=' + encodeURIComponent(S.cards.map(function (c) { return c.text; }).join('|'));
+  }
+  $('send').setAttribute('href', link);
+  $('send').setAttribute('aria-disabled', String(!any));
+  var isFav = any && S.favs.some(function (f) { return key(f.cards) === key(S.cards); });
+  $('fav').setAttribute('aria-pressed', String(isFav)); $('fav').textContent = isFav ? '★ Favourited' : '☆ Favourite';
+}
+function renderLists() {
+  var hl = $('histlist'); hl.textContent = '';
+  if (!S.history.length) hl.appendChild(h('li', {}, h('b', { text: 'Nothing yet. Your last 20 spins show up here.' })));
+  S.history.forEach(function (r) {
+    hl.appendChild(h('li', {}, h('b', { text: resultText(r.cards) }), h('div', { class: 'acts' }, h('button', { class: 'k-btn', type: 'button', 'data-back': '1', text: 'Bring back', on: { click: function () { bringBack(r); } } }))));
+  });
+  var fl = $('favlist'); fl.textContent = '';
+  if (!S.favs.length) fl.appendChild(h('li', {}, h('b', { text: 'Star a result to keep it here.' })));
+  S.favs.forEach(function (r, i) {
+    fl.appendChild(h('li', {}, h('b', { text: resultText(r.cards) }), h('div', { class: 'acts' },
+      h('button', { class: 'k-btn', type: 'button', text: 'Bring back', on: { click: function () { bringBack(r); } } }),
+      h('button', { class: 'k-btn', type: 'button', 'aria-label': 'Remove favourite', text: '×', on: { click: function () { S.favs.splice(i, 1); renderLists(); renderCards(); save(); } } }))));
+  });
+  var ol = $('ownlist'); ol.textContent = '';
+  S.own.forEach(function (t, i) {
+    ol.appendChild(h('li', { class: 'chip' }, h('span', { text: t }), h('button', { type: 'button', 'aria-label': 'Remove ' + t, text: '×', on: { click: function () { S.own.splice(i, 1); renderLists(); save(); } } })));
+  });
+}
+function words() {
+  $('distw').textContent = S.dist < 20 ? '· same neighbourhood' : S.dist < 45 ? '· close cousins' : S.dist < 75 ? '· different worlds' : '· opposite ends of the map';
+  $('weirdw').textContent = S.weird < 35 ? '· normal' : S.weird < 65 ? '· odd pairs' : S.weird < 95 ? '· very odd, maybe a third topic' : '· chaos, always three';
+}
+function renderControls() {
+  $('m-rand').setAttribute('aria-pressed', String(S.mode === 'randomize')); $('m-mash').setAttribute('aria-pressed', String(S.mode === 'mashup'));
+  $('dials').hidden = S.mode === 'randomize';
+  $('dist').value = S.dist; $('weird').value = S.weird; $('spicy').checked = S.spicy; $('mine').checked = S.mine; words();
+}
+function say(t) { var s = $('status'); s.textContent = t; clearTimeout(say.t); say.t = setTimeout(function () { s.textContent = ''; }, 3000); }
+
+// ---------- actions ----------
+var spinToken = 0;
+function commit() {
+  var r = { cards: S.cards.map(function (c) { return { text: c.text, cat: c.cat }; }) };
+  if (!r.cards.length) return;
+  if (!(S.history[0] && key(S.history[0].cards) === key(r.cards))) S.history.unshift(r);
+  S.history = S.history.slice(0, MAX_HIST);
+  renderLists(); renderCards(); save();
+}
+function spin() {
+  var next = roll();
+  if (!next.length) { say('No topics to choose from. Turn some on.'); return; }
+  var token = ++spinToken, pool = activePool();
+  if (reduce || !window.requestAnimationFrame) { S.cards = next; renderCards(); commit(); return; }
+  var old = S.cards; S.cards = next; renderCards();
+  var els = $('cards').querySelectorAll('.card'), finished = 0, need = 0;
+  next.forEach(function (c, i) {
+    if (c.locked) return;
+    need++;
+    var el = els[i], big = el && el.querySelector('.big'); if (!big) { finished++; return; }
+    el.classList.add('spinning');
+    var timer = setInterval(function () { if (token !== spinToken) { clearInterval(timer); return; } big.textContent = pool[Math.floor(Math.random() * pool.length)].text; }, 70);
+    setTimeout(function () {
+      clearInterval(timer);
+      if (token !== spinToken) return;
+      big.textContent = c.text; el.classList.remove('spinning');
+      if (++finished === need) commit();
+    }, 450 + i * 260);
+  });
+  if (!need) commit();
+}
+function bringBack(r) { spinToken++; S.cards = r.cards.map(function (c) { return { text: c.text, cat: c.cat, locked: false }; }); if (S.cards.length > 1 && S.mode === 'randomize') S.mode = 'mashup'; renderControls(); renderCards(); save(); }
+function setMode(m) { if (S.mode === m) return; S.mode = m; S.cards.forEach(function (c) { c.locked = false; }); if (m === 'randomize') S.cards = S.cards.slice(0, 1); renderControls(); spin(); save(); }
+
+$('spin').onclick = spin;
+$('m-rand').onclick = function () { setMode('randomize'); };
+$('m-mash').onclick = function () { setMode('mashup'); };
+$('dist').addEventListener('input', function () { S.dist = +this.value; words(); save(); });
+$('weird').addEventListener('input', function () { S.weird = +this.value; words(); save(); });
+$('spicy').addEventListener('change', function () { S.spicy = this.checked; save(); });
+$('mine').addEventListener('change', function () { S.mine = this.checked; save(); });
+function addOwn() {
+  var inp = $('own'), t = clean(inp.value, MAX_TEXT);
+  if (!t) { inp.focus(); return; }
+  if (S.own.length < MAX_OWN && S.own.map(function (x) { return x.toLowerCase(); }).indexOf(t.toLowerCase()) < 0) S.own.push(t);
+  inp.value = ''; inp.focus(); renderLists(); save();
+}
+$('own-add').onclick = addOwn;
+$('own').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addOwn(); } });
+$('copy').onclick = function () {
+  var t = resultText(S.cards); if (!t) return;
+  function fallback() { var ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) {} ta.remove(); say(ok ? 'Copied.' : "Couldn't copy."); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { say('Copied.'); }, fallback); else fallback();
+};
+$('fav').onclick = function () {
+  if (!S.cards.length) return;
+  var k = key(S.cards), at = -1; S.favs.forEach(function (f, i) { if (key(f.cards) === k) at = i; });
+  if (at >= 0) S.favs.splice(at, 1); else S.favs.unshift({ cards: S.cards.map(function (c) { return { text: c.text, cat: c.cat }; }) });
+  S.favs = S.favs.slice(0, MAX_FAV); renderLists(); renderCards(); save();
+};
+$('send').addEventListener('click', function (e) { if (!S.cards.length) e.preventDefault(); });
+document.addEventListener('keydown', function (e) {
+  if (e.key !== ' ' || e.ctrlKey || e.metaKey || e.altKey) return;
+  var t = e.target, tag = t && t.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A' || tag === 'SELECT') return;
+  e.preventDefault(); spin();
+});
+
+// ---------- go ----------
+load();
+renderControls(); renderLists(); renderCards();
+if (!S.cards.length) spin();
+window.__mashup = { seed: function (n) { seeded = n == null ? null : mulberry(n); }, state: function () { return S; }, pool: activePool, data: { POOL: POOL, CATS: CATS, ODD: ODD }, cdist: cdist, roll: function () { S.cards = roll(); renderCards(); return S.cards; } };
+})();
+</script>
+<script src="/kiosk.js" defer></script>
+</body>
+</html>
