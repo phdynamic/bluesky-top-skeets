@@ -17,5 +17,4 @@
 - Which commit is deployed: not recorded in the repo.
 
 ## Known stale
-- `src/budget.ts` header comment still says "(later) game crawls" (the game feature was removed).
-- `README.md` line on the shared budget says "the probe confirmed it" (the probe script was removed).
+(none)

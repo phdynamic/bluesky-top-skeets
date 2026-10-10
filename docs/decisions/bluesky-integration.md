@@ -19,7 +19,7 @@
 - what: every AppView call takes from one allowance with priorities (user, feeds, background); halves on a 429, recovers slowly; `APPVIEW_MAX_RPS` is the ceiling and 0 (default) means no pacing
 - why: everything leaves from the same Railway address, and the AppView sends no rate-limit headers, so the limit cannot be read
 - source: `src/budget.ts` header, 5013636, 9e2a794
-- note: kept after the game feature was removed; the header comment is stale (see STATUS)
+- note: kept after the game feature was removed
 
 ### 2026-10-08 · Client address comes from the proxy side of X-Forwarded-For; limits keyed on a salted hash · active
 - what: `TRUSTED_PROXY_HOPS` says how many proxies sit in front; rate limits use a salted hash of the address

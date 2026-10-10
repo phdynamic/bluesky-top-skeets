@@ -17,3 +17,8 @@
 - commits: 449f79b..e89d28b
 - built: Tracer link fix (449f79b); Receipt spacing fixes; Joke-Web Maker; Mashup Machine; tab icon; Help dialogs on the six tool pages; Bluesky Tutorials page with video; hub reordered and renumbered; Twitter mentions removed from the tutorials
 - live-tested: not recorded
+
+## 2026-10-10 · stale comment and README line fixed
+- changed: `src/budget.ts` header no longer mentions "game crawls"; README no longer cites the removed probe
+- note: comment and docs only, no code change
+- live-tested: n/a

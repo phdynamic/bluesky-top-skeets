@@ -1,8 +1,8 @@
 /**
  * One shared request budget for everything this server asks of the public AppView.
  *
- * Feed refreshes and (later) game crawls all leave from the same Railway address, so they share
- * one allowance. Callers `await budget.take(priority)` before each request and call
+ * Everything this server sends to the AppView (feed refreshes and any other lookups) leaves from
+ * the same Railway address, so it shares one allowance. Callers `await budget.take(priority)` before each request and call
  * `budget.penalize(ms)` when the AppView answers 429.
  *
  * The public AppView sends no rate-limit headers, so the limit can't be read; the budget learns it:
