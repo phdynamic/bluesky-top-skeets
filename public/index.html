@@ -76,7 +76,8 @@
     .section { margin-bottom: 46px; }
 
     .grid3 { display: grid; gap: 22px; grid-template-columns: 1fr; }
-    @media (min-width: 640px) { .grid3 { grid-template-columns: 1fr 1fr; } .grid3 > .tool:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 11px); } }
+    @media (min-width: 640px) { .grid3 { grid-template-columns: 1fr 1fr; } .grid3 > .tool:first-child { grid-column: 1 / -1; } }
+    @media (min-width: 900px) { .grid3 > .tool:first-child .tool-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 28px; row-gap: 8px; align-items: center; } .grid3 > .tool:first-child .tool-body p { grid-column: 1; grid-row: 1 / span 2; } .grid3 > .tool:first-child .tool-body .url { grid-column: 2; align-self: end; } .grid3 > .tool:first-child .tool-body .k-btn { grid-column: 2; grid-row: 2; align-self: start; } }
     .grid2 { display: grid; gap: 22px; grid-template-columns: 1fr; }
     @media (min-width: 640px) { .grid2 { grid-template-columns: 1fr 1fr; } }
 
@@ -170,8 +171,16 @@
         <span class="aside">Hosted on this site</span>
       </div>
       <div class="grid3">
+        <article class="tool" style="--c: var(--sky)">
+          <div class="tool-head"><span class="num">01</span><h3>Bluesky Tutorials</h3></div>
+          <div class="tool-body">
+            <p>How to do the technical stuff on Bluesky: the language, replies and quote posts, your profile, feeds, contests, images and messages. Adapted from my Twitter Tutorials.</p>
+            <span class="url">professorkiosk.wtf/tutorials</span>
+            <a class="k-btn" href="/tutorials">Read the tutorials →</a>
+          </div>
+        </article>
         <article class="tool" style="--c: var(--coral)">
-          <div class="tool-head"><span class="num">01</span><h3>Top Skeets</h3></div>
+          <div class="tool-head"><span class="num">02</span><h3>Top Skeets</h3></div>
           <div class="tool-body">
             <p>A feed generator for Bluesky. Make your own feed of your posts, ranked by likes or newest first, with or without replies. Pick a name, description and icon, share the link in your bio, and it keeps itself up to date.</p>
             <span class="url">professorkiosk.wtf/feeds</span>
@@ -179,7 +188,7 @@
           </div>
         </article>
         <article class="tool" style="--c: var(--teal)">
-          <div class="tool-head"><span class="num">02</span><h3>Quote Post Game Tracer</h3></div>
+          <div class="tool-head"><span class="num">03</span><h3>Quote Post Game Tracer</h3></div>
           <div class="tool-body">
             <p>Paste the post that started a quote post game and watch every quote of it unfold as a browsable tree. Search it, fold it, trace any quote back to the original, and see who kept it going.</p>
             <span class="url">professorkiosk.wtf/tracer</span>
@@ -187,7 +196,7 @@
           </div>
         </article>
         <article class="tool" style="--c: var(--purple)">
-          <div class="tool-head"><span class="num">03</span><h3>The Imagine Flagons Saga</h3></div>
+          <div class="tool-head"><span class="num">04</span><h3>The Imagine Flagons Saga</h3></div>
           <div class="tool-body">
             <p>It started with a post about a Lord of the Rings cover band, and then 1,200 people could not stop. The whole quote post game, preserved as a browsable tree: every band name, every pun, every branch.</p>
             <span class="url">professorkiosk.wtf/imagine-flagons</span>
@@ -195,7 +204,7 @@
           </div>
         </article>
         <article class="tool" style="--c: var(--sky)">
-          <div class="tool-head"><span class="num">04</span><h3>Skeet Receipt</h3></div>
+          <div class="tool-head"><span class="num">05</span><h3>Skeet Receipt</h3></div>
           <div class="tool-body">
             <p>Paste a post link and get a receipt of its stats. Save it, share it, frame it. No sign-in.</p>
             <span class="url">professorkiosk.wtf/receipt</span>
@@ -203,7 +212,7 @@
           </div>
         </article>
         <article class="tool" style="--c: var(--yellow)">
-          <div class="tool-head"><span class="num">05</span><h3>Joke-Web Maker</h3></div>
+          <div class="tool-head"><span class="num">06</span><h3>Joke-Web Maker</h3></div>
           <div class="tool-body">
             <p>Free-associate your way to a shitpost. Build a web of ideas around a subject, cover the subject up, think about each branch on its own, then bring it back and see what's funny. Includes a draft box. No sign-in.</p>
             <span class="url">professorkiosk.wtf/jokeweb</span>
@@ -211,22 +220,14 @@
           </div>
         </article>
         <article class="tool" style="--c: var(--pink)">
-          <div class="tool-head"><span class="num">06</span><h3>Mashup Machine</h3></div>
+          <div class="tool-head"><span class="num">07</span><h3>Mashup Machine</h3></div>
           <div class="tool-body">
             <p>Spin a random topic, or smash two or three together. Turn the dials to make them closer, further apart, or weirder, lock the bits you like, and send the result to the Joke-Web Maker. No sign-in.</p>
             <span class="url">professorkiosk.wtf/mashup</span>
             <a class="k-btn" href="/mashup">Spin a mashup →</a>
           </div>
         </article>
-        <article class="tool" style="--c: var(--sky)">
-          <div class="tool-head"><span class="num">07</span><h3>Bluesky Tutorials</h3></div>
-          <div class="tool-body">
-            <p>How to do the technical stuff on Bluesky: the language, replies and quote posts, your profile, feeds, contests, images, messages, and what to do when your posts go missing. Adapted from my Twitter Tutorials.</p>
-            <span class="url">professorkiosk.wtf/tutorials</span>
-            <a class="k-btn" href="/tutorials">Read the tutorials →</a>
-          </div>
-        </article>
-      </div>
+</div>
       <p class="notice"><b>Sign-in notice.</b> Top Skeets is the only tool that signs in: it asks for a Bluesky app password, uses it once to publish your feed, then discards it. It is never stored or logged. The Tracer, the Saga and Skeet Receipt need no sign-in.</p>
     </section>
 

@@ -122,6 +122,18 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   await page.goto('http://localhost:3988/');
   const nums = await page.evaluate(() => [...document.querySelectorAll('.tool .num')].map(n => n.textContent));
   ok('G4 hub numbers are unique and run 01 to 11', nums.join(',') === '01,02,03,04,05,06,07,08,09,10,11', nums.join(','));
+  const hub = await page.evaluate(() => { const cards = [...document.querySelectorAll('.grid3 > .tool')], grid = document.querySelector('.grid3').getBoundingClientRect(), f = cards[0].getBoundingClientRect(), g = cards[1].getBoundingClientRect(); return { titles: cards.map(c => c.querySelector('.num').textContent + ' ' + c.querySelector('h3').textContent), firstW: f.width, gridW: grid.width, secondW: g.width, secondTop: g.top, firstBottom: f.bottom, rowOk: Math.abs(cards[1].getBoundingClientRect().top - cards[2].getBoundingClientRect().top) < 2 }; });
+  ok('G6 the hub lists Bluesky Tutorials first as 01 and the rest 02 to 07 in order', hub.titles.join('|') === '01 Bluesky Tutorials|02 Top Skeets|03 Quote Post Game Tracer|04 The Imagine Flagons Saga|05 Skeet Receipt|06 Joke-Web Maker|07 Mashup Machine', hub.titles.join('|'));
+  ok('G7 the Tutorials card spans the full width of the grid and the cards below sit two to a row', hub.firstW >= hub.gridW - 2 && hub.secondW < hub.gridW * 0.6 && hub.secondTop >= hub.firstBottom && hub.rowOk, JSON.stringify(hub));
+  const tags = {};
+  for (const [pth, tag] of [['/feeds', 'Tool 02'], ['/tracer', 'Tool 03'], ['/imagine-flagons', 'Tool 04'], ['/receipt', 'Tool 05'], ['/jokeweb', 'Tool 06'], ['/mashup', 'Tool 07'], ['/tutorials', 'Guide 01']]) { await page.goto('http://localhost:3988' + pth); tags[pth] = (await page.locator('.k-hero .k-tag').first().innerText()).toLowerCase().includes(tag.toLowerCase()); }
+  ok('G8 every page header carries its new hub number', Object.values(tags).every(Boolean), JSON.stringify(tags));
+  await page.goto('http://localhost:3988/');
+  const phone = await mk(browser, { vp: { width: 390, height: 800 } }); await phone.goto('http://localhost:3988/');
+  const pw = await phone.evaluate(() => { const c = document.querySelectorAll('.grid3 > .tool'), grid = document.querySelector('.grid3').getBoundingClientRect(); return { first: c[0].getBoundingClientRect().width >= grid.width - 2, over: document.documentElement.scrollWidth > innerWidth + 1 }; });
+  ok('G9 phone: the Tutorials card is full width and nothing scrolls sideways', pw.first && !pw.over, JSON.stringify(pw));
+  await phone.screenshot({ path: 'hub-phone.png', fullPage: false }); await phone.close();
+  await page.screenshot({ path: 'hub-desktop.png', fullPage: true });
   ok('G5 the hub has a Mashup Machine card linking to /mashup', await page.locator('a[href="/mashup"]').count() === 1);
   // H. layout: favorites full width below controls and history; old long histories are trimmed
   {
