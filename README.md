@@ -86,6 +86,10 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 
 `/tutorials` is a page of tips for using Bluesky. All of its text lives in `public/tutorials.txt`: edit that file and the page restyles itself. The file's first lines explain the tiny format (`## Heading` starts a card, a blank line separates paragraphs, `- ` makes a bulleted list, `1. ` a numbered list, plus `**bold**`, `*italic*`, `[link](https://...)` and a video on its own line as `![caption](/media/name.mp4)` with a poster picture `name.jpg` beside it). Lines that start with `;;` are notes and never show.
 
+## Project docs
+
+`docs/CLAUDE.md` is the entry point for working on this repo: current status, decisions and their reasons, and the build log.
+
 ## Prerequisites
 
 - Node.js 20 (see `.nvmrc`)
