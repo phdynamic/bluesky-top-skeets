@@ -11,14 +11,14 @@
 ;;                                       same name and .jpg at the end (some-video.jpg)
 ;; Keep links to https:// addresses or to pages on this site that start with /.
 
-This is a guide to the technical side of Bluesky for people who want to post jokes and be found doing it. It began as my Twitter Tutorials moment and has been rewritten for Bluesky: what the words mean, how replies and quotes work, how to set up your profile and your feeds, and what to do when something goes wrong.
+This is a guide to the technical side of Bluesky for people who want to post jokes and be found doing it. It covers what the words mean, how replies and quotes work, how to set up your profile and your feeds, and what to do when something goes wrong.
 
 ## The language
 
-Bluesky has its own argot, and it overlaps with Twitter's only in part. These are the terms you will see most.
+Bluesky has its own argot. These are the terms you will see most.
 
 - **skeet:** a post (some people dislike the word, so read the room)
-- **repost:** a retweet
+- **repost:** sharing someone's post with your own followers
 - **quote:** a repost with your own text added (QP is short for quote post)
 - **TL:** timeline
 - **moots:** mutuals, people you follow who follow you back
@@ -31,7 +31,7 @@ Bluesky has its own argot, and it overlaps with Twitter's only in part. These ar
 - **ratio:** when the replies beat the likes. It is not a compliment
 - **quote post game:** a post that people keep quoting, each adding to the last
 
-A few holdovers from Twitter still work here: af (as fuck), rn (right now), idgaf (I don't give a fuck) and ffs (for fuck's sake).
+A few abbreviations you'll see everywhere: af (as fuck), rn (right now), idgaf (I don't give a fuck) and ffs (for fuck's sake).
 
 ## Replies and quote posts
 
@@ -84,7 +84,7 @@ Here is how I made a feed of my own posts in SkyFeed, start to finish. The video
 6. Click Publish Feed. You can add an image and a description if you like.
 7. Click the newly created link, then copy its address and paste it into your bio.
 
-If that's too technical or complicated to bother with, then you can try [my feed maker, Top Skeets](/feeds). **Top Skeets** ranks your posts by likes, so anyone can scroll through your greatest hits (it is Bluesky's answer to Favstar). **My Skeets** shows your newest posts first. Each comes with or without replies. Pick a name, a description and an icon, share the link in your bio, and the feed keeps itself up to date.
+If that's too technical or complicated to bother with, then you can try [my feed maker, Top Skeets](/feeds). **Top Skeets** ranks your posts by likes, so anyone can scroll through your greatest hits. **My Skeets** shows your newest posts first. Each comes with or without replies. Pick a name, a description and an icon, share the link in your bio, and the feed keeps itself up to date.
 
 ## Cleaning up your timeline
 
@@ -134,13 +134,13 @@ To send a post in a chat, tap the share button under it and choose Send via dire
 
 ## Tools and accounts
 
-Bluesky works on your phone and in a browser. If you want a column layout like TweetDeck's, third-party clients such as [deck.blue](https://deck.blue) do that. Third-party tools may ask for an app password: make one in Settings, never give out your real password, and delete it when you're done.
+Bluesky works on your phone and in a browser. If you want a multi-column layout, third-party clients such as [deck.blue](https://deck.blue) do that. Third-party tools may ask for an app password: make one in Settings, never give out your real password, and delete it when you're done.
 
 You can switch between accounts in the app without logging out, so one phone can handle a personal account and a joke account.
 
 ## Closing thoughts
 
-A few thoughts on aesthetics. Shitsky, like joke Twitter before it, prefers clean, unadorned text. Typos and a pile of emoji will get you fewer reposts. Alt text is the exception: be as ornate there as you like.
+A few thoughts on aesthetics. Shitsky prefers clean, unadorned text. Typos and a pile of emoji will get you fewer reposts. Alt text is the exception: be as ornate there as you like.
 
 Your numbers will go up and down for reasons that have nothing to do with you. Keep posting anyway. It's only Bluesky.
 
