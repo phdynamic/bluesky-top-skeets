@@ -106,6 +106,19 @@ details.pr summary { cursor: pointer; font-weight: 800; min-height: 32px; displa
 html[data-theme="dark"] .dcount.over { color: #fca5a5; }
 .cbtns a.k-btn { text-decoration: none; }
 @media (max-width: 480px) { .panel { padding: 14px; } }
+
+/* help dialog */
+dialog.help { width: min(680px, calc(100% - 24px)); max-height: 85vh; padding: 0; border: 3px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 6px 6px 0 var(--shadow-c); overflow: hidden; }
+dialog.help::backdrop { background: rgba(29, 27, 79, .55); }
+dialog.help[open] { display: flex; flex-direction: column; }
+.help .hh { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px 12px 20px; border-bottom: 3px solid var(--line); background: var(--yellow); color: var(--navy); }
+.help .hh h2 { font-size: 22px; font-weight: 800; margin: 0; }
+.help .hh .k-btn { min-width: 44px; min-height: 44px; padding: 0; }
+.help .hb { overflow: auto; padding: 8px 20px 20px; -webkit-overflow-scrolling: touch; }
+.help h3 { font-size: 17px; font-weight: 800; margin: 18px 0 6px; }
+.help p, .help li { font-size: 15px; line-height: 1.55; }
+.help ol, .help ul { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 6px; }
+.help .note { background: var(--surface2); border: 2px dashed var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -113,9 +126,42 @@ html[data-theme="dark"] .dcount.over { color: #fca5a5; }
 <div class="k-top">
   <a class="k-btn" href="/">&larr; Professor Kiosk</a>
   <div class="right">
+    <button class="k-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button>
     <button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
   </div>
 </div>
+
+<dialog class="help" id="help" aria-labelledby="help-t">
+  <div class="hh"><h2 id="help-t">How the Joke-Web Maker works</h2><button class="k-btn" id="helpX" type="button" aria-label="Close help">&#x2715;</button></div>
+  <div class="hb">
+    <h3>The idea</h3>
+    <p>A joke-web is a way to find jokes by free association. Instead of staring at a blank post, you put a subject in the middle and branch off it. Then you wander far from the subject on purpose. Finally you bring the subject back and see which of your wanderings crash into it in funny ways.</p>
+
+    <h3>The four steps</h3>
+    <ol>
+      <li><b>Subject.</b> Pick a thing, a person or a situation. It goes in the middle.</li>
+      <li><b>Branches.</b> Add your main branches: big things, small things and obscure things that go with the subject. Don't filter. Three to eight is plenty.</li>
+      <li><b>Break it down.</b> The subject fades out on purpose. Pick a main branch and think about it on its own: what does <i>it</i> remind you of? Keep going outward as far as you like, and add a new main branch whenever one occurs to you.</li>
+      <li><b>Apply it back.</b> The subject returns. Only it and the idea you pick stand out. Ask how that idea changes what the subject means, and save the joke ideas that come out.</li>
+    </ol>
+
+    <h3>Tips for the best results</h3>
+    <ul>
+      <li><b>Don't judge while you branch.</b> Silly, wrong and weird all count. You can throw things away later.</li>
+      <li><b>Really forget the subject in step 3.</b> The further a branch drifts, the more surprising it is when it meets the subject again.</li>
+      <li><b>Stuck on a word?</b> Open "Ways to think about words" in step 3: split it into pieces, pun on it, look for other meanings, flip it to its opposite, or use the clichés that come with it.</li>
+      <li><b>Aim for roughly</b> five to eight main branches and two or three levels out. More than that is fine, but the web gets crowded.</li>
+      <li><b>In step 4</b> go for the idea that surprises you, not the one that is most obviously related.</li>
+      <li><b>Rough is fine.</b> Send ideas to the draft box with "Use in draft" and polish them there.</li>
+    </ul>
+
+    <h3>Free board</h3>
+    <p>Switch to Free board to drag bubbles around, rename them, delete a bubble with its branch, or add ideas anywhere. Tidy up puts every bubble back in its automatic place. With a bubble selected, the arrow keys nudge it (hold Shift for bigger steps). Use + and &minus; to zoom and Fit to see the whole web.</p>
+
+    <h3>Keeping your work</h3>
+    <p>Your web and draft are saved in this browser only, nothing is sent anywhere. Save image downloads a picture of the web, Copy web copies it as an outline, and Copy joke ideas copies just your ideas. Start over asks you twice. If you send a topic over from the Mashup Machine, it starts a new web and keeps your old one so you can swap back.</p>
+  </div>
+</dialog>
 
 <header class="k-hero">
   <div class="k-wrap">
@@ -730,6 +776,17 @@ function swapPrev() {
   $('incoming').hidden = false;
   $('inc-new').onclick = swapPrev;
   $('inc-keep').onclick = function () { $('incoming').hidden = true; };
+})();
+// ---------- help ----------
+(function () {
+  var dlg = $('help'), btn = $('helpBtn');
+  function open() { if (typeof dlg.showModal === 'function') { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', ''); }
+  function close() { if (typeof dlg.close === 'function') dlg.close(); else dlg.removeAttribute('open'); btn.focus(); }
+  btn.addEventListener('click', open);
+  $('helpX').addEventListener('click', close);
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) close(); });
+  dlg.addEventListener('close', function () { btn.focus(); if (location.hash === '#help') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} } });
+  if (location.hash === '#help') open();
 })();
 window.__jokeweb = { state: function () { return S; }, outline: outline, glen: glen };
 })();

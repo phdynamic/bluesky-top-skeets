@@ -230,6 +230,30 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
     ok('L3 the fading only belongs to the last step', await page.locator('#frame .faded').count() === 0);
     await page.close();
   }
+  // M. help dialog
+  {
+    const { page } = await mk(browser); await page.goto(BASE);
+    ok('M1 a Help button sits in the top bar', await page.locator('.k-top #helpBtn').isVisible() && (await page.innerText('#helpBtn')).includes('Help'));
+    ok('M2 the dialog starts closed', await page.locator('#help').isHidden());
+    await page.click('#helpBtn');
+    const txt = await page.innerText('#help');
+    ok('M3 Help opens with the idea, the four steps, tips, free board and saving', await page.locator('#help').isVisible() && ['The idea', 'The four steps', 'Tips for the best results', 'Free board', 'Keeping your work'].every(h => txt.includes(h)), txt.slice(0, 40));
+    await page.screenshot({ path: 'jw-help-desktop.png' });
+    await page.keyboard.press('Escape');
+    ok('M4 Esc closes it and focus returns to the Help button', await page.locator('#help').isHidden() && await page.evaluate(() => document.activeElement.id) === 'helpBtn');
+    await page.click('#helpBtn'); await page.mouse.click(5, 5);
+    ok('M5 clicking outside closes it', await page.locator('#help').isHidden());
+    await page.click('#helpBtn'); await page.click('#helpX');
+    ok('M6 the close button closes it', await page.locator('#help').isHidden());
+    await page.close();
+    const { page: h } = await mk(browser); await h.goto(BASE + '#help');
+    ok('M7 /jokeweb#help opens the dialog straight away', await h.locator('#help').isVisible());
+    await h.close();
+    const { page: ph } = await mk(browser, { vp: { width: 390, height: 700 }, scheme: 'dark' }); await ph.goto(BASE); await ph.click('#helpBtn');
+    const m = await ph.evaluate(() => { const d = document.getElementById('help').getBoundingClientRect(), b = document.querySelector('#help .hb'); return { w: d.width, h: d.height, vw: innerWidth, vh: innerHeight, scrolls: b.scrollHeight > b.clientHeight, over: document.documentElement.scrollWidth > innerWidth + 1 }; });
+    ok('M8 phone: the dialog fits the screen and scrolls inside, no sideways scroll', m.w <= m.vw && m.h <= m.vh && m.scrolls && !m.over, JSON.stringify(m));
+    await ph.screenshot({ path: 'jw-help-phone.png' }); await ph.close();
+  }
   ok('F1 no requests beyond this site and the shared footer avatar lookup', third.length === 0, third.join(' '));
   console.log(out.join('\n')); console.log('JS errors:', errors.length ? errors.join('|') : 'none');
   await browser.close();
