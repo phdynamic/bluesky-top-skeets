@@ -36,11 +36,11 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
     for (const t of ['Walk out', 'Picket', 'Union']) { await page.fill('#sub-input', t); await page.press('#sub-input', 'Enter'); }
     ok('A3 three branches are in the web and listed', await nds(page).count() === 4 && await page.locator('.chips .chip').count() === 3);
     await page.click('#to3');
-    ok('A4 break it down: subject is greyed, first branch selected', await page.locator('#frame .nd.dim').count() === 1 && /Working on:\s*Walk out/.test(await page.locator('#controls .crumbs').innerText()));
+    ok('A4 break it down: subject is grayed, first branch selected', await page.locator('#frame .nd.dim').count() === 1 && /Working on:\s*Walk out/.test(await page.locator('#controls .crumbs').innerText()));
     for (const t of ['Flounce out', 'Conga']) { await page.fill('#kid-input', t); await page.press('#kid-input', 'Enter'); }
     ok('A5 associations attach under the selected branch', await nds(page).count() === 6);
     await page.click('#to4');
-    ok('A6 apply it back: subject is no longer greyed', await page.locator('#frame .nd.dim').count() === 0);
+    ok('A6 apply it back: subject is no longer grayed', await page.locator('#frame .nd.dim').count() === 0);
     await page.fill('#joke-input', 'Actors flounce out. Stage left.'); await page.press('#joke-input', 'Enter');
     ok('A7 joke idea is saved and listed', await page.locator('#ideas li').count() === 1);
     await page.click('#ideas [data-use]');
@@ -151,19 +151,19 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
       await q.page.close();
     }
   }
-  // H. centred subject; dragging to the edge never clips or snaps
+  // H. centered subject; dragging to the edge never clips or snaps
   {
     const { page } = await mk(browser, { init: bigWeb(), vp: { width: 1280, height: 900 } }); await page.goto(BASE);
-    const centred = async pg => pg.evaluate(() => { const f = document.getElementById('frame').getBoundingClientRect(), r = document.querySelector('#frame .nd[data-id="0"]').getBoundingClientRect(); return { dx: (r.left + r.width / 2) - (f.left + f.width / 2), dy: (r.top + r.height / 2) - (f.top + f.height / 2) }; });
-    const c0 = await centred(page);
+    const centered = async pg => pg.evaluate(() => { const f = document.getElementById('frame').getBoundingClientRect(), r = document.querySelector('#frame .nd[data-id="0"]').getBoundingClientRect(); return { dx: (r.left + r.width / 2) - (f.left + f.width / 2), dy: (r.top + r.height / 2) - (f.top + f.height / 2) }; });
+    const c0 = await centered(page);
     ok('H1 desktop: the subject is in the middle of the board', Math.abs(c0.dx) < 3, JSON.stringify(c0));
     const lop = { mode: 'guided', step: 3, sel: 1, nextId: 8, draft: '', nodes: [{ id: 0, t: 'Cheese', p: null, x: null, y: null, jokes: [] }, ...[1, 2, 3].map(i => ({ id: i, t: 'Branch ' + i, p: 0, x: 400 + i * 60, y: -80 + i * 70, jokes: [] })), ...[4, 5, 6, 7].map(i => ({ id: i, t: 'Child ' + i, p: 1, x: 700 + i * 40, y: 100 * (i - 5), jokes: [] }))] };
     const { page: lp } = await mk(browser, { init: lop, vp: { width: 1280, height: 900 } }); await lp.goto(BASE);
-    const c1 = await centred(lp);
+    const c1 = await centered(lp);
     ok('H2 a lopsided web still has the subject in the middle', Math.abs(c1.dx) < 3 && Math.abs(c1.dy) < 3, JSON.stringify(c1));
     await lp.close();
     const { page: ph } = await mk(browser, { init: bigWeb(), vp: { width: 390, height: 800 } }); await ph.goto(BASE);
-    const c2 = await centred(ph);
+    const c2 = await centered(ph);
     ok('H3 phone: the subject is in the middle too', Math.abs(c2.dx) < 3, JSON.stringify(c2));
     await ph.close();
     // drag
@@ -186,8 +186,8 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
     ok('H4 while dragging toward every edge the bubble is never clipped', clipped === 0, 'clipped samples: ' + clipped);
     ok('H5 the board does not rescale during or after the drag', scaleChanged === 0 && Math.abs(s1.scale - s0.scale) < 0.001, JSON.stringify([s0.scale, s1.scale]));
     ok('H6 an untouched bubble has not moved on screen', Math.abs(s1.ox - s0.ox) < 2 && Math.abs(s1.oy - s0.oy) < 2, JSON.stringify([[s0.ox, s0.oy], [s1.ox, s1.oy]]));
-    const c3 = await centred(page);
-    ok('H7 the subject stays centred after the drag', Math.abs(c3.dx) < 3 && Math.abs(c3.dy) < 3, JSON.stringify(c3));
+    const c3 = await centered(page);
+    ok('H7 the subject stays centered after the drag', Math.abs(c3.dx) < 3 && Math.abs(c3.dy) < 3, JSON.stringify(c3));
     await page.click('#fit');
     const fit = await page.evaluate(() => { const f = document.getElementById('frame'), s = f.querySelector('svg'); return { sc: f.scrollWidth - f.clientWidth, sw: s.getBoundingClientRect().width, fw: f.clientWidth }; });
     ok('H8 Fit brings the whole board back into view', fit.sc <= 1 && fit.sw <= fit.fw, JSON.stringify(fit));

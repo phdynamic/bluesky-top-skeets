@@ -111,7 +111,7 @@ h3.sub { font-size: 16px; font-weight: 800; margin: 18px 0 4px; }
         <button class="k-btn primary spin" id="spin" type="button">🎲 Spin <span class="sr">(or press Space)</span></button>
         <button class="k-btn" id="copy" type="button">Copy</button>
         <a class="k-btn" id="send" href="/jokeweb" >Send to Joke-Web Maker</a>
-        <button class="k-btn" id="fav" type="button" aria-pressed="false">☆ Favourite</button>
+        <button class="k-btn" id="fav" type="button" aria-pressed="false">☆ Favorite</button>
       </div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
     </section>
@@ -155,7 +155,7 @@ h3.sub { font-size: 16px; font-weight: 800; margin: 18px 0 4px; }
           <ul class="list" id="histlist"></ul>
         </section>
         <section class="panel" aria-labelledby="favs">
-          <h2 id="favs">Favourites</h2>
+          <h2 id="favs">Favorites</h2>
           <ul class="list" id="favlist"></ul>
         </section>
       </div>
@@ -314,7 +314,7 @@ function renderCards() {
   $('send').setAttribute('href', link);
   $('send').setAttribute('aria-disabled', String(!any));
   var isFav = any && S.favs.some(function (f) { return key(f.cards) === key(S.cards); });
-  $('fav').setAttribute('aria-pressed', String(isFav)); $('fav').textContent = isFav ? '★ Favourited' : '☆ Favourite';
+  $('fav').setAttribute('aria-pressed', String(isFav)); $('fav').textContent = isFav ? '★ Favorited' : '☆ Favorite';
 }
 function renderLists() {
   var hl = $('histlist'); hl.textContent = '';
@@ -327,7 +327,7 @@ function renderLists() {
   S.favs.forEach(function (r, i) {
     fl.appendChild(h('li', {}, h('b', { text: resultText(r.cards) }), h('div', { class: 'acts' },
       h('button', { class: 'k-btn', type: 'button', text: 'Bring back', on: { click: function () { bringBack(r); } } }),
-      h('button', { class: 'k-btn', type: 'button', 'aria-label': 'Remove favourite', text: '×', on: { click: function () { S.favs.splice(i, 1); renderLists(); renderCards(); save(); } } }))));
+      h('button', { class: 'k-btn', type: 'button', 'aria-label': 'Remove favorite', text: '×', on: { click: function () { S.favs.splice(i, 1); renderLists(); renderCards(); save(); } } }))));
   });
   var ol = $('ownlist'); ol.textContent = '';
   S.own.forEach(function (t, i) {
@@ -335,7 +335,7 @@ function renderLists() {
   });
 }
 function words() {
-  $('distw').textContent = S.dist < 20 ? '· same neighbourhood' : S.dist < 45 ? '· close cousins' : S.dist < 75 ? '· different worlds' : '· opposite ends of the map';
+  $('distw').textContent = S.dist < 20 ? '· same neighborhood' : S.dist < 45 ? '· close cousins' : S.dist < 75 ? '· different worlds' : '· opposite ends of the map';
   $('weirdw').textContent = S.weird < 35 ? '· normal' : S.weird < 65 ? '· odd pairs' : S.weird < 95 ? '· very odd, maybe a third topic' : '· chaos, always three';
 }
 function renderControls() {

@@ -181,7 +181,7 @@ html[data-theme="dark"] .dcount.over { color: #fca5a5; }
 'use strict';
 
 // ---------- constants ----------
-var KEY = 'pk-jokeweb-v1';
+var KEY = 'pk-jokeweb-v1', PREVKEY = 'pk-jokeweb-prev-v1', prevMem = null;
 var MAX_NODES = 150, MAX_TEXT = 40, MAX_JOKE = 300, MAX_JOKES = 100, LIMIT = 300;
 var INK = '#1d1b4f', PAPER = '#fffdf6', TINT = '#fff0b0';
 var PAL = ['#e0523f', '#1fa88f', '#7d5fe0', '#3a8fd6', '#e0609f', '#d4a017'];
@@ -219,10 +219,14 @@ function clean(s, n) { return String(s == null ? '' : s).replace(/[\u0000-\u001f
 function load() {
   var raw = null;
   try { raw = localStorage.getItem(KEY); } catch (e) { return; }
-  if (!raw) return;
+  var s = parseState(raw); if (s) S = s;
+}
+// Turns saved text back into a safe state, or null if it isn't one.
+function parseState(raw) {
+  if (!raw) return null;
   try {
     var d = JSON.parse(raw), nodes = [], ids = {};
-    if (!d || !Array.isArray(d.nodes) || !d.nodes.length) return;
+    if (!d || !Array.isArray(d.nodes) || !d.nodes.length) return null;
     d.nodes.slice(0, MAX_NODES).forEach(function (n, i) {
       if (!n || typeof n.id !== 'number' || ids[n.id]) return;
       var node = { id: n.id, t: clean(n.t, MAX_TEXT), p: (typeof n.p === 'number' ? n.p : null), x: (typeof n.x === 'number' && isFinite(n.x) ? n.x : null), y: (typeof n.y === 'number' && isFinite(n.y) ? n.y : null), jokes: [] };
@@ -230,7 +234,7 @@ function load() {
       if (i === 0) { node.id = 0; node.p = null; }
       ids[node.id] = true; nodes.push(node);
     });
-    if (!nodes.length || nodes[0].id !== 0) return;
+    if (!nodes.length || nodes[0].id !== 0) return null;
     nodes = nodes.filter(function (n) { return n.p === null ? n.id === 0 : ids[n.p]; });
     var s = fresh();
     s.nodes = nodes; s.nextId = nodes.reduce(function (m, n) { return Math.max(m, n.id); }, 0) + 1;
@@ -238,8 +242,8 @@ function load() {
     s.step = Math.min(4, Math.max(1, parseInt(d.step, 10) || 1));
     s.sel = ids[d.sel] ? d.sel : 0;
     s.draft = String(d.draft || '').slice(0, 2000);
-    S = s;
-  } catch (e) {}
+    return s;
+  } catch (e) { return null; }
 }
 var saveTimer = null;
 function save() {
@@ -316,7 +320,7 @@ function wobbleEllipse(cx, cy, rx, ry, seed) {
   }
   return 'M' + pts.join(' L');
 }
-function edgePoint(c, b, tx, ty, pad) {   // where the line from a node centre toward (tx,ty) leaves its shape
+function edgePoint(c, b, tx, ty, pad) {   // where the line from a node center toward (tx,ty) leaves its shape
   var dx = tx - c.x, dy = ty - c.y, len = Math.sqrt(dx * dx + dy * dy) || 1, t;
   if (b.root) t = 1 / Math.sqrt(Math.pow(dx / b.rx, 2) + Math.pow(dy / b.ry, 2));
   else t = Math.min((b.w / 2) / (Math.abs(dx) || 1e-6), (b.h / 2) / (Math.abs(dy) || 1e-6));
@@ -366,7 +370,7 @@ function renderWeb() {
     return;
   }
   var sc = buildScene(), bx = sc.box;
-  if (holdView) {   // keep the centre and size the board had, growing only as far as needed
+  if (holdView) {   // keep the center and size the board had, growing only as far as needed
     holdView.hx = Math.max(holdView.hx, holdView.cx - bx.minX, bx.maxX - holdView.cx); holdView.hy = Math.max(holdView.hy, holdView.cy - bx.minY, bx.maxY - holdView.cy);
     vb = { x: holdView.cx - holdView.hx, y: holdView.cy - holdView.hy, w: 2 * holdView.hx, h: 2 * holdView.hy };
   }
@@ -406,12 +410,12 @@ window.addEventListener('resize', function () { if (!userZoomed) { clearHold(); 
 
 // select / drag
 var drag = null;
-function startHold() {   // keep the board's centre, size and frame height as they are, so nothing moves or rescales while editing positions
+function startHold() {   // keep the board's center, size and frame height as they are, so nothing moves or rescales while editing positions
   if (holdView) return; var f = $('frame'); f.style.height = f.getBoundingClientRect().height + 'px';
   holdView = { hx: vb.w / 2, hy: vb.h / 2, cx: vb.x + vb.w / 2, cy: vb.y + vb.h / 2 };
 }
 function clearHold() { holdView = null; $('frame').style.height = ''; }
-function rootCentre() { var e = $('frame').querySelector('svg'); if (!e) return null; var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+function rootCenter() { var e = $('frame').querySelector('svg'); if (!e) return null; var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
 function svgPoint(svg, ev) { var pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; var m = svg.getScreenCTM(); return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 }; }
 $('frame').addEventListener('pointerdown', function (ev) {
   var g = ev.target.closest && ev.target.closest('.nd'); if (!g) return;
@@ -426,9 +430,9 @@ window.addEventListener('pointermove', function (ev) {
   ev.preventDefault();
   var svg = $('frame').querySelector('svg'), p = svgPoint(svg, ev), n = byId(drag.id);
   n.x = Math.round(p.x + drag.dx); n.y = Math.round(p.y + drag.dy);
-  var fr = $('frame'), keep = { l: fr.scrollLeft, t: fr.scrollTop }, before = rootCentre();
+  var fr = $('frame'), keep = { l: fr.scrollLeft, t: fr.scrollTop }, before = rootCenter();
   renderWeb(); fr.scrollLeft = keep.l; fr.scrollTop = keep.t;
-  var after = rootCentre();   // the board grew around its centre: scroll by the difference so nothing on screen moves
+  var after = rootCenter();   // the board grew around its center: scroll by the difference so nothing on screen moves
   if (before && after) { fr.scrollLeft += after.x - before.x; fr.scrollTop += after.y - before.y; }
 });
 window.addEventListener('pointercancel', function () { drag = null; });
@@ -493,6 +497,7 @@ function renderControls() {
       h('button', { type: 'button', id: 'mode-guided', 'aria-pressed': String(guided), text: 'Guided', on: { click: function () { S.mode = 'guided'; render(); save(); } } }),
       h('button', { type: 'button', id: 'mode-free', 'aria-pressed': String(!guided), text: 'Free board', on: { click: function () { S.mode = 'free'; render(); save(); } } })),
     h('div', { class: 'tools' },
+      hasPrev() ? h('button', { class: 'k-btn', type: 'button', id: 'prev', text: 'Swap with previous web', title: 'Switch back to the web you had before a topic was sent here', on: { click: swapPrev } }) : null, hasPrev() ? ' ' : null,
       h('button', { class: 'k-btn', type: 'button', id: 'tidy', text: 'Tidy up', title: 'Put every bubble back in its automatic place', on: { click: function () { S.nodes.forEach(function (n) { n.x = null; n.y = null; }); clearHold(); render(); save(); } } }), ' ',
       h('button', { class: 'k-btn' + (confirmReset ? ' coral' : ''), type: 'button', id: 'reset', text: confirmReset ? 'Really start over?' : 'Start over', on: { click: startOver } }))));
   if (guided) renderGuided(c); else renderFree(c);
@@ -677,15 +682,31 @@ function applyIncoming(inc) {
   var draft = S.draft; S = fresh(); S.draft = draft; S.nodes[0].t = inc.subject;
   inc.branches.forEach(function (b) { addNode(0, b); });
   var first = kidsOf(0)[0]; S.step = first ? 3 : 2; S.sel = first ? first.id : 0;
-  userZoomed = false; clearHold(); render(); save();
+  userZoomed = false; clearHold(); $('draft').value = S.draft; render(); save();
+}
+// The web you had before a topic was sent here is kept in one spare slot, so nothing is ever lost.
+function readPrev() { try { var r = localStorage.getItem(PREVKEY); if (r) return r; } catch (e) {} return prevMem; }
+function hasPrev() { return !!parseState(readPrev()); }
+function stashPrev(raw) { prevMem = raw; try { localStorage.setItem(PREVKEY, raw); } catch (e) {} }
+function swapPrev() {
+  var p = parseState(readPrev()); if (!p) return;
+  var draft = S.draft; stashPrev(JSON.stringify(S)); S = p; S.draft = draft;
+  userZoomed = false; clearHold(); $('draft').value = S.draft; $('incoming').hidden = true; render(); save();
 }
 (function () {
   var inc = incomingTopic(); if (!inc) return;
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-  if (!S.nodes[0].t && S.nodes.length === 1) { applyIncoming(inc); return; }
-  $('inc-text').textContent = 'You already have a web going. Start a new one with “' + inc.subject + '”' + (inc.branches.length ? ' and its ' + inc.branches.length + ' topics as branches' : '') + '? Your current web is replaced, your draft post stays.';
+  var had = !!S.nodes[0].t || S.nodes.length > 1;
+  // a web you have really worked on is always kept; a tiny one that was itself just sent here doesn't push out an older saved one
+  var worked = S.nodes.length >= 6 || S.nodes.some(function (n) { return n.jokes.length || n.x !== null; });
+  if (had && (worked || !hasPrev())) stashPrev(JSON.stringify(S));
+  applyIncoming(inc);
+  $('inc-title').textContent = 'New web started';
+  $('inc-text').textContent = 'Started a new web with “' + inc.subject + '”' + (inc.branches.length ? ', with ' + inc.branches.length + ' topic' + (inc.branches.length === 1 ? '' : 's') + ' as branches' : '') + '.' + (had ? ' The web you had before is saved, and you can switch back.' : '');
+  $('inc-new').textContent = 'Switch back to my previous web'; $('inc-new').hidden = !had;
+  $('inc-keep').textContent = 'Got it';
   $('incoming').hidden = false;
-  $('inc-new').onclick = function () { $('incoming').hidden = true; applyIncoming(inc); };
+  $('inc-new').onclick = swapPrev;
   $('inc-keep').onclick = function () { $('incoming').hidden = true; };
 })();
 window.__jokeweb = { state: function () { return S; }, outline: outline, glen: glen };

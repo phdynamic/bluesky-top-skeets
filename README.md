@@ -23,7 +23,7 @@ Both can optionally include replies (an "Include replies" checkbox at registrati
 
 ## What Top Skeets Does
 
-Each person who visits the app gets a unique, personalised feed published to the AT Protocol network under **their own Bluesky DID**. The feed shows the feed *owner's* posts and is the same for every viewer — it is not personalised to whoever is looking.
+Each person who visits the app gets a unique, personalized feed published to the AT Protocol network under **their own Bluesky DID**. The feed shows the feed *owner's* posts and is the same for every viewer — it is not personalized to whoever is looking.
 
 Users share a single short link in their Bluesky bio:
 
@@ -80,7 +80,7 @@ Feeds whose accounts have been deleted, deactivated, or suspended are pruned aut
 
 ## Mashup Machine
 
-`/mashup` is a browser-only page that spins a random topic or mashes two or three together. The topics live in `public/topics.js` (about 600 in 20 categories; edit freely, `*` marks a spicy one). Each category sits on a small map, and the Distance dial picks topics by how far apart their categories are; the Weirdness dial adds odd pairings and a third topic. Visitors can add their own topics, lock a card while re-rolling, keep a history and favourites, and send a result to the Joke-Web Maker (`/jokeweb#subject=...&branches=A|B`). Everything is saved in the browser only (`localStorage`, key `pk-mashup-v1`).
+`/mashup` is a browser-only page that spins a random topic or mashes two or three together. The topics live in `public/topics.js` (about 600 in 20 categories; edit freely, `*` marks a spicy one). Each category sits on a small map, and the Distance dial picks topics by how far apart their categories are; the Weirdness dial adds odd pairings and a third topic. Visitors can add their own topics, lock a card while re-rolling, keep a history and favorites, and send a result to the Joke-Web Maker (`/jokeweb#subject=...&branches=A|B`). Everything is saved in the browser only (`localStorage`, key `pk-mashup-v1`).
 
 ## Prerequisites
 

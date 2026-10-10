@@ -60,7 +60,7 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   ok('D4 your topics can come up, and "Include my topics" off removes them', mine.hits > 0 && mine.off === 0 && mine.withIt, JSON.stringify(mine));
   await page.click('#ownlist .chip button'); ok('D5 a topic can be removed', await page.locator('#ownlist .chip').count() === 0);
 
-  // E. lock, history, favourites, copy, keyboard
+  // E. lock, history, favorites, copy, keyboard
   await page.evaluate(() => window.__mashup.seed(7));
   await page.click('#spin');
   const first = (await cards(page))[0].text;
@@ -77,14 +77,14 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   const txt = (await cards(page)).map(c => c.text).join(' × ');
   await page.click('#copy'); ok('E4 Copy puts "A × B" on the clipboard', (await page.evaluate(() => navigator.clipboard.readText())) === txt, txt);
   await page.click('#fav');
-  ok('E5 Favourite stars the result', await page.locator('#favlist li').count() === 1 && (await page.getAttribute('#fav', 'aria-pressed')) === 'true');
+  ok('E5 Favorite stars the result', await page.locator('#favlist li').count() === 1 && (await page.getAttribute('#fav', 'aria-pressed')) === 'true');
   const favText = txt;
   await page.click('#spin'); await page.reload(); await page.waitForSelector('#cards .card');
-  ok('E6 favourites and history survive a reload', await page.locator('#favlist li b').first().innerText() === favText && await page.locator('#histlist li').count() === 20);
+  ok('E6 favorites and history survive a reload', await page.locator('#favlist li b').first().innerText() === favText && await page.locator('#histlist li').count() === 20);
   await page.locator('#favlist li button', { hasText: 'Bring back' }).click();
   ok('E7 Bring back restores a saved result', (await cards(page)).map(c => c.text).join(' × ') === favText);
-  await page.locator('#favlist li button[aria-label="Remove favourite"]').click();
-  ok('E8 a favourite can be removed', await page.locator('#favlist li b').first().innerText() !== favText);
+  await page.locator('#favlist li button[aria-label="Remove favorite"]').click();
+  ok('E8 a favorite can be removed', await page.locator('#favlist li b').first().innerText() !== favText);
 
   // F. send to the Joke-Web Maker
   await page.evaluate(() => { const S = window.__mashup.state(); S.weird = 0; });
@@ -97,11 +97,13 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   // with an existing web: banner, then keep or replace
   const q = await mk(browser, { init: ['pk-jokeweb-v1', JSON.stringify({ mode: 'guided', step: 2, sel: 0, nextId: 2, nodes: [{ id: 0, t: 'Mine', p: null, x: null, y: null, jokes: [] }, { id: 1, t: 'Kept', p: 0, x: null, y: null, jokes: [] }], draft: 'keep this draft' })] });
   await q.goto('http://localhost:3988/jokeweb#subject=Cheese%20%C3%97%20Tax&branches=Cheese%7CTax');
-  ok('F3 an existing web is never replaced without asking', await q.locator('#incoming').isVisible() && (await q.locator('#frame .nd text').allTextContents()).join().includes('Mine'));
-  await q.click('#inc-keep'); ok('F4 Keep my web keeps it', await q.locator('#incoming').isHidden() && await q.locator('#frame .nd').count() === 2);
-  await q.goto('about:blank'); await q.goto('http://localhost:3988/jokeweb#subject=Cheese%20%C3%97%20Tax&branches=Cheese%7CTax'); await q.click('#inc-new');
-  const rep = await q.evaluate(() => ({ n: document.querySelectorAll('#frame .nd').length, t: [...document.querySelectorAll('#frame .nd text')].map(x => x.textContent), draft: document.getElementById('draft').value }));
-  ok('F5 Start a new web replaces it and keeps the draft post', rep.n === 3 && rep.t.includes('Cheese × Tax') && rep.draft === 'keep this draft', JSON.stringify(rep));
+  ok('F3 sending with a web already in progress starts the new web at once and says so', await q.locator('#incoming').isVisible() && /New web started/.test(await q.locator('#inc-title').innerText()) && (await q.locator('#frame .nd text').allTextContents()).includes('Cheese × Tax'));
+  const sent = await q.evaluate(() => ({ n: document.querySelectorAll('#frame .nd').length, draft: document.getElementById('draft').value, prev: !!document.getElementById('prev') }));
+  ok('F4 the new web has the subject plus a branch per topic, the draft stays, and a swap button is offered', sent.n === 3 && sent.draft === 'keep this draft' && sent.prev, JSON.stringify(sent));
+  await q.click('#inc-new');
+  const back = await q.evaluate(() => ({ t: [...document.querySelectorAll('#frame .nd text')].map(x => x.textContent), draft: document.getElementById('draft').value }));
+  ok('F5 switching back restores the web I had, and I can swap again', back.t.join() === 'Mine,Kept' && back.draft === 'keep this draft' && await q.locator('#prev').count() === 1, JSON.stringify(back));
+  await q.reload(); ok('F6 the swap survives a reload', await q.locator('#prev').count() === 1 && await q.locator('#frame .nd').count() === 2);
   await q.close();
 
   // G. animation, phone, dark, hub
