@@ -11,7 +11,7 @@
 ;;                                       same name and .jpg at the end (some-video.jpg)
 ;; Keep links to https:// addresses or to pages on this site that start with /.
 
-This is a guide to the technical side of Bluesky for people who want to post jokes and be found doing it. It covers what the words mean, how replies and quotes work, how to set up your profile and your feeds, and what to do when something goes wrong.
+This is a guide to the technical side of Bluesky for people who want to post jokes and be found doing it. It covers what the words mean, how replies and quotes work, how to set up your profile and your feeds, and how contests, images and direct messages work.
 
 ## The language
 
