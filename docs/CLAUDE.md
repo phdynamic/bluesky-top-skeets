@@ -17,6 +17,7 @@ Project: Professor Kiosk site (professorkiosk.wtf). Two parts in one Express + T
 | Recurring technical lessons | `standing-rules.md` |
 | Live checks owed on the developer's machine | `TESTING-OWED.md` |
 | How to run, config, endpoints | `../README.md`, `../.env.example` |
+| The rules for keeping these docs | `../comments.md` |
 
 ## Core concept
 - Feed generator: each user registers with a Bluesky app password and gets their own published feed (Top Skeets by likes, My Skeets newest first, each with or without replies). The server fetches posts in the background and serves the feed skeleton.
@@ -36,4 +37,4 @@ Project: Professor Kiosk site (professorkiosk.wtf). Two parts in one Express + T
 - Tighten before filing: cut each entry to what a future session with no other context needs.
 - When behavior changes, update the routed-to file in the same session.
 - Do not silently override a documented decision: add a proposing entry and ask the developer first.
-- Origin: these rules come from the `commenting-on-code-skill` skill text. The `comments.md` the developer mentioned was not in the repo when this was set up.
+- Origin: these rules are `../comments.md` (repo root), which says to keep that file at the root and everything it describes in `docs/`.
