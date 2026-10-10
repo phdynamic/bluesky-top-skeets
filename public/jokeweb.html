@@ -68,6 +68,7 @@ details.pr { margin-top: 12px; border: 2px dashed var(--line); border-radius: 14
 details.pr summary { cursor: pointer; font-weight: 800; min-height: 32px; display: flex; align-items: center; }
 .crumbs { font-size: 14px; margin: 4px 0 8px; color: var(--ink2); }
 .crumbs b { color: var(--ink); }
+.crumbs button { border: 0; background: none; color: var(--ink); font: 700 14px var(--font); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 36px; padding: 0 4px; }
 
 /* the web */
 .webtools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
@@ -83,6 +84,10 @@ details.pr summary { cursor: pointer; font-weight: 800; min-height: 32px; displa
 .web .hit { fill: transparent; stroke: transparent; }
 .web .halo { fill: #ffd23f; opacity: .6; }
 .web .dim { opacity: .28; }
+.web .faded { opacity: .14; }
+.web .mid { opacity: .42; }
+.web .edge, .web .nd { transition: opacity .2s; }
+@media (prefers-reduced-motion: reduce) { .web .edge, .web .nd { transition: none; } }
 .web .root-shape { fill: #fff0b0; stroke: #1d1b4f; stroke-width: 3; stroke-linejoin: round; }
 .free .web .nd { cursor: grab; touch-action: none; }
 .empty { padding: 60px 20px; text-align: center; color: #565c86; font-weight: 700; }
@@ -347,7 +352,7 @@ function buildScene() {
     var s = edgePoint(a, B[p.id], z.x, z.y, 6), e = edgePoint(z, B[n.id], a.x, a.y, 7);
     var r = rng(n.id), dx = e.x - s.x, dy = e.y - s.y, dist = Math.sqrt(dx * dx + dy * dy) || 1, bend = (r() - 0.5) * 0.35 * dist;
     var cx = (s.x + e.x) / 2 - dy / dist * bend, cy = (s.y + e.y) / 2 + dx / dist * bend;
-    items.push({ k: 'edge', d: 'M' + s.x.toFixed(1) + ' ' + s.y.toFixed(1) + ' Q' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + e.x.toFixed(1) + ' ' + e.y.toFixed(1), w: d === 1 ? 3.4 : d === 2 ? 2.6 : 2, c: PAL[branchOf(n) % PAL.length] });
+    items.push({ k: 'edge', id: n.id, d: 'M' + s.x.toFixed(1) + ' ' + s.y.toFixed(1) + ' Q' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + e.x.toFixed(1) + ' ' + e.y.toFixed(1), w: d === 1 ? 3.4 : d === 2 ? 2.6 : 2, c: PAL[branchOf(n) % PAL.length] });
   });
   var root = S.nodes[0], rb = B[0];
   var rootShape = wobbleEllipse(P[0].x, P[0].y, rb.rx, rb.ry, 3);
@@ -377,10 +382,13 @@ function renderWeb() {
   }
   else vb = { x: bx.x, y: bx.y, w: bx.w, h: bx.h };
   var svg = se('svg', { class: 'web', viewBox: vb.x.toFixed(0) + ' ' + vb.y.toFixed(0) + ' ' + vb.w.toFixed(0) + ' ' + vb.h.toFixed(0), role: 'group', 'aria-label': 'Joke-web with ' + S.nodes.length + ' bubbles' });
-  sc.items.forEach(function (it) { se('path', { class: 'edge', d: it.d, 'stroke-width': it.w, stroke: it.c }, svg); });
+  // "Apply it back": only the subject and the chosen idea stand out; the bubbles between them are half there, the rest fade
+  var focusing = S.mode === 'guided' && S.step === 4, onPath = {}, selNode = byId(S.sel) || S.nodes[0];
+  if (focusing) for (var pn = selNode; pn; pn = pn.p === null ? null : byId(pn.p)) onPath[pn.id] = true;
+  sc.items.forEach(function (it) { se('path', { class: 'edge' + (focusing ? (onPath[it.id] ? ' mid' : ' faded') : ''), d: it.d, 'stroke-width': it.w, stroke: it.c }, svg); });
   var dimRoot = S.mode === 'guided' && S.step === 3;
   sc.nodes.forEach(function (nd) {
-    var n = byId(nd.id), g = se('g', { class: 'nd' + (nd.id === 0 && dimRoot ? ' dim' : ''), 'data-id': nd.id, tabindex: 0, role: 'button', 'aria-label': (n.t || 'subject') + (nd.id === S.sel ? ' (selected)' : '') }, svg), b = nd.b;
+    var n = byId(nd.id), g = se('g', { class: 'nd' + (nd.id === 0 && dimRoot ? ' dim' : '') + (focusing && nd.id !== 0 && nd.id !== selNode.id ? (onPath[nd.id] ? ' mid' : ' faded') : ''), 'data-id': nd.id, tabindex: 0, role: 'button', 'aria-label': (n.t || 'subject') + (nd.id === S.sel ? ' (selected)' : '') }, svg), b = nd.b;
     if (b.root) {
       if (nd.id === S.sel) se('ellipse', { class: 'halo', cx: nd.x, cy: nd.y, rx: b.rx + 8, ry: b.ry + 8 }, g);
       se('path', { class: 'root-shape', d: wobbleEllipse(nd.x, nd.y, b.rx, b.ry, 3) }, g);
@@ -499,7 +507,7 @@ function renderControls() {
       h('button', { type: 'button', id: 'mode-free', 'aria-pressed': String(!guided), text: 'Free board', on: { click: function () { S.mode = 'free'; render(); save(); } } })),
     h('div', { class: 'tools' },
       hasPrev() ? h('button', { class: 'k-btn', type: 'button', id: 'prev', text: 'Swap with previous web', title: 'Switch back to the web you had before a topic was sent here', on: { click: swapPrev } }) : null, hasPrev() ? ' ' : null,
-      h('button', { class: 'k-btn', type: 'button', id: 'tidy', text: 'Tidy up', title: 'Put every bubble back in its automatic place', on: { click: function () { S.nodes.forEach(function (n) { n.x = null; n.y = null; }); clearHold(); render(); save(); } } }), ' ',
+      S.mode === 'free' ? h('button', { class: 'k-btn', type: 'button', id: 'tidy', text: 'Tidy up', title: 'Put every bubble back in its automatic place', on: { click: function () { S.nodes.forEach(function (n) { n.x = null; n.y = null; }); clearHold(); render(); save(); } } }) : null, S.mode === 'free' ? ' ' : null,
       h('button', { class: 'k-btn' + (confirmReset ? ' coral' : ''), type: 'button', id: 'reset', text: confirmReset ? 'Really start over?' : 'Start over', on: { click: startOver } }))));
   if (guided) renderGuided(c); else renderFree(c);
   renderIdeas(c);
@@ -532,17 +540,18 @@ function renderGuided(c) {
     if (!cur) focusId = 'subject';
   } else if (S.step === 2) {
     c.appendChild(h('h2', { text: 'Branches' }));
-    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Think big things, small things and obscure things ' }), 'that go with “' + root.t + '”. Three to eight is plenty.'));
-    c.appendChild(inputRow('sub-input', 'Add an association…', 'Add', function (v) { addNode(0, v); focusId = 'sub-input'; render(); save(); }));
-    c.appendChild(chipList(kidsOf(0), { remove: true, mark: false, pick: function (n) { S.sel = n.id; setStep(3); } }));
-    c.appendChild(h('div', { class: 'next' }, h('button', { class: 'k-btn primary', type: 'button', id: 'to3', text: 'Next: break them down →', disabled: kidsOf(0).length ? null : 'disabled', on: { click: function () { setStep(3); } } })));
+    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Think big, small and obscure. ' }), sel.id === 0 ? 'Add what goes with “' + root.t + '”, then tap a branch to add sub-branches under it, as many levels as you like. You still see the subject here.' : 'Adding under “' + sel.t + '”. Tap a name above to go back up.'));
+    c.appendChild(crumbs('Adding to: ', sel, false));
+    c.appendChild(inputRow('sub-input', sel.id === 0 ? 'Add an association…' : 'Add under “' + sel.t + '”…', 'Add', function (v) { addNode(sel.id, v); focusId = 'sub-input'; render(); save(); }));
+    c.appendChild(chipList(kidsOf(sel.id), { remove: true, mark: false, pick: function (n) { S.sel = n.id; focusId = 'sub-input'; render(); save(); } }));
+    c.appendChild(h('div', { class: 'next' }, h('button', { class: 'k-btn primary', type: 'button', id: 'to3', text: 'Next: forget the subject →', disabled: kidsOf(0).length ? null : 'disabled', on: { click: function () { setStep(3); } } })));
   } else if (S.step === 3) {
     var first = kidsOf(0);
     c.appendChild(h('h2', { text: 'Break it down' }));
-    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Forget “' + root.t + '”.' }), ' Pick a branch and think about it in its own right. What does it make you think of?'));
+    c.appendChild(h('p', { class: 'hint' }, h('b', { text: 'Forget “' + root.t + '”.' }), ' Pick any branch and think about it in its own right: one last round of “what does this make you think of?”'));
     if (first.length) c.appendChild(chipList(first, { mark: true }));
     if (sel.id !== 0) {
-      c.appendChild(h('div', { class: 'crumbs' }, 'Working on: ', h('b', { text: sel.t })));
+      c.appendChild(crumbs('Working on: ', sel, true));
       c.appendChild(inputRow('kid-input', 'Add an association to “' + sel.t + '”…', 'Add', function (v) { addNode(sel.id, v); focusId = 'kid-input'; render(); save(); }));
       var kids = kidsOf(sel.id);
       if (kids.length) c.appendChild(chipList(kids, { remove: true, mark: true }));
@@ -560,6 +569,17 @@ function renderGuided(c) {
     var more = S.nodes.filter(function (n) { return n.id !== 0; });
     if (more.length) c.appendChild(chipList(more.slice(0, 60), { mark: true }));
   }
+}
+// Where you are in the web, as tappable names (ancestors) ending in the current one. While the subject is forgotten it is left out.
+function crumbs(label, sel, forget) {
+  var path = []; for (var n = sel; n; n = n.p === null ? null : byId(n.p)) path.unshift(n);
+  if (forget) path = path.filter(function (x) { return x.id !== 0; });
+  var d = h('div', { class: 'crumbs' }, label);
+  path.forEach(function (n, i) {
+    if (i) d.appendChild(document.createTextNode(' › '));
+    d.appendChild(n.id === sel.id ? h('b', { text: n.t || '…' }) : h('button', { type: 'button', text: n.t || '…', on: { click: function () { select(n.id); } } }));
+  });
+  return d;
 }
 function jokeInput(sel) {
   var inp = h('input', { type: 'text', id: 'joke-input', maxlength: MAX_JOKE, placeholder: 'Joke idea for “' + (sel.t || 'the subject') + '”…', autocomplete: 'off', 'aria-label': 'Joke idea' });

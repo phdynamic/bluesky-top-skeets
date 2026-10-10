@@ -193,6 +193,44 @@ const labels = page => page.evaluate(() => [...document.querySelectorAll('#frame
     ok('H8 Fit brings the whole board back into view', fit.sc <= 1 && fit.sw <= fit.fw, JSON.stringify(fit));
     await page.close();
   }
+  // K. sub-branches before forgetting the subject; Tidy up only in Free mode
+  {
+    const { page } = await mk(browser); await page.goto(BASE);
+    await page.fill('#subject', 'Strikes'); await page.press('#subject', 'Enter');
+    for (const t of ['Walk out', 'Picket']) { await page.fill('#sub-input', t); await page.press('#sub-input', 'Enter'); }
+    await page.locator('.chips .chip button[data-chip]').first().click();
+    ok('K1 step 2: tapping a branch lets you add sub-branches while the subject is still visible', /Adding to:\s*Strikes\s*›\s*Walk out/.test(await page.locator('#controls .crumbs').innerText()) && await page.locator('#frame .nd.dim').count() === 0);
+    for (const t of ['Flounce out', 'Conga']) { await page.fill('#sub-input', t); await page.press('#sub-input', 'Enter'); }
+    ok('K2 the sub-branches are in the web under that branch', await nds(page).count() === 5);
+    await page.locator('.chips .chip button[data-chip]').first().click();
+    ok('K3 you can go a level deeper again', /Strikes\s*›\s*Walk out\s*›\s*Flounce out/.test(await page.locator('#controls .crumbs').innerText()));
+    await page.locator('#controls .crumbs button', { hasText: 'Strikes' }).click();
+    ok('K4 tapping a name above goes back up to add more top-level branches', /Adding to:\s*Strikes$/.test((await page.locator('#controls .crumbs').innerText()).trim()));
+    ok('K5 Tidy up is not shown in Guided mode', await page.locator('#tidy').count() === 0);
+    await page.click('#to3');
+    ok('K6 step 3 forgets the subject (dimmed, left out of the path) for one more round', await page.locator('#frame .nd.dim').count() === 1 && /Working on:/.test(await page.locator('#controls .crumbs').innerText()) && !/Strikes/.test(await page.locator('#controls .crumbs').innerText()));
+    await page.fill('#kid-input', 'One last idea'); await page.press('#kid-input', 'Enter');
+    ok('K7 the last round adds under the selected branch', await nds(page).count() === 6);
+    await page.click('#mode-free');
+    ok('K8 Tidy up appears in Free mode', await page.locator('#tidy').count() === 1);
+    await page.click('#mode-guided');
+    ok('K9 and disappears again in Guided mode', await page.locator('#tidy').count() === 0);
+    await page.close();
+  }
+  // L. Apply it back: only the subject and the chosen idea stand out
+  {
+    const { page } = await mk(browser, { init: bigWeb() }); await page.goto(BASE);
+    await page.click('[data-step="4"]');
+    const f1 = await page.evaluate(() => { const nd = [...document.querySelectorAll('#frame .nd')]; return { n: nd.length, faded: nd.filter(x => x.classList.contains('faded')).length, mid: nd.filter(x => x.classList.contains('mid')).length, rootClear: !document.querySelector('.nd[data-id="0"]').classList.contains('faded') && !document.querySelector('.nd[data-id="0"]').classList.contains('mid'), edgesFaded: document.querySelectorAll('#frame .edge.faded').length, edges: document.querySelectorAll('#frame .edge').length }; });
+    ok('L1 a first-level idea is chosen: subject and idea clear, everything else faded', f1.rootClear && f1.mid === 0 && f1.faded === f1.n - 2 && f1.edgesFaded === f1.edges - 1, JSON.stringify(f1));
+    const deepId = await page.evaluate(() => window.__jokeweb.state().nodes.find(n => n.t === 'second 3').id);
+    await page.locator('#frame .nd[data-id="' + deepId + '"]').click();
+    const f2 = await page.evaluate(() => { const nd = [...document.querySelectorAll('#frame .nd')]; return { n: nd.length, mid: nd.filter(x => x.classList.contains('mid')).length, faded: nd.filter(x => x.classList.contains('faded')).length, op: getComputedStyle(nd.find(x => x.classList.contains('faded'))).opacity }; });
+    ok('L2 a deeper idea: the bubbles linking it to the subject are half-visible, the rest faded', f2.mid === 2 && f2.faded === f2.n - 4 && +f2.op < 0.3, JSON.stringify(f2));
+    await page.click('[data-step="3"]');
+    ok('L3 the fading only belongs to the last step', await page.locator('#frame .faded').count() === 0);
+    await page.close();
+  }
   ok('F1 no requests beyond this site and the shared footer avatar lookup', third.length === 0, third.join(' '));
   console.log(out.join('\n')); console.log('JS errors:', errors.length ? errors.join('|') : 'none');
   await browser.close();
