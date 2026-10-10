@@ -35,3 +35,19 @@ Source: the Help text in `public/mashup.html`. The automated suite covers these 
 - Send to Joke-Web Maker. How: click it with a Joke-Web already started. Expect: a new web whose subject is the mashup and whose branches are the topics, and the earlier web one tap away ("Swap with previous web").
 - Saved on this device only. How: use the browser's Network tab while spinning; open the page in a second browser. Expect: no requests except the footer avatar lookup to Bluesky; your topics, history and favorites do not appear in the second browser.
 
+## Joke-Web Maker: claims in its Help dialog (live site, real browser, desktop and phone)
+Source: the Help text in `public/jokeweb.html`. The automated suite covers these with mocks; these are the by-hand confirmations.
+- Step 2. How: start a web, add three branches. Expect: only main branches can be added; the subject stays visible.
+- Step 3. How: tap Break it down. Expect: the subject fades; you can add under any branch, go several levels out, and add another main branch from the "Another main branch" box; the trail above the input leaves the subject out.
+- "Ways to think about words". How: look in step 3. Expect: the list (split, pun, move, other meanings, look back, sound-alikes, flip, clichés) is there and open by default.
+- Step 4. How: tap Apply it back and choose a deep bubble. Expect: the subject returns; only it and the chosen idea stand out, the bubbles linking them are half-visible, the rest are faded; Save idea adds to the list.
+- Use in draft. How: tap it on a saved idea. Expect: the idea is added to the Draft post box.
+- Free board. How: switch to it; drag a bubble, rename, add under it, delete one with children. Expect: dragging never clips the bubble or snaps the board; delete removes the bubble and its whole branch. On a phone, drag with a finger.
+- Tidy up. How: after dragging, tap it; switch back to Guided. Expect: bubbles return to automatic places; the button shows only in Free mode.
+- Keyboard nudge. How: select a bubble in Free mode, press the arrow keys, then Shift plus an arrow. Expect: it moves in small steps, then bigger ones.
+- Zoom. How: +, minus and Fit. Expect: Fit always shows the whole web, even three levels deep on a phone.
+- Crowding. How: build about 40 bubbles. Expect: still usable with zoom, as the Help says ("fine, but crowded").
+- Keeping your work. How: make a web and a draft, reload; use Save image, Copy web, Copy joke ideas; tap Start over once, then again. Expect: web and draft survive; a PNG downloads; the outline and the ideas copy; the first tap only asks, the second clears; nothing is sent anywhere except the footer avatar lookup.
+- Send from Mashup. How: send a mashup while a web exists. Expect: a new web starts at once, and "Swap with previous web" brings the old one back (also checked under Mashup).
+- Help itself. How: open Help on a phone. Expect: it fits the screen and scrolls inside; Esc and the close button work.
+
