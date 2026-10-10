@@ -106,19 +106,6 @@ details.pr summary { cursor: pointer; font-weight: 800; min-height: 32px; displa
 html[data-theme="dark"] .dcount.over { color: #fca5a5; }
 .cbtns a.k-btn { text-decoration: none; }
 @media (max-width: 480px) { .panel { padding: 14px; } }
-
-/* help dialog */
-dialog.help { width: min(680px, calc(100% - 24px)); max-height: 85vh; padding: 0; border: 3px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 6px 6px 0 var(--shadow-c); overflow: hidden; }
-dialog.help::backdrop { background: rgba(29, 27, 79, .55); }
-dialog.help[open] { display: flex; flex-direction: column; }
-.help .hh { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px 12px 20px; border-bottom: 3px solid var(--line); background: var(--yellow); color: var(--navy); }
-.help .hh h2 { font-size: 22px; font-weight: 800; margin: 0; }
-.help .hh .k-btn { min-width: 44px; min-height: 44px; padding: 0; }
-.help .hb { overflow: auto; padding: 8px 20px 20px; -webkit-overflow-scrolling: touch; }
-.help h3 { font-size: 17px; font-weight: 800; margin: 18px 0 6px; }
-.help p, .help li { font-size: 15px; line-height: 1.55; }
-.help ol, .help ul { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 6px; }
-.help .note { background: var(--surface2); border: 2px dashed var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -131,7 +118,7 @@ dialog.help[open] { display: flex; flex-direction: column; }
   </div>
 </div>
 
-<dialog class="help" id="help" aria-labelledby="help-t">
+<dialog class="k-help" id="help" aria-labelledby="help-t">
   <div class="hh"><h2 id="help-t">How the Joke-Web Maker works</h2><button class="k-btn" id="helpX" type="button" aria-label="Close help">&#x2715;</button></div>
   <div class="hb">
     <h3>The idea</h3>
@@ -777,20 +764,10 @@ function swapPrev() {
   $('inc-new').onclick = swapPrev;
   $('inc-keep').onclick = function () { $('incoming').hidden = true; };
 })();
-// ---------- help ----------
-(function () {
-  var dlg = $('help'), btn = $('helpBtn');
-  function open() { if (typeof dlg.showModal === 'function') { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', ''); }
-  function close() { if (typeof dlg.close === 'function') dlg.close(); else dlg.removeAttribute('open'); btn.focus(); }
-  btn.addEventListener('click', open);
-  $('helpX').addEventListener('click', close);
-  dlg.addEventListener('click', function (e) { if (e.target === dlg) close(); });
-  dlg.addEventListener('close', function () { btn.focus(); if (location.hash === '#help') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} } });
-  if (location.hash === '#help') open();
-})();
 window.__jokeweb = { state: function () { return S; }, outline: outline, glen: glen };
 })();
 </script>
 <script src="/kiosk.js" defer></script>
+<script src="/kiosk-help.js" defer></script>
 </body>
 </html>

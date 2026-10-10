@@ -136,10 +136,41 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 <div class="k-top">
   <a class="k-btn" href="/">&larr; Professor Kiosk</a>
   <div class="right">
-    <a class="k-btn" href="#how">? Help</a>
+    <button class="k-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button>
     <button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
   </div>
 </div>
+
+<dialog class="k-help" id="help" aria-labelledby="help-t">
+  <div class="hh"><h2 id="help-t">How Skeet Receipt works</h2><button class="k-btn" id="helpX" type="button" aria-label="Close help">&#x2715;</button></div>
+  <div class="hb">
+    <h3>The idea</h3>
+    <p>Paste a link to any public Bluesky post and get a receipt of its numbers: likes, reposts, quotes, replies and total touches. Save it, share it, frame it.</p>
+
+    <h3>The three steps</h3>
+    <ol>
+      <li><b>Paste a link.</b> Copy it from the share menu on any Bluesky post. Links from any Bluesky app or community server work.</li>
+      <li><b>Print it.</b> Choose whether the post text and the handle show up, and what you paid with.</li>
+      <li><b>Share it.</b> Save or copy the image, or copy the alt text to put on your own post.</li>
+    </ol>
+
+    <h3>Make it yours</h3>
+    <ul>
+      <li><b>Include post text / handle.</b> Turn either off to share just the numbers, or to keep the author off the receipt.</li>
+      <li><b>Paid with.</b> Pick what the receipt says you paid with. It always resets to VIBES when you load a new post.</li>
+      <li><b>Handwritten note.</b> Up to 80 characters, written across the receipt in the printer's handwriting.</li>
+      <li><b>Circle in red ink.</b> Circle any of the numbers, or the whole post text.</li>
+    </ul>
+
+    <h3>Good to know</h3>
+    <ul>
+      <li>Public posts only. If a post has a content label, its text is hidden on the receipt.</li>
+      <li>The whole thing runs in your browser. It only asks Bluesky for the post's public numbers.</li>
+      <li>The order number comes from the post itself, so the same post always gets the same number.</li>
+      <li>Long posts keep their full text, so the receipt just gets longer.</li>
+    </ul>
+  </div>
+</dialog>
 
 <header class="k-hero">
   <div class="k-wrap">
@@ -228,14 +259,6 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
           <p>Posts hidden from logged-out viewers, deleted posts, and labeled posts are handled with care. Labeled posts print stats only.</p>
         </section>
 
-        <section class="panel tilt-b" id="how" aria-labelledby="how-h">
-          <h2 id="how-h">How Skeet Receipt works</h2>
-          <ol class="steps">
-            <li><span class="n" aria-hidden="true">1</span><span><b>Paste a link.</b> Copy it from the share menu on any Bluesky post.</span></li>
-            <li><span class="n" aria-hidden="true">2</span><span><b>Print it.</b> Pick whether the post text and handle show up.</span></li>
-            <li><span class="n" aria-hidden="true">3</span><span><b>Share it.</b> Save the image, or copy the alt text for your own post.</span></li>
-          </ol>
-        </section>
       </div>
     </div>
   </div>
@@ -252,6 +275,7 @@ html[data-theme="dark"] .slot .bar { background: var(--line); }
 </footer>
 
 <script src="/kiosk-links.js"></script>
+<script src="/kiosk-help.js" defer></script>
 <script>
 (function () {
 'use strict';

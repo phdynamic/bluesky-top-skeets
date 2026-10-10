@@ -139,23 +139,13 @@
     .how li b { font-weight: 800; }
     .how .n { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--navy); display: grid; place-items: center; font: 500 11px var(--mono); color: var(--navy); }
     .n1 { background: var(--coral); } .n2 { background: var(--teal); } .n3 { background: var(--purple); } .n4 { background: var(--yellow); }
-
-
-    /* Help modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(20,18,60,.6); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
-    .modal { position: relative; background: var(--surface); border: 3px solid var(--line); border-radius: 18px; box-shadow: 8px 8px 0 var(--coral); padding: 28px; width: 100%; max-width: 480px; max-height: 80vh; overflow-y: auto; }
-    .modal h2 { font-size: 20px; font-weight: 800; margin-bottom: 12px; }
-    .modal h3 { font-size: 14px; font-weight: 800; margin: 16px 0 4px; }
-    .modal p { font-size: 13.5px; color: var(--ink2); line-height: 1.6; }
-    .modal p strong { color: var(--ink); }
-    .modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; font-size: 24px; line-height: 1; color: var(--ink); cursor: pointer; padding: 4px; }
   </style>
 </head>
 <body>
   <div class="k-top">
     <a class="k-btn home-link" href="/">&larr; Professor Kiosk</a>
     <div class="right">
-      <button class="k-btn help-link" onclick="openHelp()" type="button">? Help</button>
+      <button class="k-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button>
       <button class="k-btn night" id="themeToggle" onclick="toggleTheme()" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
     </div>
   </div>
@@ -319,28 +309,27 @@
   </div>
 </footer>
 
-  <!-- HELP MODAL -->
-  <div id="helpOverlay" class="modal-overlay hidden" onclick="if (event.target === this) closeHelp()">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-      <button class="modal-close" onclick="closeHelp()" aria-label="Close help">&times;</button>
-      <h2 id="helpTitle">How Top Skeets works</h2>
+  <!-- HELP -->
+  <dialog class="k-help" id="help" aria-labelledby="help-t">
+    <div class="hh"><h2 id="help-t">How Top Skeets works</h2><button class="k-btn" id="helpX" type="button" aria-label="Close help">&#x2715;</button></div>
+    <div class="hb">
 
-      <h3>Create your feed</h3>
-      <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Accounts on any AT Protocol server work, not just bsky.social. Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, description, and icon (any image — it's cropped square automatically), and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
+    <h3>Create your feed</h3>
+    <p>Enter your Bluesky handle and an app password (create one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Settings &rarr; App Passwords</a> — it's never stored). Accounts on any AT Protocol server work, not just bsky.social. Pick <strong>Top Skeets</strong> (your posts ranked by likes) or <strong>My Skeets</strong> (newest first), optionally give the feed a custom name, description, and icon (any image — it's cropped square automatically), and hit Generate. Checking <strong>Include replies</strong> creates a separate feed — you can have up to four (each type, with and without replies).</p>
 
-      <h3>Share it</h3>
-      <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load on our server, not in your browser — a progress bar shows how it's going, but you can close the page anytime and the feed will finish populating on its own.</p>
+    <h3>Share it</h3>
+    <p>Copy your feed link and paste it into your Bluesky bio or anywhere else. Your posts load on our server, not in your browser — a progress bar shows how it's going, but you can close the page anytime and the feed will finish populating on its own.</p>
 
-      <h3>Updates are automatic</h3>
-      <p>New posts show up on their own: within about 15 minutes for My Skeets and about an hour for Top Skeets. Like-count rankings refresh about once a day.</p>
+    <h3>Updates are automatic</h3>
+    <p>New posts show up on their own: within about 15 minutes for My Skeets and about an hour for Top Skeets. Like-count rankings refresh about once a day.</p>
 
-      <h3>Rename anytime</h3>
-      <p>Re-submit the form with the same account and a new feed name or description. Your feed link never changes, so nobody loses it. The same works for the icon: upload a new image to replace it, or leave it empty to keep the current one.</p>
+    <h3>Rename anytime</h3>
+    <p>Re-submit the form with the same account and a new feed name or description. Your feed link never changes, so nobody loses it. The same works for the icon: upload a new image to replace it, or leave it empty to keep the current one.</p>
 
-      <h3>Unpublish</h3>
-      <p>Enter your credentials, select the feed type (and the replies checkbox, if it's a replies feed), and click Unpublish — it's also available right after creating a feed. This removes that feed from Bluesky and deletes it from our system.</p>
+    <h3>Unpublish</h3>
+    <p>Enter your credentials, select the feed type (and the replies checkbox, if it's a replies feed), and click Unpublish — it's also available right after creating a feed. This removes that feed from Bluesky and deletes it from our system.</p>
     </div>
-  </div>
+  </dialog>
 
   <script>
     var selectedFeedType = 'top-skeets';
@@ -638,19 +627,6 @@
       }
     }
 
-    // Help modal
-    function openHelp() {
-      document.getElementById('helpOverlay').classList.remove('hidden');
-    }
-
-    function closeHelp() {
-      document.getElementById('helpOverlay').classList.add('hidden');
-    }
-
-    function helpIsOpen() {
-      return !document.getElementById('helpOverlay').classList.contains('hidden');
-    }
-
     // Dark mode — system preference by default, manual choice persists
     function applyThemeIcon() {
       var dark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -825,11 +801,7 @@
     }
 
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && helpIsOpen()) {
-        closeHelp();
-        return;
-      }
-      if (e.key === 'Enter' && !helpIsOpen() && !document.getElementById('formView').classList.contains('hidden')) {
+      if (e.key === 'Enter' && !document.getElementById('help').open && !document.getElementById('formView').classList.contains('hidden')) {
         handleSubmit();
       }
     });
@@ -867,5 +839,6 @@
     updatePreview();
   </script>
 <script src="/kiosk.js" defer></script>
+<script src="/kiosk-help.js" defer></script>
 </body>
 </html>

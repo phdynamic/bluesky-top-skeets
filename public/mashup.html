@@ -81,6 +81,7 @@ h3.sub { font-size: 16px; font-weight: 800; margin: 18px 0 4px; }
 .list li b { font-weight: 700; overflow-wrap: anywhere; min-width: 0; flex: 1 1 160px; }
 .list .k-btn { min-height: 40px; padding: 6px 12px; font-size: 13px; }
 .list .acts { display: flex; gap: 8px; }
+.list.wide { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 @media (max-width: 480px) { .panel { padding: 14px; } }
 @media (prefers-reduced-motion: reduce) { .card.spinning .big { filter: none; } }
 </style>
@@ -90,9 +91,43 @@ h3.sub { font-size: 16px; font-weight: 800; margin: 18px 0 4px; }
 <div class="k-top">
   <a class="k-btn" href="/">&larr; Professor Kiosk</a>
   <div class="right">
+    <button class="k-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button>
     <button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button>
   </div>
 </div>
+
+<dialog class="k-help" id="help" aria-labelledby="help-t">
+  <div class="hh"><h2 id="help-t">How the Mashup Machine works</h2><button class="k-btn" id="helpX" type="button" aria-label="Close help">&#x2715;</button></div>
+  <div class="hb">
+    <h3>The idea</h3>
+    <p>Joke ideas often come from putting two things together that don't belong. Spin for a random topic, or smash two or three together, and see what the collision gives you.</p>
+
+    <h3>Randomize or Mashup</h3>
+    <ul>
+      <li><b>Randomize</b> gives you one topic from the whole pool.</li>
+      <li><b>Mashup</b> gives you two topics, or three when Weirdness is high. Each card shows the topic's category.</li>
+      <li>Press <b>Spin</b> (or the Space bar) to roll again.</li>
+    </ul>
+
+    <h3>The dials</h3>
+    <ul>
+      <li><b>Distance</b> is how far apart the topics' categories are. Close pairs two foods or two TV shows. Far apart pairs a food with mythology.</li>
+      <li><b>Weirdness</b> adds odd pairings, such as an animal with a legal term, and near the top a third topic. Odd pairings can override Distance.</li>
+      <li>Spicy topics and My topics can each be switched on or off.</li>
+    </ul>
+
+    <h3>Make it yours</h3>
+    <ul>
+      <li><b>Lock</b> a card to keep it while the others re-roll around it.</li>
+      <li><b>My topics:</b> add your own, and they join the mix.</li>
+      <li><b>Favorite</b> a result to keep it. History keeps your last eight spins.</li>
+      <li><b>Send to Joke-Web Maker</b> starts a web with your mashup as the subject and each topic as a branch.</li>
+    </ul>
+
+    <h3>Good to know</h3>
+    <p>Everything runs in your browser. Your topics, history and favorites are saved on this device only.</p>
+  </div>
+</dialog>
 
 <header class="k-hero">
   <div class="k-wrap">
@@ -155,12 +190,13 @@ h3.sub { font-size: 16px; font-weight: 800; margin: 18px 0 4px; }
           <h2 id="hist">History</h2>
           <ul class="list" id="histlist"></ul>
         </section>
-        <section class="panel" aria-labelledby="favs">
-          <h2 id="favs">Favorites</h2>
-          <ul class="list" id="favlist"></ul>
-        </section>
       </div>
     </div>
+
+    <section class="panel" aria-labelledby="favs" style="margin-top: 24px">
+      <h2 id="favs">Favorites</h2>
+      <ul class="list wide" id="favlist"></ul>
+    </section>
   </div>
 </main>
 
@@ -178,7 +214,7 @@ h3.sub { font-size: 16px; font-weight: 800; margin: 18px 0 4px; }
 <script>
 (function () {
 'use strict';
-var KEY = 'pk-mashup-v1', MAX_OWN = 100, MAX_HIST = 20, MAX_FAV = 50, MAX_TEXT = 40;
+var KEY = 'pk-mashup-v1', MAX_OWN = 100, MAX_HIST = 8, MAX_FAV = 50, MAX_TEXT = 40;
 var SIGN = ' × ';
 function $(id) { return document.getElementById(id); }
 
@@ -319,7 +355,7 @@ function renderCards() {
 }
 function renderLists() {
   var hl = $('histlist'); hl.textContent = '';
-  if (!S.history.length) hl.appendChild(h('li', {}, h('b', { text: 'Nothing yet. Your last 20 spins show up here.' })));
+  if (!S.history.length) hl.appendChild(h('li', {}, h('b', { text: 'Nothing yet. Your last 8 spins show up here.' })));
   S.history.forEach(function (r) {
     hl.appendChild(h('li', {}, h('b', { text: resultText(r.cards) }), h('div', { class: 'acts' }, h('button', { class: 'k-btn', type: 'button', 'data-back': '1', text: 'Bring back', on: { click: function () { bringBack(r); } } }))));
   });
@@ -422,5 +458,6 @@ window.__mashup = { seed: function (n) { seeded = n == null ? null : mulberry(n)
 })();
 </script>
 <script src="/kiosk.js" defer></script>
+<script src="/kiosk-help.js" defer></script>
 </body>
 </html>

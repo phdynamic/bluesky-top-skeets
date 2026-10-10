@@ -169,3 +169,16 @@ html[data-theme="dark"] .k-foot { background: #0b0c26; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---- Help dialog (every tool page): <dialog class="k-help" id="help"> opened by #helpBtn via kiosk-help.js ---- */
+dialog.k-help { width: min(680px, calc(100% - 24px)); max-height: 85vh; padding: 0; border: 3px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 6px 6px 0 var(--shadow-c); overflow: hidden; }
+dialog.k-help::backdrop { background: rgba(29, 27, 79, .55); }
+dialog.k-help[open] { display: flex; flex-direction: column; }
+.k-help .hh { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px 12px 20px; border-bottom: 3px solid var(--line); background: var(--yellow); color: var(--navy); }
+.k-help .hh h2 { font-size: 22px; font-weight: 800; line-height: 1.15; margin: 0; }
+.k-help .hh .k-btn { min-width: 44px; min-height: 44px; padding: 0; flex: none; }
+.k-help .hb { overflow: auto; padding: 8px 20px 20px; -webkit-overflow-scrolling: touch; }
+.k-help h3 { font-size: 17px; font-weight: 800; margin: 18px 0 6px; }
+.k-help p, .k-help li { font-size: 15px; line-height: 1.55; margin: 0; }
+.k-help ol, .k-help ul { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 6px; }
+.k-help a { text-underline-offset: 3px; font-weight: 700; }

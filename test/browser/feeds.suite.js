@@ -23,8 +23,8 @@ const { chromium } = require('playwright-core');
   out('success visible '+tag, await p.locator('#successView').isVisible());
   out('progress '+tag, await p.locator('#fetchStatus').innerText());
   await p.screenshot({path:'fd-succ-'+tag+'.png'});
-  await p.click('.help-link'); await p.waitForTimeout(200); out('help open '+tag, await p.locator('#helpOverlay').isVisible());
-  await p.screenshot({path:'fd-help-'+tag+'.png'}); await p.click('.modal-close');
+  await p.click('#helpBtn'); await p.waitForTimeout(200); out('help open '+tag, await p.locator('#help').isVisible());
+  await p.screenshot({path:'fd-help-'+tag+'.png'}); await p.click('#helpX');
   await p.click('#successUnpublishBtn'); out('armed '+tag, await p.locator('#successUnpublishBtn').innerText());
  }
  out('JS errors', errs.join('|')||'none'); await b.close();

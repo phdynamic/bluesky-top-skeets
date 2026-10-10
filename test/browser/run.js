@@ -15,7 +15,7 @@ Or let Playwright fetch one:  npx playwright-core install chromium   (then run t
   process.exit(2);
 }
 const only = process.argv.slice(2);
-const SUITES = ['tracer', 'imagine', 'receipt', 'jokeweb', 'mashup', 'icon', 'feeds', 'footer'].filter(n => !only.length || only.includes(n));
+const SUITES = ['tracer', 'imagine', 'receipt', 'jokeweb', 'mashup', 'icon', 'help', 'feeds', 'footer'].filter(n => !only.length || only.includes(n));
 
 function waitForServer(tries = 40) {
   return new Promise((resolve, reject) => {

@@ -167,8 +167,32 @@ dialog::backdrop{background:rgba(20,18,60,.6)}
 <body>
 <div class="k-top">
   <a class="k-btn" href="/">← Professor Kiosk</a>
-  <div class="right"><button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button></div>
+  <div class="right">
+    <button class="k-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button><button class="k-btn night" id="themeToggle" type="button" aria-label="Toggle night mode">🌙 Night mode</button></div>
 </div>
+
+<dialog class="k-help" id="help" aria-labelledby="help-t">
+  <div class="hh"><h2 id="help-t">How the Tracer works</h2><button class="k-btn" id="helpX" type="button" aria-label="Close help">&#x2715;</button></div>
+  <div class="hb">
+    <h3>The idea</h3>
+    <p>In a quote post game, people quote the quote, which quotes the quote, and so on, until it is a huge tree. Paste the post that started it and watch the whole tree unfold, then explore it.</p>
+
+    <h3>How to use it</h3>
+    <ol>
+      <li><b>Paste the link</b> to the post that started the game (the original, not a quote of it) and press Trace.</li>
+      <li><b>Watch it grow.</b> The tree fills in as quotes are found, most-quoted branches first. You can browse while it loads, or press Stop.</li>
+      <li><b>Explore.</b> Search names and text, fold branches open and shut, change how deep it opens, and trace any quote back up to the original.</li>
+    </ol>
+
+    <h3>Good to know</h3>
+    <ul>
+      <li>Everything is fetched live from Bluesky by your browser. Nothing is sent to or saved on our server.</li>
+      <li>A trace loads a couple of thousand quotes at a time. Press "Load more" to keep going, up to 20,000 in one trace. If Bluesky slows down, the Tracer waits and picks up again, and you can resume if it stops.</li>
+      <li>Some quotes can't be seen without logging in (locked, blocked or deleted posts). The Tracer tells you how many are missing, and anything quoted under them is missing too.</li>
+      <li>Links on cards open the post on Bluesky.</li>
+    </ul>
+  </div>
+</dialog>
 
 <header class="k-hero">
   <div class="k-wrap" style="padding-bottom:64px">
@@ -647,5 +671,6 @@ document.addEventListener('keydown',e=>{
 })();
 </script>
 <script src="/kiosk.js" defer></script>
+<script src="/kiosk-help.js" defer></script>
 </body>
 </html>

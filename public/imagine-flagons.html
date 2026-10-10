@@ -161,8 +161,35 @@ html[data-theme="dark"] .lerr{color:#fca5a5}
 <body>
 <div class="k-top">
   <a class="k-btn" href="/">&larr; Professor Kiosk</a>
-  <div class="right"><button class="k-btn night" id="theme" type="button" aria-pressed="false">&#x1F319; Mordor mode</button></div>
+  <div class="right">
+    <button class="k-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button><button class="k-btn night" id="theme" type="button" aria-pressed="false">&#x1F319; Mordor mode</button></div>
 </div>
+
+<dialog class="k-help" id="help" aria-labelledby="help-t">
+  <div class="hh"><h2 id="help-t">How the Saga page works</h2><button class="k-btn" id="helpX" type="button" aria-label="Close help">&#x2715;</button></div>
+  <div class="hb">
+    <h3>The idea</h3>
+    <p>It started with a post about a Lord of the Rings cover band, and then more than a thousand people could not stop. This page traces the whole quote post game and shows it as a tree: every band name, every pun, every branch.</p>
+
+    <h3>How to explore</h3>
+    <ul>
+      <li><b>Search</b> for a band name, a word or a handle. Matching cards stay, the rest fold away.</li>
+      <li><b>Expanded or Compact.</b> Expanded shows each post in full, with its pictures. Compact is a quick overview.</li>
+      <li><b>Depth</b> opens that many levels at once. Expand all and Collapse all do what they say. Click a thread line to fold that branch.</li>
+      <li><b>Order</b> sorts by oldest first or by the biggest branch.</li>
+      <li><b>Random band, Deepest dive and Leaderboards</b> jump you to something fun.</li>
+    </ul>
+
+    <h3>Shortcuts</h3>
+    <p>Press <b>/</b> to search, <b>e</b> to expand all, <b>c</b> to collapse all and <b>r</b> for a random band.</p>
+
+    <h3>Good to know</h3>
+    <ul>
+      <li>The saga is traced live from Bluesky every time you open the page, so it takes a little while to load. Nothing is sent to or saved on our server.</li>
+      <li>If Bluesky can't be reached, you get a Try again button, or the part that did load.</li>
+    </ul>
+  </div>
+</dialog>
 
 <header class="k-hero">
   <div class="k-wrap">
@@ -660,5 +687,6 @@ run();
 })();
 </script>
 <script src="/kiosk.js" defer></script>
+<script src="/kiosk-help.js" defer></script>
 </body>
 </html>

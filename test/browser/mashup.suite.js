@@ -56,7 +56,7 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   ok('D2 a topic can be added to My topics', await page.locator('#ownlist .chip').count() === 1);
   await page.reload(); await page.waitForSelector('#cards .card');
   ok('D3 My topics survive a reload', await page.locator('#ownlist .chip').count() === 1);
-  const mine = await page.evaluate(() => { const S = window.__mashup.state(); S.dist = 50; S.weird = 0; let hits = 0; for (let i = 0; i < 400; i++) { S.cards = []; if (window.__mashup.roll().some(c => c.cat === 'yours')) hits++; } S.mine = false; const off = window.__mashup.pool().filter(t => t.cat === 'yours').length; S.mine = true; return { hits, off, withIt: window.__mashup.pool().some(t => t.text === 'Pickle Ball Nonsense') }; });
+  const mine = await page.evaluate(() => { const S = window.__mashup.state(); S.dist = 50; S.weird = 0; const saved = S.own.slice(); for (let i = 0; i < 40; i++) S.own.push('my extra topic ' + i); let hits = 0; for (let i = 0; i < 400; i++) { S.cards = []; if (window.__mashup.roll().some(c => c.cat === 'yours')) hits++; } S.mine = false; const off = window.__mashup.pool().filter(t => t.cat === 'yours').length; S.mine = true; S.own = saved; return { hits, off, withIt: window.__mashup.pool().some(t => t.text === 'Pickle Ball Nonsense') }; });
   ok('D4 your topics can come up, and "Include my topics" off removes them', mine.hits > 0 && mine.off === 0 && mine.withIt, JSON.stringify(mine));
   await page.click('#ownlist .chip button'); ok('D5 a topic can be removed', await page.locator('#ownlist .chip').count() === 0);
 
@@ -71,16 +71,16 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   await page.locator('.card .lock').first().click();
   const h0 = await page.locator('#histlist li').count();
   await page.locator('body').click({ position: { x: 5, y: 5 } }); await page.keyboard.press('Space');
-  ok('E2 Space spins', (await page.locator('#histlist li').count()) >= Math.min(20, h0));
+  ok('E2 Space spins', (await page.locator('#histlist li').count()) >= Math.min(8, h0));
   for (let i = 0; i < 25; i++) await page.click('#spin');
-  ok('E3 history keeps only the last 20', await page.locator('#histlist li').count() === 20);
+  ok('E3 history keeps only the last 8', await page.locator('#histlist li').count() === 8);
   const txt = (await cards(page)).map(c => c.text).join(' × ');
   await page.click('#copy'); ok('E4 Copy puts "A × B" on the clipboard', (await page.evaluate(() => navigator.clipboard.readText())) === txt, txt);
   await page.click('#fav');
   ok('E5 Favorite stars the result', await page.locator('#favlist li').count() === 1 && (await page.getAttribute('#fav', 'aria-pressed')) === 'true');
   const favText = txt;
   await page.click('#spin'); await page.reload(); await page.waitForSelector('#cards .card');
-  ok('E6 favorites and history survive a reload', await page.locator('#favlist li b').first().innerText() === favText && await page.locator('#histlist li').count() === 20);
+  ok('E6 favorites and history survive a reload', await page.locator('#favlist li b').first().innerText() === favText && await page.locator('#histlist li').count() === 8);
   await page.locator('#favlist li button', { hasText: 'Bring back' }).click();
   ok('E7 Bring back restores a saved result', (await cards(page)).map(c => c.text).join(' × ') === favText);
   await page.locator('#favlist li button[aria-label="Remove favorite"]').click();
@@ -123,6 +123,15 @@ const many = (page, set, n = 80) => page.evaluate(([set, n]) => { const S = wind
   const nums = await page.evaluate(() => [...document.querySelectorAll('.tool .num')].map(n => n.textContent));
   ok('G4 hub numbers are unique and run 01 to 10', nums.join(',') === '01,02,03,04,05,06,07,08,09,10', nums.join(','));
   ok('G5 the hub has a Mashup Machine card linking to /mashup', await page.locator('a[href="/mashup"]').count() === 1);
+  // H. layout: favorites full width below controls and history; old long histories are trimmed
+  {
+    const old = { mode: 'mashup', dist: 50, weird: 0, spicy: true, mine: true, own: [], cards: [], favs: [], history: Array.from({ length: 20 }, (_, i) => ({ cards: [{ text: 'a topic ' + i, cat: 'food' }, { text: 'b topic ' + i, cat: 'home' }] })) };
+    const pg = await mk(browser, { vp: { width: 1280, height: 900 }, init: ['pk-mashup-v1', JSON.stringify(old)] }); await pg.goto(BASE); await pg.waitForSelector('#cards .card');
+    ok('H1 an old stored history of 20 shows only 8', await pg.locator('#histlist li').count() === 8);
+    const g = await pg.evaluate(() => { const r = id => document.getElementById(id).closest('section').getBoundingClientRect(), c = r('ctl'), h = r('hist'), f = r('favs'), k = document.querySelector('.k-wrap').getBoundingClientRect(); return { cBottom: c.bottom, hBottom: h.bottom, fTop: f.top, fW: f.width, kW: k.width, side: h.left > c.left }; });
+    ok('H2 controls and history sit side by side with Favorites full width below both', g.side && g.fTop >= Math.max(g.cBottom, g.hBottom) && g.fW >= g.kW - 41, JSON.stringify(g));
+    await pg.screenshot({ path: 'mu-layout.png', fullPage: true }); await pg.close();
+  }
   ok('Z1 no requests beyond this site and the shared footer avatar lookup', third.length === 0, third.join(' '));
   console.log(out.join('\n')); console.log('JS errors:', errors.length ? errors.join('|') : 'none');
   await browser.close();
